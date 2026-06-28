@@ -1,22 +1,32 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ECHO Anonymous Messenger API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: users
+    description: User operations
+  - name: messages
+    description: Message operations
+  - name: chats
+    description: Chat and group operations
+  - name: files
+    description: File operations
+  - name: prekeys
+    description: Cryptographic pre-key operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,523 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new anonymous user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "409":
+          description: Username taken
+
+  /check-username:
+    post:
+      operationId: checkUsername
+      tags: [auth]
+      summary: Check username availability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UsernameCheck"
+      responses:
+        "200":
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsernameAvailability"
+
+  /login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with seed hash and device key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid credentials
+
+  /restore:
+    post:
+      operationId: restoreAccount
+      tags: [auth]
+      summary: Restore account via seed hash
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreInput"
+      responses:
+        "200":
+          description: Account restored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid seed
+
+  /delete-account:
+    post:
+      operationId: deleteAccount
+      tags: [auth]
+      summary: Burn account - delete all data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeleteAccountInput"
+      responses:
+        "200":
+          description: Account burned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /users/{username}:
+    get:
+      operationId: getUserByUsername
+      tags: [users]
+      summary: Search user by username and get public key
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+        "404":
+          description: User not found
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/me/settings:
+    patch:
+      operationId: updateSettings
+      tags: [users]
+      summary: Update user settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsUpdate"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /prekeys:
+    post:
+      operationId: uploadPrekeys
+      tags: [prekeys]
+      summary: Upload new one-time pre-keys
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrekeysInput"
+      responses:
+        "200":
+          description: Pre-keys uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /messages:
+    get:
+      operationId: getMessages
+      tags: [messages]
+      summary: Get messages for a chat
+      parameters:
+        - name: chatId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: before
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendMessage
+      tags: [messages]
+      summary: Send an encrypted message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  /messages/{id}:
+    delete:
+      operationId: deleteMessage
+      tags: [messages]
+      summary: Delete a message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Message deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /messages/{id}/read:
+    post:
+      operationId: markMessageRead
+      tags: [messages]
+      summary: Mark message as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /chats:
+    get:
+      operationId: getChats
+      tags: [chats]
+      summary: Get all chats for current user
+      responses:
+        "200":
+          description: List of chats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatSummary"
+    post:
+      operationId: createChat
+      tags: [chats]
+      summary: Create a group or channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatInput"
+      responses:
+        "201":
+          description: Chat created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+
+  /chats/{id}:
+    get:
+      operationId: getChat
+      tags: [chats]
+      summary: Get chat details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Chat details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+    patch:
+      operationId: updateChat
+      tags: [chats]
+      summary: Update chat settings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatUpdate"
+      responses:
+        "200":
+          description: Chat updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
+
+  /chats/{id}/members:
+    get:
+      operationId: getChatMembers
+      tags: [chats]
+      summary: Get members of a group/channel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Members list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMember"
+    post:
+      operationId: addChatMember
+      tags: [chats]
+      summary: Add member to chat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberInput"
+      responses:
+        "200":
+          description: Member added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /chats/{id}/members/{userId}:
+    delete:
+      operationId: removeChatMember
+      tags: [chats]
+      summary: Remove member from chat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Member removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /chats/stats:
+    get:
+      operationId: getChatStats
+      tags: [chats]
+      summary: Get chat activity stats for current user
+      responses:
+        "200":
+          description: Chat statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatStats"
+
+  /files/upload:
+    post:
+      operationId: uploadFile
+      tags: [files]
+      summary: Upload encrypted file (base64 encoded)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FileUploadInput"
+      responses:
+        "200":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileUploadResult"
+
+  /files/{fileId}:
+    get:
+      operationId: getFile
+      tags: [files]
+      summary: Download file metadata
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileInfo"
+
+  /sessions:
+    get:
+      operationId: getSessions
+      tags: [auth]
+      summary: Get active sessions
+      responses:
+        "200":
+          description: Active sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+
+  /sessions/{deviceId}:
+    delete:
+      operationId: terminateSession
+      tags: [auth]
+      summary: Terminate a session
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session terminated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /backup/upload:
+    post:
+      operationId: uploadBackup
+      tags: [auth]
+      summary: Upload encrypted backup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BackupInput"
+      responses:
+        "200":
+          description: Backup uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /backup/latest:
+    get:
+      operationId: getLatestBackup
+      tags: [auth]
+      summary: Get latest backup
+      responses:
+        "200":
+          description: Latest backup
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BackupInfo"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +558,394 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required: [success]
+
+    RegisterInput:
+      type: object
+      properties:
+        username:
+          type: string
+        publicIdentityKey:
+          type: string
+        publicSignedPrekey:
+          type: string
+        publicOneTimePrekeys:
+          type: array
+          items:
+            type: string
+        seedHash:
+          type: string
+      required: [username, publicIdentityKey, seedHash]
+
+    LoginInput:
+      type: object
+      properties:
+        username:
+          type: string
+        seedHash:
+          type: string
+        publicDeviceKey:
+          type: string
+        signature:
+          type: string
+      required: [username, seedHash]
+
+    RestoreInput:
+      type: object
+      properties:
+        seedHash:
+          type: string
+        publicDeviceKey:
+          type: string
+        newPublicIdentityKey:
+          type: string
+      required: [seedHash]
+
+    DeleteAccountInput:
+      type: object
+      properties:
+        seedHash:
+          type: string
+        signature:
+          type: string
+      required: [seedHash]
+
+    AuthResult:
+      type: object
+      properties:
+        userId:
+          type: integer
+        username:
+          type: string
+        sessionToken:
+          type: string
+        deviceId:
+          type: string
+      required: [userId, username, sessionToken, deviceId]
+
+    UsernameCheck:
+      type: object
+      properties:
+        username:
+          type: string
+      required: [username]
+
+    UsernameAvailability:
+      type: object
+      properties:
+        available:
+          type: boolean
+      required: [available]
+
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        publicIdentityKey:
+          type: string
+        publicSignedPrekey:
+          type: string
+        oneTimePrekey:
+          type: ["string", "null"]
+        lastActive:
+          type: ["string", "null"]
+        avatarFileId:
+          type: ["string", "null"]
+      required: [id, username, publicIdentityKey]
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        publicIdentityKey:
+          type: string
+        lastActive:
+          type: string
+        avatarFileId:
+          type: ["string", "null"]
+        settings:
+          $ref: "#/components/schemas/UserSettings"
+        createdAt:
+          type: string
+      required: [id, username, publicIdentityKey, lastActive, createdAt]
+
+    UserSettings:
+      type: object
+      properties:
+        theme:
+          type: string
+        language:
+          type: string
+        notifications:
+          type: boolean
+        showLastSeen:
+          type: boolean
+        showAvatar:
+          type: boolean
+        autoDeleteMessages:
+          type: ["integer", "null"]
+
+    SettingsUpdate:
+      type: object
+      properties:
+        settings:
+          $ref: "#/components/schemas/UserSettings"
+
+    PrekeysInput:
+      type: object
+      properties:
+        publicOneTimePrekeys:
+          type: array
+          items:
+            type: string
+      required: [publicOneTimePrekeys]
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+        senderId:
+          type: integer
+        senderUsername:
+          type: string
+        chatId:
+          type: integer
+        chatType:
+          type: integer
+        encryptedContent:
+          type: string
+        timestamp:
+          type: string
+        deliveredAt:
+          type: ["string", "null"]
+        readAt:
+          type: ["string", "null"]
+        deleteAfterRead:
+          type: boolean
+        deleteAfterSeconds:
+          type: ["integer", "null"]
+        isVoice:
+          type: boolean
+        mediaFileId:
+          type: ["string", "null"]
+        replyToId:
+          type: ["integer", "null"]
+      required: [id, senderId, chatId, chatType, encryptedContent, timestamp, deleteAfterRead, isVoice]
+
+    MessageInput:
+      type: object
+      properties:
+        receiverId:
+          type: ["integer", "null"]
+        chatId:
+          type: ["integer", "null"]
+        chatType:
+          type: integer
+        encryptedContent:
+          type: string
+        deleteAfterRead:
+          type: boolean
+        deleteAfterSeconds:
+          type: ["integer", "null"]
+        isVoice:
+          type: boolean
+        mediaFileId:
+          type: ["string", "null"]
+        replyToId:
+          type: ["integer", "null"]
+      required: [chatType, encryptedContent]
+
+    ChatSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: integer
+        title:
+          type: string
+        avatarFileId:
+          type: ["string", "null"]
+        lastMessage:
+          type: ["string", "null"]
+        lastMessageAt:
+          type: ["string", "null"]
+        unreadCount:
+          type: integer
+        isPinned:
+          type: boolean
+        memberCount:
+          type: integer
+        isSecret:
+          type: boolean
+      required: [id, type, title, unreadCount, isPinned, memberCount, isSecret]
+
+    Chat:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: integer
+        title:
+          type: string
+        creatorId:
+          type: integer
+        avatarFileId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        memberCount:
+          type: integer
+        settings:
+          type: object
+      required: [id, type, title, creatorId, createdAt, memberCount]
+
+    ChatInput:
+      type: object
+      properties:
+        type:
+          type: integer
+        title:
+          type: string
+        memberIds:
+          type: array
+          items:
+            type: integer
+      required: [type, title]
+
+    ChatUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        avatarFileId:
+          type: ["string", "null"]
+        settings:
+          type: object
+
+    ChatMember:
+      type: object
+      properties:
+        userId:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+        joinedAt:
+          type: string
+        avatarFileId:
+          type: ["string", "null"]
+      required: [userId, username, role, joinedAt]
+
+    AddMemberInput:
+      type: object
+      properties:
+        userId:
+          type: integer
+        role:
+          type: string
+      required: [userId]
+
+    ChatStats:
+      type: object
+      properties:
+        totalChats:
+          type: integer
+        totalMessages:
+          type: integer
+        totalContacts:
+          type: integer
+        secretChats:
+          type: integer
+        unreadTotal:
+          type: integer
+      required: [totalChats, totalMessages, totalContacts, secretChats, unreadTotal]
+
+    FileUploadInput:
+      type: object
+      properties:
+        data:
+          type: string
+          description: Base64-encoded encrypted file data
+        mimeType:
+          type: string
+        encryptedKey:
+          type: string
+      required: [data]
+
+    FileUploadResult:
+      type: object
+      properties:
+        fileId:
+          type: string
+        url:
+          type: string
+        size:
+          type: integer
+        mimeType:
+          type: string
+      required: [fileId, url, size]
+
+    FileInfo:
+      type: object
+      properties:
+        fileId:
+          type: string
+        size:
+          type: integer
+        mimeType:
+          type: string
+        createdAt:
+          type: string
+      required: [fileId, size, createdAt]
+
+    Session:
+      type: object
+      properties:
+        deviceId:
+          type: string
+        lastUsed:
+          type: string
+        createdAt:
+          type: string
+        userAgent:
+          type: string
+        isCurrent:
+          type: boolean
+      required: [deviceId, lastUsed, createdAt, isCurrent]
+
+    BackupInput:
+      type: object
+      properties:
+        encryptedData:
+          type: string
+      required: [encryptedData]
+
+    BackupInfo:
+      type: object
+      properties:
+        id:
+          type: string
+        encryptedData:
+          type: string
+        createdAt:
+          type: string
+      required: [id, createdAt]

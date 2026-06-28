@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ECHO Messenger"
+version = "1.0.0"
+id = "artifacts/echo-messenger"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19708
+
+[services.development]
+run = "pnpm --filter @workspace/echo-messenger run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/echo-messenger", "run", "build" ]
+publicDir = "artifacts/echo-messenger/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19708"
+BASE_PATH = "/"
