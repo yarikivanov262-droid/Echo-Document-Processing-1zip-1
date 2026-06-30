@@ -11,6 +11,11 @@ import { Search } from "@/pages/search/search";
 import { Settings } from "@/pages/settings/settings";
 import { SecuritySettings } from "@/pages/settings/security";
 import { BackupSettings } from "@/pages/settings/backup";
+import { NotificationsSettings } from "@/pages/settings/notifications";
+import { AppearanceSettings } from "@/pages/settings/appearance";
+import { PrivacySettings } from "@/pages/settings/privacy";
+import { LanguageSettings } from "@/pages/settings/language";
+import { MyProfile } from "@/pages/profile/my-profile";
 import { UserProfile } from "@/pages/profile/user-profile";
 import { CreateGroup } from "@/pages/group/create-group";
 import { useEchoAuth } from "@/lib/auth-context";
@@ -39,6 +44,7 @@ export function AppRouter() {
     <Switch>
       <Route path="/" component={Login} />
 
+      {/* Chats */}
       <Route path="/chats">
         <ProtectedLayout>
           <ChatSplit right={
@@ -58,24 +64,40 @@ export function AppRouter() {
         </ProtectedLayout>
       </Route>
 
+      <Route path="/chat/favorites">
+        <ProtectedLayout>
+          <ChatSplit right={
+            <div className="flex flex-col h-full items-center justify-center gap-3 text-muted-foreground">
+              <div className="text-5xl">⭐</div>
+              <div className="text-[16px] font-medium">Избранное</div>
+              <div className="text-[13px]">Сохраняйте важные сообщения здесь</div>
+            </div>
+          } />
+        </ProtectedLayout>
+      </Route>
+
       <Route path="/chat/:id">
         <ProtectedLayout>
           <ChatSplit right={<ChatWindow />} />
         </ProtectedLayout>
       </Route>
 
+      {/* Contacts */}
       <Route path="/contacts">
         <ProtectedLayout><Contacts /></ProtectedLayout>
       </Route>
 
+      {/* Calls */}
       <Route path="/calls">
         <ProtectedLayout><Calls /></ProtectedLayout>
       </Route>
 
+      {/* Search */}
       <Route path="/search">
         <ProtectedLayout><Search /></ProtectedLayout>
       </Route>
 
+      {/* Secret Chats */}
       <Route path="/secret-chats">
         <ProtectedLayout>
           <div className="flex h-full w-full">
@@ -99,26 +121,53 @@ export function AppRouter() {
         </ProtectedLayout>
       </Route>
 
+      {/* Create group/channel */}
       <Route path="/new-group">
         <ProtectedLayout><CreateGroup type="group" /></ProtectedLayout>
       </Route>
-
       <Route path="/new-channel">
         <ProtectedLayout><CreateGroup type="channel" /></ProtectedLayout>
       </Route>
 
+      {/* Settings hub */}
       <Route path="/settings">
         <ProtectedLayout><Settings /></ProtectedLayout>
       </Route>
-
+      <Route path="/settings/my-profile">
+        <ProtectedLayout><MyProfile /></ProtectedLayout>
+      </Route>
       <Route path="/settings/security">
         <ProtectedLayout><SecuritySettings /></ProtectedLayout>
       </Route>
-
       <Route path="/settings/backup">
         <ProtectedLayout><BackupSettings /></ProtectedLayout>
       </Route>
+      <Route path="/settings/notifications">
+        <ProtectedLayout><NotificationsSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/appearance">
+        <ProtectedLayout><AppearanceSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/privacy">
+        <ProtectedLayout><PrivacySettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/language">
+        <ProtectedLayout><LanguageSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/rate">
+        <ProtectedLayout>
+          <div className="flex flex-col h-full items-center justify-center gap-4 text-center px-8">
+            <div className="text-6xl">⭐</div>
+            <div className="text-[20px] font-bold">Вам нравится ECHO?</div>
+            <div className="text-[14px] text-muted-foreground">Оставьте отзыв и помогите нам стать лучше</div>
+            <div className="flex gap-2 text-4xl mt-2">
+              {["⭐","⭐","⭐","⭐","⭐"].map((s,i) => <span key={i} className="cursor-pointer hover:scale-110 transition-transform">{s}</span>)}
+            </div>
+          </div>
+        </ProtectedLayout>
+      </Route>
 
+      {/* User profiles */}
       <Route path="/profile/:userId">
         <ProtectedLayout><UserProfile /></ProtectedLayout>
       </Route>

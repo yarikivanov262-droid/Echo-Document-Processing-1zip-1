@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { PhoneOutgoing, PhoneIncoming, PhoneMissed, PhoneCall, Info } from "lucide-react";
+import { useLocation } from "wouter";
+import { PhoneOutgoing, PhoneIncoming, PhoneMissed, Phone, Info } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
@@ -43,11 +44,12 @@ function CallIcon({ type }: { type: CallType }) {
 function callLabel(call: Call) {
   if (call.type === "outgoing") return "Исходящий";
   if (call.type === "missed") return "Пропущенный";
-  return call.duration ? `Входящий (${call.duration})` : "Входящий";
+  return call.duration ? `Входящий · ${call.duration}` : "Входящий";
 }
 
 export function Calls() {
   const [tab, setTab] = useState<"all" | "missed">("all");
+  const [, navigate] = useLocation();
   const displayed = tab === "all" ? allCalls : missedCalls;
 
   return (
@@ -55,11 +57,11 @@ export function Calls() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
         <button className="text-primary text-[17px] font-normal">Изм.</button>
-        <div className="flex items-center gap-2 bg-muted rounded-[10px] p-0.5">
+        <div className="flex items-center gap-1 bg-muted rounded-[10px] p-0.5">
           <button
             onClick={() => setTab("all")}
             className={cn(
-              "px-4 py-1 rounded-[8px] text-[14px] font-medium transition-colors",
+              "px-5 py-1 rounded-[8px] text-[14px] font-medium transition-colors",
               tab === "all" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
             )}
           >
@@ -68,44 +70,48 @@ export function Calls() {
           <button
             onClick={() => setTab("missed")}
             className={cn(
-              "px-4 py-1 rounded-[8px] text-[14px] font-medium transition-colors",
+              "px-5 py-1 rounded-[8px] text-[14px] font-medium transition-colors",
               tab === "missed" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
             )}
           >
             Пропущ.
           </button>
         </div>
-        <div className="w-16" />
+        <div className="w-14" />
       </div>
 
       {/* New Call */}
-      <div className="mx-4 mt-2 mb-4 rounded-[12px] overflow-hidden">
-        <button className="w-full flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/40 active:bg-muted/60 transition-colors">
-          <div className="h-8 w-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-            <PhoneCall className="h-4 w-4 text-primary" />
+      <div className="mx-4 mt-1 mb-4 rounded-[12px] overflow-hidden bg-card">
+        <button
+          onClick={() => navigate("/chat/new")}
+          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 active:bg-muted/60 transition-colors"
+        >
+          <div className="h-[34px] w-[34px] rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+            <Phone className="h-[18px] w-[18px] text-primary" />
           </div>
           <span className="text-[16px] text-primary">Новый звонок</span>
         </button>
       </div>
 
       {/* Section header */}
-      <div className="px-4 pb-2">
-        <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Недавние звонки</span>
+      <div className="px-4 pb-2 shrink-0">
+        <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Недавние</span>
       </div>
 
       {/* Calls list */}
-      <div className="flex-1 overflow-y-auto mx-4 rounded-[12px] overflow-hidden bg-card">
+      <div className="flex-1 overflow-y-auto mx-4 rounded-[12px] bg-card overflow-hidden">
         {displayed.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-muted-foreground text-[15px]">
-            Нет пропущенных звонков
+          <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
+            <PhoneMissed className="h-10 w-10 opacity-30" />
+            <div className="text-[15px]">Нет пропущенных звонков</div>
           </div>
         ) : (
           displayed.map((call, i) => (
             <div
               key={call.id}
               className={cn(
-                "flex items-center gap-3 px-4 py-2 hover:bg-muted/30 cursor-pointer",
-                i < displayed.length - 1 && "border-b border-border/50"
+                "flex items-center gap-3 px-4 py-2 hover:bg-muted/30 cursor-pointer transition-colors",
+                i < displayed.length - 1 && "border-b border-border/40"
               )}
             >
               <Avatar className="h-[54px] w-[54px] shrink-0">
@@ -129,7 +135,10 @@ export function Calls() {
 
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-[14px] text-muted-foreground">{call.date}</span>
-                <button className="h-7 w-7 flex items-center justify-center text-primary hover:bg-muted rounded-full">
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/profile/${call.id}`); }}
+                  className="h-8 w-8 flex items-center justify-center text-primary hover:bg-muted rounded-full"
+                >
                   <Info className="h-4 w-4" />
                 </button>
               </div>
@@ -138,7 +147,7 @@ export function Calls() {
         )}
       </div>
 
-      <div className="h-4" />
+      <div className="h-4 shrink-0" />
     </div>
   );
 }

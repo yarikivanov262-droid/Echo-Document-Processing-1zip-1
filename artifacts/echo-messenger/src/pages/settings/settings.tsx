@@ -1,148 +1,154 @@
-import { Link } from "wouter";
-import { ChevronRight, QrCode, Camera, User, Wallet, Bookmark, Phone, MonitorSmartphone, FolderOpen, LogOut } from "lucide-react";
+import { useLocation } from "wouter";
+import {
+  ChevronRight, Bell, Lock, Archive, Palette, Globe, Smartphone,
+  Bookmark, Phone, LogOut, ShieldAlert, Star, UserCircle
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetMe } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 
-function SettingsRow({
-  icon,
-  iconBg,
-  label,
-  href,
-  right,
-  last = false,
-}: {
+function getAvatarColor(name: string) {
+  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return colors[Math.abs(h) % colors.length];
+}
+
+interface RowProps {
   icon: React.ReactNode;
-  iconBg: string;
+  bg: string;
   label: string;
   href?: string;
-  right?: React.ReactNode;
+  value?: string;
   last?: boolean;
-}) {
-  const inner = (
-    <div className={cn(
-      "flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/40 active:bg-muted/60 transition-colors cursor-pointer",
-      !last && "border-b border-border/60"
-    )}>
-      <div className={cn("h-8 w-8 rounded-[9px] flex items-center justify-center shrink-0", iconBg)}>
+  onClick?: () => void;
+  danger?: boolean;
+}
+
+function Row({ icon, bg, label, href, value, last, onClick, danger }: RowProps) {
+  const [, navigate] = useLocation();
+  const handleClick = () => {
+    if (href) navigate(href);
+    if (onClick) onClick();
+  };
+  return (
+    <div
+      onClick={handleClick}
+      className={cn(
+        "flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/40 active:bg-muted/60 transition-colors cursor-pointer select-none",
+        !last && "border-b border-border/50"
+      )}
+    >
+      <div className={cn("h-[30px] w-[30px] rounded-[8px] flex items-center justify-center shrink-0", bg)}>
         {icon}
       </div>
-      <span className="flex-1 text-[16px] text-foreground">{label}</span>
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        {right}
-        <ChevronRight className="h-4 w-4 opacity-40" />
+      <span className={cn("flex-1 text-[16px]", danger ? "text-[#ff3b30]" : "text-foreground")}>{label}</span>
+      <div className="flex items-center gap-1 text-muted-foreground shrink-0">
+        {value && <span className="text-[14px]">{value}</span>}
+        <ChevronRight className="h-[18px] w-[18px] opacity-40" />
       </div>
     </div>
   );
-
-  if (href) return <Link href={href}>{inner}</Link>;
-  return inner;
-}
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
 }
 
 export function Settings() {
-  const { data: user } = useGetMe();
+  const [, navigate] = useLocation();
+  const { data: user, isLoading } = useGetMe();
   const { logout } = useEchoAuth();
-  const username = user?.username || "username";
+  const username = user?.username ?? "…";
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-        <button className="h-9 w-9 flex items-center justify-center rounded-full bg-muted">
-          <QrCode className="h-5 w-5 text-foreground" />
-        </button>
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+        <div className="w-9" />
         <span className="text-[17px] font-semibold">Настройки</span>
-        <button className="text-primary text-[17px] font-normal">Изм.</button>
+        <button
+          onClick={() => navigate("/settings/my-profile")}
+          className="text-primary text-[17px] font-normal"
+        >
+          Изм.
+        </button>
       </div>
 
-      {/* Profile */}
-      <div className="flex flex-col items-center pt-4 pb-6 px-4">
-        <div className="relative mb-3">
-          <Avatar className="h-24 w-24">
+      {/* Profile card — tappable */}
+      <div
+        onClick={() => navigate("/settings/my-profile")}
+        className="flex items-center gap-4 px-4 py-4 mx-0 cursor-pointer hover:bg-muted/20 active:bg-muted/40 transition-colors"
+      >
+        {isLoading ? (
+          <div className="h-[62px] w-[62px] rounded-full bg-muted animate-pulse shrink-0" />
+        ) : (
+          <Avatar className="h-[62px] w-[62px] shrink-0">
             {user?.avatarFileId && <AvatarImage src={user.avatarFileId} />}
-            <AvatarFallback className={cn("text-white text-3xl font-semibold", getAvatarColor(username))}>
+            <AvatarFallback className={cn("text-white text-2xl font-semibold", getAvatarColor(username))}>
               {username.substring(0, 1).toUpperCase()}
             </AvatarFallback>
           </Avatar>
+        )}
+        <div className="flex-1 min-w-0">
+          {isLoading ? (
+            <>
+              <div className="h-5 bg-muted rounded w-32 mb-1 animate-pulse" />
+              <div className="h-4 bg-muted rounded w-24 animate-pulse" />
+            </>
+          ) : (
+            <>
+              <div className="text-[18px] font-bold leading-tight">{username}</div>
+              <div className="text-[14px] text-primary">@{username}</div>
+            </>
+          )}
         </div>
-        <h2 className="text-[22px] font-bold text-foreground">{username}</h2>
-        <p className="text-[14px] text-muted-foreground mt-0.5">@{username}</p>
+        <ChevronRight className="h-5 w-5 text-muted-foreground/60 shrink-0" />
       </div>
 
-      {/* Change photo */}
-      <div className="mx-4 mb-6 rounded-[12px] overflow-hidden">
-        <button className="w-full flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/40 text-primary text-[16px]">
-          <Camera className="h-5 w-5" />
-          Изменить фотографию
-        </button>
+      <div className="h-[6px] bg-muted/30" />
+
+      {/* Group 1 — account actions */}
+      <div className="mt-0">
+        <Row icon={<Bookmark className="h-[18px] w-[18px] text-white" />} bg="bg-[#007aff]" label="Избранное" href="/chat/favorites" />
+        <Row icon={<Phone className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Недавние звонки" href="/calls" />
+        <Row icon={<Smartphone className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Устройства" href="/settings/security" value="QR" last />
       </div>
 
-      {/* Group 1 */}
-      <div className="mx-4 mb-6 rounded-[12px] overflow-hidden">
-        <SettingsRow
-          icon={<User className="h-5 w-5 text-white" />}
-          iconBg="bg-[#ff3b30]"
-          label="Мой профиль"
-          href={`/profile/${user?.id || 'me'}`}
-        />
-        <SettingsRow
-          icon={<Wallet className="h-5 w-5 text-white" />}
-          iconBg="bg-[#007aff]"
-          label="Кошелёк"
-          href="/settings/wallet"
-          last
-        />
+      <div className="h-[6px] bg-muted/30" />
+
+      {/* Group 2 — settings */}
+      <div>
+        <Row icon={<Bell className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff2d55]" label="Уведомления и звуки" href="/settings/notifications" />
+        <Row icon={<Lock className="h-[18px] w-[18px] text-white" />} bg="bg-[#8e8e93]" label="Конфиденциальность" href="/settings/privacy" />
+        <Row icon={<Archive className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Данные и архив" href="/settings/backup" />
+        <Row icon={<Palette className="h-[18px] w-[18px] text-white" />} bg="bg-[#007aff]" label="Оформление" href="/settings/appearance" />
+        <Row icon={<Globe className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Язык" href="/settings/language" value="Русский" last />
       </div>
 
-      {/* Group 2 */}
-      <div className="mx-4 mb-6 rounded-[12px] overflow-hidden">
-        <SettingsRow
-          icon={<Bookmark className="h-5 w-5 text-white" />}
-          iconBg="bg-[#007aff]"
-          label="Избранное"
-          href="/chats"
-        />
-        <SettingsRow
-          icon={<Phone className="h-5 w-5 text-white" />}
-          iconBg="bg-[#34c759]"
-          label="Недавние звонки"
-          href="/calls"
-        />
-        <SettingsRow
-          icon={<MonitorSmartphone className="h-5 w-5 text-white" />}
-          iconBg="bg-[#ff9500]"
-          label="Устройства"
-          href="/settings/security"
-          right={<span className="text-[14px] text-muted-foreground">QR-код</span>}
-        />
-        <SettingsRow
-          icon={<FolderOpen className="h-5 w-5 text-white" />}
-          iconBg="bg-[#007aff]"
-          label="Папки с чатами"
-          href="/settings/backup"
-          last
-        />
+      <div className="h-[6px] bg-muted/30" />
+
+      {/* Group 3 — help */}
+      <div>
+        <Row icon={<Star className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Оценить приложение" href="/settings/rate" />
+        <Row icon={<ShieldAlert className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff3b30]" label="Центр безопасности" href="/settings/security" last />
       </div>
+
+      <div className="h-[6px] bg-muted/30" />
 
       {/* Logout */}
-      <div className="mx-4 mb-8 rounded-[12px] overflow-hidden">
-        <button
+      <div className="mt-0">
+        <Row
+          icon={<LogOut className="h-[18px] w-[18px] text-white" />}
+          bg="bg-[#ff3b30]"
+          label="Выйти"
           onClick={logout}
-          className="w-full flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/40 active:bg-muted/60 transition-colors"
-        >
-          <div className="h-8 w-8 rounded-[9px] flex items-center justify-center bg-[#ff3b30] shrink-0">
-            <LogOut className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-[16px] text-[#ff3b30]">Выйти</span>
-        </button>
+          danger
+          last
+        />
+      </div>
+
+      {/* Footer version */}
+      <div className="flex flex-col items-center py-6 gap-1">
+        <div className="text-[13px] text-muted-foreground">ECHO Messenger v1.0.0</div>
+        <div className="text-[12px] text-muted-foreground/60">Анонимность гарантирована</div>
       </div>
     </div>
   );
