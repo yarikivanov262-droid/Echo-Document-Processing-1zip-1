@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useLocation } from "wouter";
 
 interface EchoAuthContextType {
   sessionToken: string | null;
@@ -16,12 +17,12 @@ export function EchoAuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<number | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const token = localStorage.getItem("echo_session_token");
     const id = localStorage.getItem("echo_user_id");
     const user = localStorage.getItem("echo_username");
-
     if (token && id && user) {
       setSessionToken(token);
       setUserId(parseInt(id, 10));
@@ -46,20 +47,14 @@ export function EchoAuthProvider({ children }: { children: ReactNode }) {
     setSessionToken(null);
     setUserId(null);
     setUsername(null);
+    setLocation("/");
   };
 
   if (!isLoaded) return null;
 
   return (
     <EchoAuthContext.Provider
-      value={{
-        sessionToken,
-        userId,
-        username,
-        isAuthenticated: !!sessionToken,
-        login,
-        logout,
-      }}
+      value={{ sessionToken, userId, username, isAuthenticated: !!sessionToken, login, logout }}
     >
       {children}
     </EchoAuthContext.Provider>
@@ -67,9 +62,7 @@ export function EchoAuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useEchoAuth() {
-  const context = useContext(EchoAuthContext);
-  if (context === undefined) {
-    throw new Error("useEchoAuth must be used within an EchoAuthProvider");
-  }
-  return context;
+  const ctx = useContext(EchoAuthContext);
+  if (!ctx) throw new Error("useEchoAuth must be used within EchoAuthProvider");
+  return ctx;
 }

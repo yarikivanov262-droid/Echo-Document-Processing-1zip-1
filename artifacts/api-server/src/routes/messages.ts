@@ -87,6 +87,17 @@ router.post("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pr
     return;
   }
 
+  // Verify chat exists if chatId is provided
+  if (parsed.data.chatId) {
+    const { chatsTable } = await import("@workspace/db");
+    const { eq: eqFn } = await import("drizzle-orm");
+    const [chat] = await db.select({ id: chatsTable.id }).from(chatsTable).where(eqFn(chatsTable.id, parsed.data.chatId));
+    if (!chat) {
+      res.status(404).json({ error: "Chat not found" });
+      return;
+    }
+  }
+
   const [msg] = await db
     .insert(messagesTable)
     .values({

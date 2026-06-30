@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { Link } from "wouter";
-import { Plus, UserPlus } from "lucide-react";
+import { useLocation } from "wouter";
+import { Plus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useGetUserByUsername } from "@workspace/api-client-react";
+import { useGetUserByUsername, useCreateChat } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
 function getAvatarColor(name: string) {
   const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return colors[Math.abs(h) % colors.length];
 }
 
 const mockContacts = [
@@ -26,22 +26,34 @@ const mockContacts = [
 ];
 
 export function Contacts() {
+  const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const { data: foundUser, isLoading } = useGetUserByUsername(search, {
-    query: { enabled: search.length > 2 },
+    query: { enabled: search.length > 2 } as never,
   });
+  const createChatMutation = useCreateChat();
 
   const filtered = search.length > 0
     ? mockContacts.filter(c => c.username.toLowerCase().includes(search.toLowerCase()))
     : mockContacts;
 
+  const openChat = (userId: number, username: string) => {
+    createChatMutation.mutate(
+      { data: { type: 1, title: username, memberIds: [userId] } },
+      { onSuccess: (chat) => navigate(`/chat/${chat.id}`) }
+    );
+  };
+
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-        <button className="text-primary text-[17px] font-normal">Сортиров...</button>
+        <button className="text-primary text-[17px] font-normal">Сортиров.</button>
         <span className="text-[17px] font-semibold">Контакты</span>
-        <button className="h-8 w-8 flex items-center justify-center rounded-full bg-muted">
+        <button
+          onClick={() => navigate("/chat/new")}
+          className="h-8 w-8 flex items-center justify-center rounded-full bg-muted"
+        >
           <Plus className="h-5 w-5 text-primary" />
         </button>
       </div>
@@ -59,63 +71,58 @@ export function Contacts() {
             onChange={e => setSearch(e.target.value)}
           />
           {search && (
-            <button onClick={() => setSearch("")} className="text-muted-foreground text-[15px]">✕</button>
+            <button onClick={() => setSearch("")} className="text-muted-foreground">✕</button>
           )}
         </div>
       </div>
 
-      {/* List */}
       <div className="flex-1 overflow-y-auto">
-        {/* Invite row */}
-        {!search && (
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/30 cursor-pointer">
-            <div className="h-[54px] w-[54px] rounded-full bg-muted flex items-center justify-center shrink-0">
-              <UserPlus className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <span className="text-[16px] text-foreground">Пригласить</span>
-          </div>
-        )}
-
         {/* Global search result */}
+        {search.length > 2 && isLoading && (
+          <div className="px-4 py-3 text-[14px] text-muted-foreground">Поиск...</div>
+        )}
         {search.length > 2 && foundUser && (
           <div className="mb-1">
             <div className="px-4 py-1">
               <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Глобальный поиск</span>
             </div>
-            <Link href={`/chat/new?user=${foundUser.username}`}>
-              <div className="flex items-center gap-3 px-4 py-2 hover:bg-muted/30 cursor-pointer">
-                <Avatar className="h-[54px] w-[54px] shrink-0">
-                  {foundUser.avatarFileId && <AvatarImage src={foundUser.avatarFileId} />}
-                  <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(foundUser.username))}>
-                    {foundUser.username.substring(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 border-b border-border/50 py-2">
-                  <div className="text-[16px] font-semibold text-foreground">{foundUser.username}</div>
-                  <div className="text-[13px] text-primary">@{foundUser.username}</div>
-                </div>
+            <button
+              onClick={() => openChat(foundUser.id, foundUser.username)}
+              disabled={createChatMutation.isPending}
+              className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/30 disabled:opacity-60"
+            >
+              <Avatar className="h-[54px] w-[54px] shrink-0">
+                {foundUser.avatarFileId && <AvatarImage src={foundUser.avatarFileId} />}
+                <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(foundUser.username))}>
+                  {foundUser.username.substring(0, 1).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 border-b border-border/50 py-2 text-left">
+                <div className="text-[16px] font-semibold">{foundUser.username}</div>
+                <div className="text-[13px] text-primary">@{foundUser.username}</div>
               </div>
-            </Link>
+            </button>
           </div>
-        )}
-
-        {search.length > 2 && isLoading && (
-          <div className="px-4 py-3 text-[14px] text-muted-foreground">Поиск...</div>
         )}
 
         {/* Contact list */}
         {filtered.map((contact, i) => (
-          <div key={contact.id} className="flex items-center gap-3 px-4 hover:bg-muted/30 cursor-pointer">
+          <button
+            key={contact.id}
+            onClick={() => openChat(contact.id, contact.username)}
+            disabled={createChatMutation.isPending}
+            className="w-full flex items-center gap-3 px-4 hover:bg-muted/30 disabled:opacity-60"
+          >
             <Avatar className="h-[54px] w-[54px] shrink-0">
               <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(contact.username))}>
                 {contact.username.substring(0, 1).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className={cn("flex-1 py-3", i < filtered.length - 1 && "border-b border-border/50")}>
-              <div className="text-[16px] font-semibold text-foreground">{contact.username}</div>
+            <div className={cn("flex-1 py-3 text-left", i < filtered.length - 1 && "border-b border-border/50")}>
+              <div className="text-[16px] font-semibold">{contact.username}</div>
               <div className="text-[13px] text-muted-foreground">{contact.lastSeen}</div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>

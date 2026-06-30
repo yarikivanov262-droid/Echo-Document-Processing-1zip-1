@@ -1,0 +1,1 @@
+- [Orval query options typing](orval-query-options.md) — pass `{ refetchInterval: N } as never` to avoid missing queryKey TS error.
