@@ -1,109 +1,122 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { Search, UserPlus, Phone, MessageSquare, MoreVertical, ShieldAlert } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Plus, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetUserByUsername } from "@workspace/api-client-react";
+import { cn } from "@/lib/utils";
+
+function getAvatarColor(name: string) {
+  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+const mockContacts = [
+  { id: 1, username: "Алиса", lastSeen: "был(а) 8 часов назад" },
+  { id: 2, username: "Борис Иванов", lastSeen: "был(а) 8 часов назад" },
+  { id: 3, username: "Василий", lastSeen: "был(а) 8 часов назад" },
+  { id: 4, username: "Григорий", lastSeen: "был(а) 9 часов назад" },
+  { id: 5, username: "Дмитрий Сидоров", lastSeen: "был(а) вчера в 22:50" },
+  { id: 6, username: "Елена", lastSeen: "был(а) вчера в 22:34" },
+  { id: 7, username: "Жанна Петрова", lastSeen: "был(а) вчера в 22:24" },
+  { id: 8, username: "Захар", lastSeen: "был(а) вчера в 22:19" },
+  { id: 9, username: "Иван Кузнецов", lastSeen: "был(а) вчера в 22:02" },
+  { id: 10, username: "Кирилл", lastSeen: "был(а) 30 июн в 20:14" },
+];
 
 export function Contacts() {
   const [search, setSearch] = useState("");
-  const { data: user, isLoading } = useGetUserByUsername(search, { query: { enabled: search.length > 2 } });
+  const { data: foundUser, isLoading } = useGetUserByUsername(search, {
+    query: { enabled: search.length > 2 },
+  });
 
-  const mockContacts = [
-    { id: 1, username: "ghost_protocol", lastSeen: "Last seen recently", isOnline: true },
-    { id: 2, username: "cipher_09", lastSeen: "Last seen 2 hours ago", isOnline: false },
-    { id: 3, username: "neon_shadow", lastSeen: "Last seen yesterday", isOnline: false },
-  ];
+  const filtered = search.length > 0
+    ? mockContacts.filter(c => c.username.toLowerCase().includes(search.toLowerCase()))
+    : mockContacts;
 
   return (
-    <div className="flex flex-col h-full bg-background w-full overflow-hidden">
+    <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-card/50 backdrop-blur-sm shrink-0">
-        <h1 className="text-xl font-bold font-mono tracking-tight">Contacts</h1>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <UserPlus className="h-4 w-4" />
-        </Button>
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+        <button className="text-primary text-[17px] font-normal">Сортиров...</button>
+        <span className="text-[17px] font-semibold">Контакты</span>
+        <button className="h-8 w-8 flex items-center justify-center rounded-full bg-muted">
+          <Plus className="h-5 w-5 text-primary" />
+        </button>
       </div>
 
-      <div className="p-4 border-b border-border shrink-0">
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search by exact username..." 
-            className="pl-9 bg-background/50 border-muted font-mono text-sm"
+      {/* Search */}
+      <div className="px-4 pb-3 shrink-0">
+        <div className="flex items-center gap-2 bg-muted rounded-[10px] px-3 h-9">
+          <svg className="h-4 w-4 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            className="flex-1 bg-transparent outline-none text-[15px] text-foreground placeholder:text-muted-foreground"
+            placeholder="Поиск"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={e => setSearch(e.target.value)}
           />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-muted-foreground text-[15px]">✕</button>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
-        {search.length > 2 && isLoading && (
-          <div className="p-4 text-center text-sm font-mono text-muted-foreground animate-pulse">
-            Scanning network...
-          </div>
-        )}
-        
-        {search.length > 2 && user && (
-          <div className="mb-6">
-            <h2 className="px-3 text-xs font-bold text-primary font-mono uppercase tracking-widest mb-2">Global Search Result</h2>
-            <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors group border border-primary/20">
-              <Avatar className="h-12 w-12 border border-primary/50 bg-muted">
-                {user.avatarFileId && <AvatarImage src={user.avatarFileId} />}
-                <AvatarFallback className="font-mono text-xs text-primary bg-primary/10">
-                  {user.username.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <span className="font-semibold text-sm truncate block">{user.username}</span>
-                <span className="text-xs text-primary font-mono flex items-center gap-1">
-                  <ShieldAlert className="h-3 w-3" /> Identity verified
-                </span>
-              </div>
-              <Button size="sm" className="font-mono text-xs uppercase h-8">Add</Button>
+      {/* List */}
+      <div className="flex-1 overflow-y-auto">
+        {/* Invite row */}
+        {!search && (
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 hover:bg-muted/30 cursor-pointer">
+            <div className="h-[54px] w-[54px] rounded-full bg-muted flex items-center justify-center shrink-0">
+              <UserPlus className="h-6 w-6 text-muted-foreground" />
             </div>
+            <span className="text-[16px] text-foreground">Пригласить</span>
           </div>
         )}
 
-        <div className="space-y-1">
-          <h2 className="px-3 text-xs font-bold text-muted-foreground font-mono uppercase tracking-widest mb-2 mt-4">Your Contacts</h2>
-          {mockContacts.map((contact) => (
-            <div key={contact.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors group">
-              <div className="relative">
-                <Avatar className="h-12 w-12 border border-border bg-muted">
-                  <AvatarFallback className="font-mono text-xs text-primary bg-primary/10">
-                    {contact.username.substring(0, 2).toUpperCase()}
+        {/* Global search result */}
+        {search.length > 2 && foundUser && (
+          <div className="mb-1">
+            <div className="px-4 py-1">
+              <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Глобальный поиск</span>
+            </div>
+            <Link href={`/chat/new?user=${foundUser.username}`}>
+              <div className="flex items-center gap-3 px-4 py-2 hover:bg-muted/30 cursor-pointer">
+                <Avatar className="h-[54px] w-[54px] shrink-0">
+                  {foundUser.avatarFileId && <AvatarImage src={foundUser.avatarFileId} />}
+                  <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(foundUser.username))}>
+                    {foundUser.username.substring(0, 1).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                {contact.isOnline && (
-                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-primary border-2 border-background" />
-                )}
+                <div className="flex-1 border-b border-border/50 py-2">
+                  <div className="text-[16px] font-semibold text-foreground">{foundUser.username}</div>
+                  <div className="text-[13px] text-primary">@{foundUser.username}</div>
+                </div>
               </div>
-              
-              <div className="flex-1 min-w-0">
-                <span className="font-semibold text-sm truncate block group-hover:text-primary transition-colors">
-                  {contact.username}
-                </span>
-                <span className="text-xs text-muted-foreground font-mono block">
-                  {contact.lastSeen}
-                </span>
-              </div>
+            </Link>
+          </div>
+        )}
 
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                  <MessageSquare className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                  <Phone className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </div>
+        {search.length > 2 && isLoading && (
+          <div className="px-4 py-3 text-[14px] text-muted-foreground">Поиск...</div>
+        )}
+
+        {/* Contact list */}
+        {filtered.map((contact, i) => (
+          <div key={contact.id} className="flex items-center gap-3 px-4 hover:bg-muted/30 cursor-pointer">
+            <Avatar className="h-[54px] w-[54px] shrink-0">
+              <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(contact.username))}>
+                {contact.username.substring(0, 1).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className={cn("flex-1 py-3", i < filtered.length - 1 && "border-b border-border/50")}>
+              <div className="text-[16px] font-semibold text-foreground">{contact.username}</div>
+              <div className="text-[13px] text-muted-foreground">{contact.lastSeen}</div>
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     </div>
   );

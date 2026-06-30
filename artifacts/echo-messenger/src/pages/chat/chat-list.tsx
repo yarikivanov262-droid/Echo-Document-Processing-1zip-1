@@ -1,110 +1,143 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
-import { Search, Edit, ShieldCheck, Lock } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { SquarePen, Pin } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetChats } from "@workspace/api-client-react";
+import { cn } from "@/lib/utils";
+
+function getAvatarColor(name: string) {
+  const colors = [
+    "bg-[#e17076]", "bg-[#faa774]", "bg-[#a695e7]",
+    "bg-[#7bc862]", "bg-[#6ec9cb]", "bg-[#65aadd]", "bg-[#ee7aae]",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
 
 export function ChatList() {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "schedule">("all");
   const { data: chats, isLoading } = useGetChats();
 
   const mockChats = [
-    { id: 1, title: "CipherOps", lastMessage: "Keys rotated.", time: "10:24", unread: 0, isSecret: true },
-    { id: 2, title: "nexus_prime", lastMessage: "Meeting at rendezvous point.", time: "09:12", unread: 2, isSecret: false },
-    { id: 3, title: "ghost_protocol", lastMessage: "Data purged.", time: "Yesterday", unread: 0, isSecret: false },
+    { id: 1, title: "Архив чатов", lastMessage: "PR GRAM Giveaways | NFT, Подарок 🎁...", time: "", unreadCount: 15, isPinned: false, isArchive: true },
+    { id: 2, title: "Избранное", lastMessage: "Стикер", time: "16/05", unreadCount: 0, isPinned: true, isArchive: false },
+    { id: 3, title: "Любимая ❤️", lastMessage: "Ну или в Макс", time: "12/06", unreadCount: 0, isPinned: true, isArchive: false },
+    { id: 4, title: "ghost_protocol", lastMessage: "Всем, кто купит на этой неделе 5000 звёзд...", time: "9:36 AM", unreadCount: 21, isPinned: false, isArchive: false },
+    { id: 5, title: "cipher_ops", lastMessage: "🟣 🔊 Мини-игра 8-бита вернулась! На время...", time: "9:15 AM", unreadCount: 7, isPinned: false, isArchive: false },
+    { id: 6, title: "Gorilla Chat 🦍 🔕", lastMessage: "да", time: "3:41 AM", unreadCount: 0, isPinned: false, isArchive: false },
+    { id: 7, title: "neon_shadow", lastMessage: "ok", time: "Вчера", unreadCount: 0, isPinned: false, isArchive: false },
+    { id: 8, title: "echo_admin", lastMessage: "Добро пожаловать!", time: "Пн", unreadCount: 0, isPinned: false, isArchive: false },
   ];
 
   const displayChats = chats && chats.length > 0 ? chats : mockChats;
 
   return (
-    <div className="flex flex-col h-full bg-background border-r border-border md:w-80 lg:w-96 shrink-0 relative z-10 shadow-xl">
+    <div className="flex flex-col h-full bg-background w-full md:w-80 lg:w-96 shrink-0 md:border-r md:border-border">
       {/* Header */}
-      <div className="flex flex-col gap-4 p-4 border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <span className="font-mono text-lg font-bold tracking-tight">ECHO</span>
-          </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-            <Edit className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search channels & users..." 
-            className="pl-9 bg-background/50 border-muted font-mono text-xs h-9 rounded-full"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+        <button className="text-primary text-[17px] font-normal">Изм.</button>
+        <span className="text-[17px] font-semibold">Чаты</span>
+        <button className="w-8 h-8 flex items-center justify-center rounded-full bg-muted">
+          <SquarePen className="h-4 w-4 text-primary" />
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="px-4 pb-2 shrink-0">
+        <div className="flex items-center gap-2 bg-muted rounded-[10px] px-3 h-9">
+          <svg className="h-4 w-4 text-muted-foreground shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <span className="text-muted-foreground text-[15px]">Поиск</span>
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex items-center gap-2 px-4 pb-3 shrink-0">
+        <button
+          onClick={() => setActiveTab("all")}
+          className={cn(
+            "px-4 h-8 rounded-full text-[14px] font-medium transition-colors",
+            activeTab === "all"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground"
+          )}
+        >
+          Все
+        </button>
+        <button
+          onClick={() => setActiveTab("schedule")}
+          className={cn(
+            "flex items-center gap-1.5 px-4 h-8 rounded-full text-[14px] font-medium transition-colors",
+            activeTab === "schedule"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground"
+          )}
+        >
+          Расписания
+          <span className="flex items-center justify-center bg-primary text-white text-[11px] font-bold h-4 min-w-4 px-1 rounded-full">1</span>
+        </button>
+      </div>
+
       {/* List */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
-          <div className="space-y-2 p-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center gap-3 animate-pulse">
-                <div className="w-12 h-12 rounded-full bg-muted" />
+          <div className="space-y-0">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2 animate-pulse">
+                <div className="w-[54px] h-[54px] rounded-full bg-muted shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-muted rounded w-1/2" />
+                  <div className="h-4 bg-muted rounded w-2/5" />
                   <div className="h-3 bg-muted rounded w-3/4" />
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div className="space-y-1">
-            {displayChats.map((chat, idx) => (
-              <motion.div
-                key={chat.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.05 }}
-              >
-                <Link href={`/chat/${chat.id}`}>
-                  <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors group">
-                    <Avatar className="h-12 w-12 border border-border bg-muted">
-                      {chat.avatarFileId && <AvatarImage src={chat.avatarFileId} />}
-                      <AvatarFallback className="font-mono text-xs text-primary bg-primary/10">
-                        {chat.title.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1.5">
-                          {chat.isSecret && <Lock className="h-3 w-3 text-primary" />}
-                          <span className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
-                            {chat.title}
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-muted-foreground font-mono">
-                          {chat.time || "Now"}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground truncate font-mono">
-                          {chat.lastMessage || "No messages yet."}
-                        </span>
-                        {(chat.unreadCount || chat.unread) > 0 && (
-                          <span className="flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-bold h-4 min-w-4 px-1 rounded-full ml-2 shrink-0">
-                            {chat.unreadCount || chat.unread}
-                          </span>
-                        )}
-                      </div>
+          displayChats.map((chat) => (
+            <Link key={chat.id} href={`/chat/${chat.id}`}>
+              <div className="flex items-center gap-3 px-4 py-2 hover:bg-muted/30 active:bg-muted/50 transition-colors cursor-pointer">
+                <div className="relative shrink-0">
+                  <Avatar className="h-[54px] w-[54px]">
+                    {(chat as { avatarFileId?: string }).avatarFileId && (
+                      <AvatarImage src={(chat as { avatarFileId?: string }).avatarFileId} />
+                    )}
+                    <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(chat.title))}>
+                      {chat.title.substring(0, 1).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+
+                <div className="flex-1 min-w-0 border-b border-border/50 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-semibold text-[16px] leading-tight truncate text-foreground">
+                      {chat.title}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-muted-foreground text-[13px]">
+                        {(chat as { time?: string }).time || ""}
+                      </span>
                     </div>
                   </div>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
+                  <div className="flex items-center justify-between mt-0.5 gap-2">
+                    <span className="text-muted-foreground text-[14px] truncate leading-snug">
+                      {(chat as { lastMessage?: string }).lastMessage || chat.description || ""}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(chat.unreadCount || 0) > 0 ? (
+                        <span className="flex items-center justify-center bg-primary text-white text-[12px] font-bold h-5 min-w-5 px-1.5 rounded-full">
+                          {(chat.unreadCount || 0) > 9999 ? "9999" : chat.unreadCount}
+                        </span>
+                      ) : (chat as { isPinned?: boolean }).isPinned ? (
+                        <Pin className="h-3.5 w-3.5 text-muted-foreground rotate-45" />
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))
         )}
       </div>
     </div>

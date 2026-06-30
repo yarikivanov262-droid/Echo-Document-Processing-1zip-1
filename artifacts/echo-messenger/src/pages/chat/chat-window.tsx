@@ -1,18 +1,25 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Paperclip, Mic, ArrowLeft, MoreVertical, Phone, Video, Timer, ShieldCheck, Check, CheckCheck } from "lucide-react";
+import { Send, Paperclip, Mic, ArrowLeft, MoreVertical, Phone, Video, Check, CheckCheck } from "lucide-react";
 import { Link } from "wouter";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useGetChat, useGetMessages, useSendMessage } from "@workspace/api-client-react";
+import { cn } from "@/lib/utils";
+
+function getAvatarColor(name: string) {
+  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
 
 export function ChatWindow() {
   const { id } = useParams<{ id: string }>();
   const chatId = parseInt(id || "0", 10);
-  
+
   const { data: chat } = useGetChat(chatId, { query: { enabled: !!chatId } });
   const { data: messages, isLoading: loadingMessages } = useGetMessages({ chatId }, { query: { enabled: !!chatId } });
   const sendMessageMutation = useSendMessage();
@@ -21,149 +28,131 @@ export function ChatWindow() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const mockMessages = [
-    { id: 1, text: "The perimeter is secure.", senderId: 2, timestamp: "10:20", status: "read", isSelf: false },
-    { id: 2, text: "Proceeding with data extraction.", senderId: 1, timestamp: "10:22", status: "read", isSelf: true },
-    { id: 3, text: "Keys rotated successfully.", senderId: 2, timestamp: "10:24", status: "delivered", isSelf: false },
+    { id: 1, encryptedContent: "Привет! Как дела?", senderId: 2, timestamp: "10:20", isSelf: false, readAt: null },
+    { id: 2, encryptedContent: "Всё хорошо, спасибо!", senderId: 1, timestamp: "10:22", isSelf: true, readAt: "x" },
+    { id: 3, encryptedContent: "Когда встречаемся?", senderId: 2, timestamp: "10:24", isSelf: false, readAt: null },
+    { id: 4, encryptedContent: "Завтра в 18:00, договорились?", senderId: 1, timestamp: "10:25", isSelf: true, readAt: null },
   ];
 
   const displayMessages = messages && messages.length > 0 ? messages : mockMessages;
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [displayMessages]);
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-
-    sendMessageMutation.mutate({
-      data: {
-        chatId,
-        chatType: 1,
-        encryptedContent: message,
-      }
-    }, {
-      onSuccess: () => {
-        setMessage("");
-      }
+    sendMessageMutation.mutate({ data: { chatId, chatType: 1, encryptedContent: message } }, {
+      onSuccess: () => setMessage(""),
     });
   };
 
+  const chatTitle = chat?.title || "Чат";
+  const chatName = chatTitle;
+
   return (
-    <div className="flex flex-col h-full bg-background relative z-0 w-full overflow-hidden">
+    <div className="flex flex-col h-full bg-background w-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border bg-card/80 backdrop-blur-md z-10 shrink-0 h-16">
-        <div className="flex items-center gap-3">
-          <Link href="/chats">
-            <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 shrink-0">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          
-          <Avatar className="h-10 w-10 border border-border bg-muted shrink-0">
-            {chat?.avatarFileId && <AvatarImage src={chat.avatarFileId} />}
-            <AvatarFallback className="font-mono text-xs text-primary bg-primary/10">
-              {chat?.title?.substring(0, 2).toUpperCase() || "CH"}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm truncate">{chat?.title || "CipherOps"}</span>
-              <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" />
-            </div>
-            <span className="text-[10px] text-primary font-mono truncate">Encrypted connection active</span>
+      <div className="flex items-center gap-2 px-2 py-2 bg-card border-b border-border shrink-0 h-14">
+        <Link href="/chats">
+          <button className="md:hidden flex items-center text-primary gap-0.5 pr-1">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </Link>
+
+        <Avatar className="h-9 w-9 shrink-0">
+          <AvatarFallback className={cn("text-white font-semibold text-sm", getAvatarColor(chatName))}>
+            {chatName.substring(0, 1).toUpperCase()}
+          </AvatarFallback>
+        </Avatar>
+
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-[15px] leading-tight truncate">{chatTitle}</div>
+          <div className="text-[12px] text-primary truncate">в сети</div>
+        </div>
+
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-primary">
+            <Phone className="h-5 w-5" />
+          </button>
+          <button className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground">
+            <MoreVertical className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-1">
+        {loadingMessages ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        </div>
-        
-        <div className="flex items-center gap-1 shrink-0">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-            <Phone className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-            <Video className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+        ) : (
+          <AnimatePresence initial={false}>
+            {displayMessages.map((msg) => {
+              const isSelf = (msg as { isSelf?: boolean }).isSelf ?? (msg.senderId === 1);
+              const text = (msg as { text?: string; encryptedContent?: string }).text || msg.encryptedContent || "";
+              const time = (msg as { timestamp?: string }).timestamp ||
+                (msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
 
-      {/* Messages Area */}
-      <div 
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 flex flex-col gap-4 relative z-0"
-      >
-        <AnimatePresence initial={false}>
-          {displayMessages.map((msg, idx) => {
-            const isSelf = msg.isSelf ?? (msg.senderId === 1); // Mock user ID 1
-            return (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.2 }}
-                className={`flex flex-col max-w-[80%] ${isSelf ? 'self-end items-end' : 'self-start items-start'}`}
-              >
-                <div 
-                  className={`
-                    px-4 py-2 rounded-2xl relative group font-mono text-sm
-                    ${isSelf 
-                      ? 'bg-primary text-primary-foreground rounded-br-sm' 
-                      : 'bg-card border border-border rounded-bl-sm text-foreground'
-                    }
-                  `}
+              return (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.15 }}
+                  className={cn("flex max-w-[75%]", isSelf ? "self-end" : "self-start")}
                 >
-                  <p className="break-words leading-relaxed">
-                    {msg.text || msg.encryptedContent}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1 px-1">
-                  <span className="text-[9px] text-muted-foreground font-mono">
-                    {msg.timestamp || new Date(msg.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                  </span>
-                  {isSelf && (
-                    msg.status === "read" || msg.readAt ? (
-                      <CheckCheck className="h-3 w-3 text-primary" />
-                    ) : (
-                      <Check className="h-3 w-3 text-muted-foreground" />
-                    )
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+                  <div className={cn(
+                    "relative px-3 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm",
+                    isSelf
+                      ? "bg-primary text-white rounded-tr-sm"
+                      : "bg-card text-foreground rounded-tl-sm"
+                  )}>
+                    <p className="break-words pr-10">{text}</p>
+                    <div className={cn(
+                      "absolute bottom-1.5 right-2.5 flex items-center gap-0.5",
+                      isSelf ? "text-white/70" : "text-muted-foreground"
+                    )}>
+                      <span className="text-[11px]">{time}</span>
+                      {isSelf && (
+                        msg.readAt
+                          ? <CheckCheck className="h-3.5 w-3.5" />
+                          : <Check className="h-3.5 w-3.5" />
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        )}
       </div>
 
-      {/* Input Area */}
-      <div className="p-3 border-t border-border bg-card/80 backdrop-blur-md shrink-0 safe-area-bottom">
-        <form onSubmit={handleSend} className="flex items-end gap-2 max-w-4xl mx-auto w-full">
-          <Button type="button" variant="ghost" size="icon" className="h-10 w-10 shrink-0 text-muted-foreground hover:text-primary">
+      {/* Input */}
+      <div className="px-2 py-2 bg-card border-t border-border shrink-0" style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+        <form onSubmit={handleSend} className="flex items-end gap-2">
+          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-primary rounded-full">
             <Paperclip className="h-5 w-5" />
           </Button>
-          
-          <div className="flex-1 relative bg-background border border-border rounded-2xl focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all">
-            <Input 
+
+          <div className="flex-1 bg-muted rounded-2xl px-3 py-2 min-h-[36px] flex items-center">
+            <Input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Message..." 
-              className="border-0 bg-transparent shadow-none focus-visible:ring-0 h-10 font-mono text-sm"
+              placeholder="Сообщение..."
+              className="border-0 bg-transparent shadow-none focus-visible:ring-0 p-0 h-auto text-[15px] leading-relaxed"
             />
-            <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-8 w-8 text-muted-foreground hover:text-primary">
-              <Timer className="h-4 w-4" />
-            </Button>
           </div>
 
           {message.trim() ? (
-            <Button type="submit" size="icon" className="h-10 w-10 rounded-full shrink-0 group">
-              <Send className="h-4 w-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            <Button type="submit" size="icon" className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 shrink-0">
+              <Send className="h-4 w-4 text-white" />
             </Button>
           ) : (
-            <Button type="button" size="icon" variant="secondary" className="h-10 w-10 rounded-full shrink-0">
-              <Mic className="h-4 w-4 text-foreground" />
+            <Button type="button" size="icon" variant="ghost" className="h-9 w-9 rounded-full shrink-0 text-primary">
+              <Mic className="h-5 w-5" />
             </Button>
           )}
         </form>

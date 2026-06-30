@@ -32,7 +32,7 @@ router.get("/users/me", requireAuth, async (req: AuthenticatedRequest, res): Pro
       publicIdentityKey: user.publicIdentityKey,
       lastActive: user.lastActive.toISOString(),
       avatarFileId: user.avatarFileId ?? null,
-      settings: user.settings ?? null,
+      settings: (user.settings as Record<string, unknown> | null) ?? undefined,
       createdAt: user.createdAt.toISOString(),
     })
   );
