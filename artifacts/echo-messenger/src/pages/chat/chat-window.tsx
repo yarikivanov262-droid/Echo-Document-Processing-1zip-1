@@ -4,10 +4,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Paperclip, Mic, ArrowLeft, MoreVertical, Phone,
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
-  Smile, X, Search, Pin, BellOff, UserPlus
+  Smile, X, Search, Pin, BellOff, UserPlus, ChevronDown,
+  Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile } from "@workspace/api-client-react";
+import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useWsEvent } from "@/hooks/use-ws";
@@ -52,6 +53,8 @@ type MsgItem = {
   reactions?: Record<string, number[]>;
   isEdited?: boolean;
   senderUsername?: string;
+  replyToId?: number | null;
+  forwardedFromId?: number | null;
 };
 
 export function ChatWindow() {
@@ -72,6 +75,8 @@ export function ChatWindow() {
   const deleteMessageMutation = useDeleteMessage();
   const reactMutation = useReactToMessage();
   const uploadMutation = useUploadFile();
+  const memberSettingsMutation = useUpdateChatMemberSettings();
+  const addContactMutation = useAddContact();
 
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<MsgItem | null>(null);
@@ -80,8 +85,14 @@ export function ChatWindow() {
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [showEmoji, setShowEmoji] = useState(false);
   const [showChatInfo, setShowChatInfo] = useState(false);
+  const [showAttach, setShowAttach] = useState(false);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isChatPinned, setIsChatPinned] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,6 +136,8 @@ export function ChatWindow() {
     timestamp: (m as { timestamp?: string }).timestamp ?? "",
     isSelf: m.senderId === userId,
     senderUsername: (m as { senderUsername?: string }).senderUsername,
+    replyToId: (m as { replyToId?: number | null }).replyToId,
+    forwardedFromId: (m as { forwardedFromId?: number | null }).forwardedFromId,
   }));
 
   // Date separators
@@ -177,12 +190,42 @@ export function ChatWindow() {
     const trimmed = text.trim();
     if (!trimmed || !chatId) return;
     setText("");
+    const replyId = replyTo?.id;
     setReplyTo(null);
     setShowEmoji(false);
     sendMutation.mutate({
-      data: { chatId, chatType: chat?.type ?? 1, encryptedContent: trimmed },
+      data: {
+        chatId,
+        chatType: chat?.type ?? 1,
+        encryptedContent: trimmed,
+        ...(replyId ? { replyToId: replyId } : {}),
+      },
+    }, {
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }),
+      onError: () => toast({ title: "Ошибка отправки", variant: "destructive" }),
     });
     setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const findMsgById = (msgId?: number | null) => msgId ? enriched.find(m => m.id === msgId) : undefined;
+
+  // Scroll-to-bottom FAB visibility
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowScrollDown(el.scrollHeight - el.scrollTop - el.clientHeight > 200);
+  };
+
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    }
+  };
+
+  const scrollToMsg = (msgId?: number | null) => {
+    if (!msgId) return;
+    const el = document.getElementById(`msg-${msgId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const handleLongPress = useCallback((msg: MsgItem, e: React.MouseEvent | React.TouchEvent) => {
@@ -304,7 +347,7 @@ export function ChatWindow() {
             <Search className="h-4 w-4" />
           </button>
           <button
-            onClick={() => setShowChatInfo(v => !v)}
+            onClick={() => setShowActionsMenu(v => !v)}
             className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground"
           >
             <MoreVertical className="h-5 w-5" />
@@ -312,7 +355,7 @@ export function ChatWindow() {
         </div>
       </div>
 
-      {/* ── Chat info panel ── */}
+      {/* ── Chat info quick panel ── */}
       <AnimatePresence>
         {showChatInfo && (
           <motion.div
@@ -323,14 +366,48 @@ export function ChatWindow() {
           >
             <div className="flex items-center justify-around py-3 px-4">
               {[
-                { icon: <BellOff className="h-5 w-5" />, label: "Без звука" },
-                { icon: <Pin className="h-5 w-5" />, label: "Закрепить" },
-                { icon: <UserPlus className="h-5 w-5" />, label: "Добавить" },
-                { icon: <Search className="h-5 w-5" />, label: "Поиск" },
-              ].map(({ icon, label }) => (
+                {
+                  icon: isMuted ? <Volume2 className="h-5 w-5" /> : <BellOff className="h-5 w-5" />,
+                  label: isMuted ? "Включить звук" : "Без звука",
+                  fn: () => {
+                    const next = !isMuted;
+                    setIsMuted(next);
+                    memberSettingsMutation.mutate({ id: chatId, data: { mutedUntil: next ? "2999-01-01T00:00:00.000Z" : null } }, {
+                      onSuccess: () => toast({ title: next ? "Уведомления отключены" : "Уведомления включены" }),
+                      onError: () => toast({ title: "Ошибка", variant: "destructive" }),
+                    });
+                  },
+                },
+                {
+                  icon: <Pin className="h-5 w-5" />,
+                  label: isChatPinned ? "Открепить" : "Закрепить",
+                  fn: () => {
+                    const next = !isChatPinned;
+                    setIsChatPinned(next);
+                    memberSettingsMutation.mutate({ id: chatId, data: { isPinned: next } }, {
+                      onSuccess: () => toast({ title: next ? "Чат закреплён" : "Чат откреплён" }),
+                      onError: () => toast({ title: "Ошибка", variant: "destructive" }),
+                    });
+                  },
+                },
+                {
+                  icon: <UserPlus className="h-5 w-5" />,
+                  label: "Добавить",
+                  fn: () => {
+                    if (isGroup) { navigate(`/group/${chatId}/add`); return; }
+                    const otherId = (chat as { creatorId?: number })?.creatorId;
+                    if (!otherId) { toast({ title: "Не удалось определить пользователя", variant: "destructive" }); return; }
+                    addContactMutation.mutate({ data: { contactId: otherId } } as never, {
+                      onSuccess: () => toast({ title: "Добавлено в контакты" }),
+                      onError: () => toast({ title: "Ошибка добавления", variant: "destructive" }),
+                    });
+                  },
+                },
+                { icon: <Search className="h-5 w-5" />, label: "Поиск", fn: () => toast({ title: "Поиск по чату скоро" }) },
+              ].map(({ icon, label, fn }) => (
                 <button
                   key={label}
-                  onClick={() => { toast({ title: label }); setShowChatInfo(false); }}
+                  onClick={() => { fn(); setShowChatInfo(false); }}
                   className="flex flex-col items-center gap-1 text-primary hover:opacity-70"
                 >
                   {icon}
@@ -342,11 +419,71 @@ export function ChatWindow() {
         )}
       </AnimatePresence>
 
+      {/* ── Header actions dropdown (⋮) ── */}
+      <AnimatePresence>
+        {showActionsMenu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowActionsMenu(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -6 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -6 }}
+              className="fixed z-50 right-2 top-14 bg-card border border-border rounded-2xl shadow-xl overflow-hidden min-w-[220px]"
+            >
+              {[
+                {
+                  icon: isChatPinned ? <Pin className="h-4 w-4" /> : <Pin className="h-4 w-4" />,
+                  label: isChatPinned ? "Открепить чат" : "Закрепить чат",
+                  fn: () => {
+                    const next = !isChatPinned;
+                    setIsChatPinned(next);
+                    memberSettingsMutation.mutate({ id: chatId, data: { isPinned: next } }, {
+                      onSuccess: () => toast({ title: next ? "Чат закреплён" : "Чат откреплён" }),
+                    });
+                  },
+                },
+                {
+                  icon: isMuted ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />,
+                  label: isMuted ? "Включить уведомления" : "Отключить уведомления",
+                  fn: () => {
+                    const next = !isMuted;
+                    setIsMuted(next);
+                    memberSettingsMutation.mutate({ id: chatId, data: { mutedUntil: next ? "2999-01-01T00:00:00.000Z" : null } }, {
+                      onSuccess: () => toast({ title: next ? "Уведомления отключены" : "Уведомления включены" }),
+                    });
+                  },
+                },
+                {
+                  icon: <Archive className="h-4 w-4" />,
+                  label: "Архивировать чат",
+                  fn: () => {
+                    memberSettingsMutation.mutate({ id: chatId, data: { isArchived: true } }, {
+                      onSuccess: () => { toast({ title: "Чат перемещён в архив" }); navigate("/chats"); },
+                      onError: () => toast({ title: "Ошибка", variant: "destructive" }),
+                    });
+                  },
+                },
+              ].map(({ icon, label, fn }) => (
+                <button
+                  key={label}
+                  onClick={() => { fn(); setShowActionsMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-[15px] hover:bg-muted/50 text-left text-foreground"
+                >
+                  {icon}
+                  {label}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* ── Messages ── */}
       <div
         ref={scrollRef}
         onClick={() => { setShowMenu(false); setShowEmoji(false); }}
-        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5"
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5 relative"
         style={{
           backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--border)/0.3) 1px, transparent 0)",
           backgroundSize: "32px 32px"
@@ -411,7 +548,36 @@ export function ChatWindow() {
                         </div>
                       )}
 
-                      <p className="break-words whitespace-pre-wrap pr-14">{msg.encryptedContent}</p>
+                      {/* Forwarded label */}
+                      {msg.forwardedFromId && (
+                        <div className={cn("flex items-center gap-1 text-[12px] font-medium mb-1", isSelf ? "text-white/80" : "text-primary")}>
+                          <Forward className="h-3.5 w-3.5" />
+                          Переслано
+                        </div>
+                      )}
+
+                      {/* Quoted reply block */}
+                      {msg.replyToId && (() => {
+                        const quoted = findMsgById(msg.replyToId);
+                        return (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); scrollToMsg(msg.replyToId); }}
+                            className={cn(
+                              "flex flex-col w-full text-left mb-1.5 pl-2 py-1 rounded border-l-2",
+                              isSelf ? "border-white/50 bg-white/10" : "border-primary bg-muted/60"
+                            )}
+                          >
+                            <span className={cn("text-[12px] font-semibold", isSelf ? "text-white/90" : "text-primary")}>
+                              {quoted ? (quoted.senderUsername || `User ${quoted.senderId}`) : "Сообщение"}
+                            </span>
+                            <span className={cn("text-[12.5px] truncate", isSelf ? "text-white/70" : "text-muted-foreground")}>
+                              {quoted ? quoted.encryptedContent : "недоступно"}
+                            </span>
+                          </button>
+                        );
+                      })()}
+
+                      <p id={`msg-${msg.id}`} className="break-words whitespace-pre-wrap pr-14 scroll-mt-20">{msg.encryptedContent}</p>
 
                       {/* Edited mark */}
                       {msg.isEdited && (
@@ -476,6 +642,21 @@ export function ChatWindow() {
         </AnimatePresence>
       </div>
 
+      {/* ── Scroll-to-bottom FAB ── */}
+      <AnimatePresence>
+        {showScrollDown && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 8 }}
+            onClick={scrollToBottom}
+            className="absolute bottom-24 right-4 h-10 w-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-foreground hover:bg-muted z-30"
+          >
+            <ChevronDown className="h-5 w-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       {/* ── Context menu ── */}
       <AnimatePresence>
         {showMenu && selectedMsg && (
@@ -531,7 +712,7 @@ export function ChatWindow() {
             >
               <div className="flex-1 bg-muted rounded-xl px-3 py-1.5 border-l-4 border-primary">
                 <div className="text-[12px] text-primary font-semibold">
-                  {replyTo.isSelf ? "Вы" : `User ${replyTo.senderId}`}
+                  {replyTo.isSelf ? "Вы" : (replyTo.senderUsername || `User ${replyTo.senderId}`)}
                 </div>
                 <div className="text-[13px] text-muted-foreground truncate">{replyTo.encryptedContent}</div>
               </div>
@@ -557,20 +738,60 @@ export function ChatWindow() {
           )}
         </AnimatePresence>
 
+        {/* Attach bottom sheet */}
+        <AnimatePresence>
+          {showAttach && (
+            <>
+              <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setShowAttach(false)} />
+              <motion.div
+                initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+                transition={{ type: "tween", duration: 0.2 }}
+                className="fixed z-50 bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border p-4"
+                style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
+              >
+                <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4" />
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => { setShowAttach(false); photoRef.current?.click(); }}
+                    className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted hover:bg-muted/70"
+                  >
+                    <ImageIcon className="h-6 w-6 text-primary" />
+                    <span className="text-[13px] text-foreground">Фото / Видео</span>
+                  </button>
+                  <button
+                    onClick={() => { setShowAttach(false); fileRef.current?.click(); }}
+                    className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted hover:bg-muted/70"
+                  >
+                    <FileIcon className="h-6 w-6 text-primary" />
+                    <span className="text-[13px] text-foreground">Файл</span>
+                  </button>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
         <form onSubmit={handleSend} className="flex items-center gap-2 px-2 py-2">
           {/* Attachment */}
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => setShowAttach(v => !v)}
             className="h-9 w-9 flex items-center justify-center text-primary rounded-full hover:bg-muted shrink-0"
           >
             <Paperclip className="h-5 w-5" />
           </button>
           <input
+            ref={photoRef}
+            type="file"
+            className="hidden"
+            accept="image/*,video/*"
+            onChange={handleFileSelect}
+          />
+          <input
             ref={fileRef}
             type="file"
             className="hidden"
-            accept="image/*,video/*,audio/*,.pdf,.zip,.doc,.docx"
+            accept="*/*"
             onChange={handleFileSelect}
           />
 
