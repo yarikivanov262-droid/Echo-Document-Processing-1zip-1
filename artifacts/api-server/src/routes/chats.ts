@@ -18,6 +18,9 @@ import {
   RemoveChatMemberParams,
   RemoveChatMemberResponse,
   GetChatStatsResponse,
+  UpdateChatMemberSettingsParams,
+  UpdateChatMemberSettingsBody,
+  UpdateChatMemberSettingsResponse,
 } from "@workspace/api-zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 
@@ -31,6 +34,10 @@ router.get("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promis
       title: chatsTable.title,
       avatarFileId: chatsTable.avatarFileId,
       creatorId: chatsTable.creatorId,
+      isPinned: chatMembersTable.isPinned,
+      isArchived: chatMembersTable.isArchived,
+      mutedUntil: chatMembersTable.mutedUntil,
+      draftText: chatMembersTable.draftText,
     })
     .from(chatMembersTable)
     .innerJoin(chatsTable, eq(chatMembersTable.chatId, chatsTable.id))
@@ -39,7 +46,12 @@ router.get("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promis
   const result = await Promise.all(
     userChats.map(async (chat) => {
       const [lastMsg] = await db
-        .select({ encryptedContent: messagesTable.encryptedContent, timestamp: messagesTable.timestamp })
+        .select({
+          encryptedContent: messagesTable.encryptedContent,
+          timestamp: messagesTable.timestamp,
+          mediaType: messagesTable.mediaType,
+          senderId: messagesTable.senderId,
+        })
         .from(messagesTable)
         .where(and(eq(messagesTable.chatId, chat.id), eq(messagesTable.isDeleted, false)))
         .orderBy(desc(messagesTable.timestamp))
@@ -62,22 +74,83 @@ router.get("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promis
           )
         );
 
+      let otherUserId: number | null = null;
+      let isOnline = false;
+      let title = chat.title;
+      let avatarFileId = chat.avatarFileId ?? null;
+
+      if (chat.type === 1) {
+        const [otherMember] = await db
+          .select({ userId: chatMembersTable.userId })
+          .from(chatMembersTable)
+          .where(and(eq(chatMembersTable.chatId, chat.id), ne(chatMembersTable.userId, req.userId!)))
+          .limit(1);
+
+        if (otherMember) {
+          otherUserId = otherMember.userId;
+          const [otherUser] = await db
+            .select({ username: usersTable.username, displayName: usersTable.displayName, avatarFileId: usersTable.avatarFileId, isOnline: usersTable.isOnline })
+            .from(usersTable)
+            .where(eq(usersTable.id, otherMember.userId));
+          if (otherUser) {
+            isOnline = otherUser.isOnline;
+            title = otherUser.displayName || otherUser.username;
+            avatarFileId = otherUser.avatarFileId ?? avatarFileId;
+          }
+        }
+      }
+
       return {
         id: chat.id,
         type: chat.type,
-        title: chat.title,
-        avatarFileId: chat.avatarFileId ?? null,
+        title,
+        avatarFileId,
         lastMessage: lastMsg?.encryptedContent ?? null,
         lastMessageAt: lastMsg?.timestamp?.toISOString() ?? null,
+        lastMessageMediaType: lastMsg?.mediaType ?? null,
+        lastMessageSenderId: lastMsg?.senderId ?? null,
         unreadCount: Number(unreadData?.count ?? 0),
-        isPinned: false,
+        isPinned: chat.isPinned,
+        isArchived: chat.isArchived,
+        mutedUntil: chat.mutedUntil?.toISOString() ?? null,
+        draftText: chat.draftText ?? null,
         memberCount: Number(memberCount?.count ?? 0),
         isSecret: false,
+        otherUserId,
+        isOnline,
       };
     })
   );
 
   res.json(GetChatsResponse.parse(result));
+});
+
+router.patch("/chats/:id/member-settings", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const params = UpdateChatMemberSettingsParams.safeParse({ id: parseInt(rawId, 10) });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const parsed = UpdateChatMemberSettingsBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.isPinned !== undefined) updates.isPinned = parsed.data.isPinned;
+  if (parsed.data.isArchived !== undefined) updates.isArchived = parsed.data.isArchived;
+  if (parsed.data.mutedUntil !== undefined) updates.mutedUntil = parsed.data.mutedUntil ? new Date(parsed.data.mutedUntil) : null;
+  if (parsed.data.draftText !== undefined) updates.draftText = parsed.data.draftText;
+
+  await db
+    .update(chatMembersTable)
+    .set(updates)
+    .where(and(eq(chatMembersTable.chatId, params.data.id), eq(chatMembersTable.userId, req.userId!)));
+
+  res.json(UpdateChatMemberSettingsResponse.parse({ success: true }));
 });
 
 router.post("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {

@@ -28,8 +28,12 @@ import type {
   BackupInput,
   BlockedUser,
   Chat,
+  ChatFolder,
+  ChatFolderInput,
+  ChatFolderUpdate,
   ChatInput,
   ChatMember,
+  ChatMemberSettingsInput,
   ChatStats,
   ChatSummary,
   ChatUpdate,
@@ -1701,6 +1705,77 @@ export const useRemoveChatMember = <TError = ErrorType<unknown>,
       return useMutation(getRemoveChatMemberMutationOptions(options));
     }
 
+export const getUpdateChatMemberSettingsUrl = (id: number,) => {
+
+
+
+
+  return `/api/chats/${id}/member-settings`
+}
+
+/**
+ * @summary Update my per-chat settings (pin, archive, mute, draft)
+ */
+export const updateChatMemberSettings = async (id: number,
+    chatMemberSettingsInput: ChatMemberSettingsInput, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getUpdateChatMemberSettingsUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chatMemberSettingsInput)
+  }
+);}
+
+
+
+
+export const getUpdateChatMemberSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateChatMemberSettings>>, TError,{id: number;data: BodyType<ChatMemberSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateChatMemberSettings>>, TError,{id: number;data: BodyType<ChatMemberSettingsInput>}, TContext> => {
+
+const mutationKey = ['updateChatMemberSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateChatMemberSettings>>, {id: number;data: BodyType<ChatMemberSettingsInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateChatMemberSettings(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateChatMemberSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateChatMemberSettings>>>
+    export type UpdateChatMemberSettingsMutationBody = BodyType<ChatMemberSettingsInput>
+    export type UpdateChatMemberSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update my per-chat settings (pin, archive, mute, draft)
+ */
+export const useUpdateChatMemberSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateChatMemberSettings>>, TError,{id: number;data: BodyType<ChatMemberSettingsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateChatMemberSettings>>,
+        TError,
+        {id: number;data: BodyType<ChatMemberSettingsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateChatMemberSettingsMutationOptions(options));
+    }
+
 export const getGetChatStatsUrl = () => {
 
 
@@ -3164,5 +3239,293 @@ export const useUninstallStickerPack = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUninstallStickerPackMutationOptions(options));
+    }
+
+export const getGetFoldersUrl = () => {
+
+
+
+
+  return `/api/folders`
+}
+
+/**
+ * @summary List my chat folders
+ */
+export const getFolders = async ( options?: RequestInit): Promise<ChatFolder[]> => {
+
+  return customFetch<ChatFolder[]>(getGetFoldersUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFoldersQueryKey = () => {
+    return [
+    `/api/folders`
+    ] as const;
+    }
+
+
+export const getGetFoldersQueryOptions = <TData = Awaited<ReturnType<typeof getFolders>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFolders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFoldersQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFolders>>> = ({ signal }) => getFolders({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFolders>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFoldersQueryResult = NonNullable<Awaited<ReturnType<typeof getFolders>>>
+export type GetFoldersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List my chat folders
+ */
+
+export function useGetFolders<TData = Awaited<ReturnType<typeof getFolders>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFolders>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFoldersQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateFolderUrl = () => {
+
+
+
+
+  return `/api/folders`
+}
+
+/**
+ * @summary Create a chat folder
+ */
+export const createFolder = async (chatFolderInput: ChatFolderInput, options?: RequestInit): Promise<ChatFolder> => {
+
+  return customFetch<ChatFolder>(getCreateFolderUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chatFolderInput)
+  }
+);}
+
+
+
+
+export const getCreateFolderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFolder>>, TError,{data: BodyType<ChatFolderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createFolder>>, TError,{data: BodyType<ChatFolderInput>}, TContext> => {
+
+const mutationKey = ['createFolder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createFolder>>, {data: BodyType<ChatFolderInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createFolder(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateFolderMutationResult = NonNullable<Awaited<ReturnType<typeof createFolder>>>
+    export type CreateFolderMutationBody = BodyType<ChatFolderInput>
+    export type CreateFolderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a chat folder
+ */
+export const useCreateFolder = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createFolder>>, TError,{data: BodyType<ChatFolderInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createFolder>>,
+        TError,
+        {data: BodyType<ChatFolderInput>},
+        TContext
+      > => {
+      return useMutation(getCreateFolderMutationOptions(options));
+    }
+
+export const getPatchFolderUrl = (id: number,) => {
+
+
+
+
+  return `/api/folders/${id}`
+}
+
+/**
+ * @summary Update a chat folder
+ */
+export const patchFolder = async (id: number,
+    chatFolderUpdate: ChatFolderUpdate, options?: RequestInit): Promise<ChatFolder> => {
+
+  return customFetch<ChatFolder>(getPatchFolderUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(chatFolderUpdate)
+  }
+);}
+
+
+
+
+export const getPatchFolderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchFolder>>, TError,{id: number;data: BodyType<ChatFolderUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof patchFolder>>, TError,{id: number;data: BodyType<ChatFolderUpdate>}, TContext> => {
+
+const mutationKey = ['patchFolder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof patchFolder>>, {id: number;data: BodyType<ChatFolderUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  patchFolder(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PatchFolderMutationResult = NonNullable<Awaited<ReturnType<typeof patchFolder>>>
+    export type PatchFolderMutationBody = BodyType<ChatFolderUpdate>
+    export type PatchFolderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a chat folder
+ */
+export const usePatchFolder = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof patchFolder>>, TError,{id: number;data: BodyType<ChatFolderUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof patchFolder>>,
+        TError,
+        {id: number;data: BodyType<ChatFolderUpdate>},
+        TContext
+      > => {
+      return useMutation(getPatchFolderMutationOptions(options));
+    }
+
+export const getDeleteFolderUrl = (id: number,) => {
+
+
+
+
+  return `/api/folders/${id}`
+}
+
+/**
+ * @summary Delete a chat folder
+ */
+export const deleteFolder = async (id: number, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getDeleteFolderUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteFolderMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFolder>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteFolder>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteFolder'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteFolder>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteFolder(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteFolderMutationResult = NonNullable<Awaited<ReturnType<typeof deleteFolder>>>
+
+    export type DeleteFolderMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a chat folder
+ */
+export const useDeleteFolder = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteFolder>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteFolder>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteFolderMutationOptions(options));
     }
 

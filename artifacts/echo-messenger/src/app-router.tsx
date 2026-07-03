@@ -62,6 +62,19 @@ export function AppRouter() {
         </ProtectedLayout>
       </Route>
 
+      <Route path="/chats/archived">
+        <ProtectedLayout>
+          <ChatSplit right={
+            <div className="hidden md:flex flex-1 h-full items-center justify-center bg-background">
+              <div className="text-center text-muted-foreground">
+                <div className="text-5xl mb-3">🗄️</div>
+                <div className="text-[15px]">Выберите чат</div>
+              </div>
+            </div>
+          } />
+        </ProtectedLayout>
+      </Route>
+
       <Route path="/chat/new">
         <ProtectedLayout>
           <ChatSplit right={<NewChat />} />

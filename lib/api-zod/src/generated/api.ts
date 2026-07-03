@@ -305,10 +305,17 @@ export const GetChatsResponseItem = zod.object({
   "avatarFileId": zod.string().nullish(),
   "lastMessage": zod.string().nullish(),
   "lastMessageAt": zod.string().nullish(),
+  "lastMessageMediaType": zod.string().nullish(),
+  "lastMessageSenderId": zod.number().nullish(),
   "unreadCount": zod.number(),
   "isPinned": zod.boolean(),
+  "isArchived": zod.boolean(),
+  "mutedUntil": zod.string().nullish(),
+  "draftText": zod.string().nullish(),
   "memberCount": zod.number(),
-  "isSecret": zod.boolean()
+  "isSecret": zod.boolean(),
+  "otherUserId": zod.number().nullish(),
+  "isOnline": zod.boolean()
 })
 export const GetChatsResponse = zod.array(GetChatsResponseItem)
 
@@ -430,6 +437,26 @@ export const RemoveChatMemberParams = zod.object({
 })
 
 export const RemoveChatMemberResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Update my per-chat settings (pin, archive, mute, draft)
+ */
+export const UpdateChatMemberSettingsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateChatMemberSettingsBody = zod.object({
+  "isPinned": zod.boolean().optional(),
+  "isArchived": zod.boolean().optional(),
+  "mutedUntil": zod.string().nullish(),
+  "draftText": zod.string().nullish()
+})
+
+export const UpdateChatMemberSettingsResponse = zod.object({
   "success": zod.boolean(),
   "message": zod.string().optional()
 })
@@ -719,6 +746,74 @@ export const UninstallStickerPackParams = zod.object({
 })
 
 export const UninstallStickerPackResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary List my chat folders
+ */
+export const GetFoldersResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string().nullish(),
+  "chatIds": zod.array(zod.number()),
+  "position": zod.number()
+})
+export const GetFoldersResponse = zod.array(GetFoldersResponseItem)
+
+
+/**
+ * @summary Create a chat folder
+ */
+export const CreateFolderBody = zod.object({
+  "name": zod.string(),
+  "emoji": zod.string().optional(),
+  "chatIds": zod.array(zod.number()),
+  "position": zod.number().optional()
+})
+
+export const CreateFolderResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string().nullish(),
+  "chatIds": zod.array(zod.number()),
+  "position": zod.number()
+})
+
+
+/**
+ * @summary Update a chat folder
+ */
+export const PatchFolderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PatchFolderBody = zod.object({
+  "name": zod.string().optional(),
+  "emoji": zod.string().nullish(),
+  "chatIds": zod.array(zod.number()).optional(),
+  "position": zod.number().optional()
+})
+
+export const PatchFolderResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "emoji": zod.string().nullish(),
+  "chatIds": zod.array(zod.number()),
+  "position": zod.number()
+})
+
+
+/**
+ * @summary Delete a chat folder
+ */
+export const DeleteFolderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteFolderResponse = zod.object({
   "success": zod.boolean(),
   "message": zod.string().optional()
 })

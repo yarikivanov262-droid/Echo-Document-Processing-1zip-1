@@ -25,6 +25,8 @@ tags:
     description: Contact and block-list operations
   - name: stickers
     description: Sticker pack operations
+  - name: folders
+    description: Chat folder operations
 paths:
   /healthz:
     get:
@@ -462,6 +464,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /chats/{id}/member-settings:
+    patch:
+      operationId: updateChatMemberSettings
+      tags: [chats]
+      summary: Update my per-chat settings (pin, archive, mute, draft)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatMemberSettingsInput"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
   /chats/stats:
     get:
       operationId: getChatStats
@@ -816,6 +843,80 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /folders:
+    get:
+      operationId: getFolders
+      tags: [folders]
+      summary: List my chat folders
+      responses:
+        "200":
+          description: Folders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatFolder"
+    post:
+      operationId: createFolder
+      tags: [folders]
+      summary: Create a chat folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatFolderInput"
+      responses:
+        "201":
+          description: Folder created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFolder"
+
+  /folders/{id}:
+    patch:
+      operationId: patchFolder
+      tags: [folders]
+      summary: Update a chat folder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatFolderUpdate"
+      responses:
+        "200":
+          description: Folder updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatFolder"
+    delete:
+      operationId: deleteFolder
+      tags: [folders]
+      summary: Delete a chat folder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Folder deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1063,15 +1164,87 @@ components:
           type: ["string", "null"]
         lastMessageAt:
           type: ["string", "null"]
+        lastMessageMediaType:
+          type: ["string", "null"]
+        lastMessageSenderId:
+          type: ["integer", "null"]
         unreadCount:
           type: integer
         isPinned:
           type: boolean
+        isArchived:
+          type: boolean
+        mutedUntil:
+          type: ["string", "null"]
+        draftText:
+          type: ["string", "null"]
         memberCount:
           type: integer
         isSecret:
           type: boolean
-      required: [id, type, title, unreadCount, isPinned, memberCount, isSecret]
+        otherUserId:
+          type: ["integer", "null"]
+        isOnline:
+          type: boolean
+      required: [id, type, title, unreadCount, isPinned, isArchived, memberCount, isSecret, isOnline]
+
+    ChatMemberSettingsInput:
+      type: object
+      properties:
+        isPinned:
+          type: boolean
+        isArchived:
+          type: boolean
+        mutedUntil:
+          type: ["string", "null"]
+        draftText:
+          type: ["string", "null"]
+
+    ChatFolder:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        emoji:
+          type: ["string", "null"]
+        chatIds:
+          type: array
+          items:
+            type: integer
+        position:
+          type: integer
+      required: [id, name, chatIds, position]
+
+    ChatFolderInput:
+      type: object
+      properties:
+        name:
+          type: string
+        emoji:
+          type: string
+        chatIds:
+          type: array
+          items:
+            type: integer
+        position:
+          type: integer
+      required: [name, chatIds]
+
+    ChatFolderUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        emoji:
+          type: ["string", "null"]
+        chatIds:
+          type: array
+          items:
+            type: integer
+        position:
+          type: integer
 
     Chat:
       type: object

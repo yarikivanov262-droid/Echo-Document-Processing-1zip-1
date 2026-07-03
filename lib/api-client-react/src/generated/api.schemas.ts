@@ -154,10 +154,55 @@ export interface ChatSummary {
   lastMessage?: string | null;
   /** @nullable */
   lastMessageAt?: string | null;
+  /** @nullable */
+  lastMessageMediaType?: string | null;
+  /** @nullable */
+  lastMessageSenderId?: number | null;
   unreadCount: number;
   isPinned: boolean;
+  isArchived: boolean;
+  /** @nullable */
+  mutedUntil?: string | null;
+  /** @nullable */
+  draftText?: string | null;
   memberCount: number;
   isSecret: boolean;
+  /** @nullable */
+  otherUserId?: number | null;
+  isOnline: boolean;
+}
+
+export interface ChatMemberSettingsInput {
+  isPinned?: boolean;
+  isArchived?: boolean;
+  /** @nullable */
+  mutedUntil?: string | null;
+  /** @nullable */
+  draftText?: string | null;
+}
+
+export interface ChatFolder {
+  id: number;
+  name: string;
+  /** @nullable */
+  emoji?: string | null;
+  chatIds: number[];
+  position: number;
+}
+
+export interface ChatFolderInput {
+  name: string;
+  emoji?: string;
+  chatIds: number[];
+  position?: number;
+}
+
+export interface ChatFolderUpdate {
+  name?: string;
+  /** @nullable */
+  emoji?: string | null;
+  chatIds?: number[];
+  position?: number;
 }
 
 export type ChatSettings = { [key: string]: unknown };
