@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "vF6xD0UyLj89asdcb5O_C"
+uri = "file://ТЕХ ПРОЕКТ ECHO.txt"
+type = "text"
+title = "ТЕХ ПРОЕКТ ECHO — Полное ТЗ"

@@ -1,0 +1,1299 @@
+================================================================================
+                    ECHO MESSENGER — ПОЛНЫЙ ТЕХНИЧЕСКИЙ ПРОЕКТ
+                    Веб-мессенджер уровня Telegram. Версия 1.0
+================================================================================
+
+СТЕК: Node.js 24 + Express 5 + PostgreSQL + Drizzle ORM + React 18 + Vite +
+      Tailwind CSS + Framer Motion + Wouter + TanStack Query + WebSocket (ws)
+      Монорепо: pnpm workspaces
+
+СТРУКТУРА ПРОЕКТА:
+  artifacts/api-server/   — Express backend (порт 8080)
+  artifacts/echo-messenger/ — React PWA frontend (порт 5000)
+  lib/db/                 — Drizzle ORM схема и клиент
+  lib/api-spec/           — OpenAPI yaml + Orval codegen
+  lib/api-client-react/   — Сгенерированные TanStack Query хуки
+  lib/api-zod/            — Сгенерированные Zod-схемы
+
+ВАЖНО ДЛЯ ИИ-РАЗРАБОТЧИКА:
+  - После изменения openapi.yaml → запускать: pnpm --filter @workspace/api-spec run codegen
+  - После изменения lib/db/src/schema/ → запускать: pnpm --filter @workspace/db run push
+  - Frontend использует Vite proxy: /api/* → localhost:8080 (настроено в vite.config.ts)
+  - Все API-хуки генерируются Orval из OpenAPI, НЕ ПИСАТЬ вручную
+  - setAuthTokenGetter импортируется только из @workspace/api-client-react
+  - WebSocket подключается через /ws?token=SESSION_TOKEN (порт 8080)
+  - Сообщения хранятся в поле encryptedContent (сервер не знает содержимое)
+  - Аватары хранятся как base64 в таблице files, fileId — UUID string
+  - Bearer-токен хранится в localStorage под ключом echo_session_token
+
+================================================================================
+                           ТЕКУЩЕЕ СОСТОЯНИЕ ПРОЕКТА
+================================================================================
+
+ЧТО РАБОТАЕТ ПОЛНОСТЬЮ:
+  ✅ Регистрация (username + seed phrase, POST /api/register)
+  ✅ Вход (POST /api/login)
+  ✅ Восстановление аккаунта по seed (POST /api/restore)
+  ✅ Удаление аккаунта (POST /api/delete-account)
+  ✅ Сессии: список и завершение (GET/DELETE /api/sessions)
+  ✅ Создание чатов любого типа (POST /api/chats)
+  ✅ Список чатов с последним сообщением и непрочитанными (GET /api/chats)
+  ✅ Отправка/получение сообщений (GET/POST /api/messages)
+  ✅ Удаление сообщений (soft-delete, DELETE /api/messages/:id)
+  ✅ Редактирование сообщений (PATCH /api/messages/:id/edit)
+  ✅ Реакции на сообщения (POST /api/messages/:id/react)
+  ✅ Пометка прочитанным (POST /api/messages/:id/read)
+  ✅ WebSocket: new_message, delete_message, edit_message, read_ack, reaction
+  ✅ Загрузка файлов как base64 в БД (POST /api/files/upload)
+  ✅ Резервные копии (POST /api/backup/upload, GET /api/backup/latest)
+  ✅ Управление участниками чата (GET/POST/DELETE /api/chats/:id/members)
+  ✅ Поиск пользователя по username (GET /api/users/:username)
+  ✅ ChatWindow: отображение, отправка, ответ на сообщение (UI), реакции (UI)
+  ✅ ChatList: реальные данные из API, счётчик непрочитанных
+
+ЧТО ЕСТЬ НО СЛОМАНО / ЗАГЛУШКИ:
+  ❌ Звонки (calls.tsx) — ПОЛНОСТЬЮ ФЕЙКОВЫЕ данные (захардкоженный массив)
+  ❌ Контакты (contacts.tsx) — mockContacts массив (нет таблицы contacts в БД)
+  ❌ Стикеры (sticker-packs.tsx) — только UI, состояние теряется при перезагрузке
+  ❌ Прикрепление файлов в чате — показывает toast "скоро", файл не отправляется
+  ❌ Голосовые сообщения — кнопка есть, запись не работает
+  ❌ Typing indicator — таймер есть, WS-событие не отправляется
+  ❌ Удаление сообщения из UI — toast показывается, API не вызывается
+  ❌ Пересылка сообщений — только toast, логики нет
+  ❌ Закрепление сообщений — только toast, в БД не сохраняется
+  ❌ Имена отправителей в группах — показывает "User 123" вместо username
+  ❌ Online-статус — хардкод "в сети" для всех
+  ❌ Секретные чаты — показывает обычные чаты, не фильтрует тип
+  ❌ Журнал активности — полностью захардкоженные данные
+  ❌ Настройки (notifications, appearance, privacy, language) — UI без логики
+  ❌ Профиль пользователя — нет редактирования bio, смены аватара
+  ❌ Поиск по чату — только toast
+  ❌ Список звонков (call screen) — UI без WebRTC, автоматически "завершается"
+  ❌ Избранное — пустая страница-заглушка
+  ❌ Создание канала — нет отдельного UI для управления каналом
+  ❌ Папки чатов (Folders) — отсутствует
+
+ЧТО ПОЛНОСТЬЮ ОТСУТСТВУЕТ:
+  ❌ Таблица contacts в БД
+  ❌ Таблица call_logs в БД
+  ❌ Таблица pinned_messages в БД
+  ❌ Таблица user_settings в БД (или использовать jsonb в users)
+  ❌ Таблица chat_folders в БД
+  ❌ Таблица sticker_packs_installed в БД (схема есть, но таблица не используется)
+  ❌ Online-статус пользователей (WS broadcast при connect/disconnect)
+  ❌ Typing indicator WS-события (клиент→сервер→участники чата)
+  ❌ Реальная загрузка и отображение файлов в чате
+  ❌ Голосовые сообщения (MediaRecorder API + upload + playback)
+  ❌ WebRTC звонки (signaling через WS + peer connection)
+  ❌ PWA Service Worker + Web Push Notifications
+  ❌ Сквозное шифрование (реальное, с webcrypto API)
+  ❌ Поиск по сообщениям внутри чата (API + UI)
+  ❌ Полнотекстовый глобальный поиск (чаты + сообщения + пользователи)
+  ❌ Пагинация сообщений (прокрутка вверх для загрузки старых)
+  ❌ Папки/категории чатов
+  ❌ Мут чата (сохранение в БД)
+  ❌ Закрепление чата в списке (isPinned в БД)
+  ❌ Редактирование профиля (bio, имя, аватар — upload через API)
+  ❌ Управление каналом (только admin постит, subscribers read-only)
+  ❌ Invite-ссылки для групп/каналов
+  ❌ Scheduled messages (запланированные)
+  ❌ Само-уничтожающиеся сообщения (deleteAfterSeconds — поле есть, таймер нет)
+  ❌ Черновики (draft сообщения сохраняется при уходе из чата)
+  ❌ Переход к конкретному сообщению (при ответе — скролл)
+  ❌ Выбор нескольких сообщений (множественное удаление/пересылка)
+  ❌ Бот-аккаунты / webhook-интеграции
+
+================================================================================
+                         ЭТАПЫ РАЗРАБОТКИ (STAGE PLAN)
+================================================================================
+
+Каждый этап — самодостаточная единица работы. ИИ выполняет этапы последовательно.
+Порядок строгий: каждый следующий этап зависит от предыдущего.
+
+================================================================================
+ЭТАП 1: ИСПРАВЛЕНИЕ КРИТИЧЕСКИХ БАГОВ ЧАТА
+================================================================================
+Цель: Чат должен работать корректно — отображать имена, удалять, пересылать.
+Файлы для изменения:
+  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+
+ЗАДАЧА 1.1 — Имена отправителей в групповых чатах
+  ПРОБЛЕМА: В группах показывается "User 123" вместо реального имени.
+  РЕШЕНИЕ: Поле senderUsername уже возвращается из GET /api/messages.
+    В типе MsgItem добавить поле: senderUsername?: string
+    В enriched.map() прокинуть: senderUsername: m.senderUsername ?? ""
+    В рендере группового чата заменить:
+      <div className="text-[12px] font-semibold text-primary mb-0.5">User {msg.senderId}</div>
+    на:
+      <div className="text-[12px] font-semibold text-primary mb-0.5">{msg.senderUsername || `User ${msg.senderId}`}</div>
+
+ЗАДАЧА 1.2 — Реальное удаление сообщения через API
+  ПРОБЛЕМА: deleteMsg() только показывает toast, не вызывает API.
+  РЕШЕНИЕ:
+    1. Добавить хук: const deleteMessageMutation = useDeleteMessage()
+       (хук useDeleteMessage уже сгенерирован Orval)
+    2. В deleteMsg() заменить toast на:
+       if (!selectedMsg) return;
+       deleteMessageMutation.mutate({ id: selectedMsg.id }, {
+         onSuccess: () => {
+           void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+           toast({ title: "Сообщение удалено" });
+         },
+         onError: () => toast({ title: "Ошибка удаления", variant: "destructive" })
+       });
+       setShowMenu(false);
+
+ЗАДАЧА 1.3 — Реакции через API (не toast)
+  ПРОБЛЕМА: При выборе реакции показывается toast, API не вызывается.
+  РЕШЕНИЕ:
+    1. Добавить хук: const reactMutation = useReactToMessage()
+    2. В onClick эмодзи в EMOJI_QUICK.slice(0,6):
+       reactMutation.mutate({ id: selectedMsg!.id, data: { emoji: e } }, {
+         onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey })
+       });
+       setShowMenu(false);
+
+ЗАДАЧА 1.4 — Реальная пересылка сообщений
+  ПРОБЛЕМА: Кнопка "Переслать" показывает toast.
+  РЕШЕНИЕ:
+    1. Добавить состояние: const [forwardMsg, setForwardMsg] = useState<MsgItem | null>(null)
+    2. При клике "Переслать" — открывать модальное окно выбора чата из useGetChats()
+    3. При выборе чата — вызвать useSendMessage() с:
+       { chatId: selectedChatId, chatType: targetChat.type, encryptedContent: forwardMsg.encryptedContent }
+       и в API добавить forwardedFromId: forwardMsg.id
+    4. Модальное окно: список чатов из API, поиск по названию, кнопка "Переслать"
+
+ЗАДАЧА 1.5 — Typing indicator (исходящий WS-сигнал)
+  ПРОБЛЕМА: handleTextChange() запускает таймер, но WS-событие не отправляется.
+  РЕШЕНИЕ:
+    1. Получить WS-клиент: import { echoWs } from "@/lib/ws-client"
+    2. В handleTextChange(), до setTimeout, добавить отправку:
+       echoWs.send(JSON.stringify({ type: "typing", chatId, isTyping: true, username: currentUsername }))
+    3. В setTimeout callback — отправить isTyping: false
+    4. На backend в ws-hub.ts обработать входящие "typing" события и broadcast их другим участникам чата
+       (getChatMemberIds(chatId) → broadcastToChat)
+
+ЗАДАЧА 1.6 — Скролл к сообщению при ответе
+  ПРОБЛЕМА: При клике на reply-preview не происходит скролл к оригиналу.
+  РЕШЕНИЕ:
+    1. Добавить ref-ы к сообщениям: msgRefs.current[msg.id] = el
+    2. В reply-preview добавить onClick={() => msgRefs.current[replyTo.replyToId]?.scrollIntoView({ behavior: "smooth" })}
+
+================================================================================
+ЭТАП 2: БАЗА ДАННЫХ — НОВЫЕ ТАБЛИЦЫ
+================================================================================
+Цель: Добавить отсутствующие таблицы для всех новых функций.
+Файлы для изменения:
+  - lib/db/src/schema/contacts.ts (новый файл)
+  - lib/db/src/schema/call-logs.ts (новый файл)
+  - lib/db/src/schema/pinned-messages.ts (новый файл)
+  - lib/db/src/schema/chat-folders.ts (новый файл)
+  - lib/db/src/schema/index.ts (добавить экспорты)
+  - lib/db/src/schema/chats.ts (добавить поля isPinned, isMuted, muteUntil)
+  - lib/db/src/schema/users.ts (добавить поля bio, lastOnline)
+  - lib/db/src/schema/messages.ts (добавить поля pinnedAt)
+После изменений → pnpm --filter @workspace/db run push
+
+НОВАЯ ТАБЛИЦА: contacts
+  CREATE TABLE contacts (
+    id          BIGSERIAL PRIMARY KEY,
+    owner_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    contact_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    nickname    VARCHAR(64),            -- локальное имя
+    added_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    UNIQUE(owner_id, contact_id)
+  );
+
+  Drizzle-определение в lib/db/src/schema/contacts.ts:
+  import { pgTable, bigserial, bigint, varchar, timestamp, unique } from "drizzle-orm/pg-core";
+  export const contactsTable = pgTable("contacts", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    ownerId: bigint("owner_id", { mode: "number" }).notNull(),
+    contactId: bigint("contact_id", { mode: "number" }).notNull(),
+    nickname: varchar("nickname", { length: 64 }),
+    addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
+  }, (t) => ({ uniq: unique().on(t.ownerId, t.contactId) }));
+
+НОВАЯ ТАБЛИЦА: call_logs
+  Drizzle-определение в lib/db/src/schema/call-logs.ts:
+  import { pgTable, bigserial, bigint, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+  export const callLogsTable = pgTable("call_logs", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    callerId: bigint("caller_id", { mode: "number" }).notNull(),
+    calleeId: bigint("callee_id", { mode: "number" }).notNull(),
+    chatId: bigint("chat_id", { mode: "number" }),
+    type: varchar("type", { length: 16 }).notNull().default("voice"), -- "voice" | "video"
+    status: varchar("status", { length: 16 }).notNull().default("missed"), -- "missed" | "completed" | "declined"
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    durationSeconds: integer("duration_seconds"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
+
+НОВАЯ ТАБЛИЦА: pinned_messages
+  Drizzle-определение в lib/db/src/schema/pinned-messages.ts:
+  import { pgTable, bigserial, bigint, timestamp } from "drizzle-orm/pg-core";
+  export const pinnedMessagesTable = pgTable("pinned_messages", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    chatId: bigint("chat_id", { mode: "number" }).notNull(),
+    messageId: bigint("message_id", { mode: "number" }).notNull(),
+    pinnedBy: bigint("pinned_by", { mode: "number" }).notNull(),
+    pinnedAt: timestamp("pinned_at", { withTimezone: true }).defaultNow().notNull(),
+  });
+
+НОВАЯ ТАБЛИЦА: chat_folders
+  Drizzle-определение в lib/db/src/schema/chat-folders.ts:
+  import { pgTable, bigserial, bigint, varchar, jsonb, integer, timestamp } from "drizzle-orm/pg-core";
+  export const chatFoldersTable = pgTable("chat_folders", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    name: varchar("name", { length: 64 }).notNull(),
+    emoji: varchar("emoji", { length: 8 }).default("📁"),
+    chatIds: jsonb("chat_ids").$type<number[]>().default([]),
+    position: integer("position").default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
+
+ИЗМЕНЕНИЕ: chats_members → добавить поля мута и закрепления
+  В lib/db/src/schema/chats.ts добавить таблицу chat_member_settings (или добавить в chatMembersTable):
+  isPinned: boolean("is_pinned").default(false).notNull(),
+  isMuted: boolean("is_muted").default(false).notNull(),
+  muteUntil: timestamp("mute_until", { withTimezone: true }),
+
+ИЗМЕНЕНИЕ: users — добавить bio и lastOnline
+  В lib/db/src/schema/users.ts добавить поля:
+  bio: varchar("bio", { length: 255 }),
+  lastOnline: timestamp("last_online", { withTimezone: true }),
+  isOnline: boolean("is_online").default(false).notNull(),
+
+ПОСЛЕ ВСЕХ ИЗМЕНЕНИЙ СХЕМЫ:
+  1. Добавить все новые экспорты в lib/db/src/schema/index.ts
+  2. Запустить: pnpm --filter @workspace/db run push
+  3. Запустить: pnpm run typecheck:libs
+
+================================================================================
+ЭТАП 3: BACKEND API — НОВЫЕ ENDPOINTS
+================================================================================
+Цель: Добавить все недостающие маршруты в Express. Сначала openapi.yaml,
+      потом codegen, потом реализация routes.
+
+ВАЖНО: Каждый endpoint сначала описывается в lib/api-spec/openapi.yaml,
+       потом запускается codegen:
+       pnpm --filter @workspace/api-spec run codegen
+       Только после этого реализуется в artifacts/api-server/src/routes/
+
+--- CONTACTS API ---
+Файл: artifacts/api-server/src/routes/contacts.ts (создать новый)
+Подключить в: artifacts/api-server/src/routes/index.ts
+
+GET /api/contacts
+  - requireAuth
+  - SELECT contacts JOIN users WHERE owner_id = userId
+  - Возвращает: [{ id, contactId, username, avatarFileId, nickname, addedAt, isOnline, lastOnline }]
+
+POST /api/contacts
+  - requireAuth
+  - Body: { contactId: number, nickname?: string }
+  - INSERT INTO contacts (owner_id, contact_id, nickname)
+  - Возвращает: { id, contactId, username, nickname }
+
+DELETE /api/contacts/:contactId
+  - requireAuth
+  - DELETE FROM contacts WHERE owner_id = userId AND contact_id = :contactId
+  - Возвращает: { success: true }
+
+PATCH /api/contacts/:contactId
+  - requireAuth
+  - Body: { nickname: string }
+  - UPDATE contacts SET nickname = :nickname WHERE owner_id = userId AND contact_id = :contactId
+  - Возвращает: { success: true }
+
+--- USERS API — расширить ---
+Файл: artifacts/api-server/src/routes/users.ts (дополнить)
+
+PATCH /api/users/me
+  - requireAuth
+  - Body: { bio?: string, username?: string, avatarFileId?: string }
+  - UPDATE users SET bio = :bio WHERE id = userId
+  - Проверять уникальность username если меняется
+  - Возвращает: { id, username, bio, avatarFileId }
+
+GET /api/users/me
+  - requireAuth (уже есть, но добавить bio и isOnline в ответ)
+  - Возвращает: { id, username, publicIdentityKey, bio, avatarFileId, createdAt, isOnline, lastOnline }
+
+GET /api/users/online
+  - requireAuth
+  - Принимает: ?userIds=1,2,3 (query param, comma-separated)
+  - Возвращает: { [userId]: { isOnline: boolean, lastOnline: string | null } }
+
+--- CHATS API — расширить ---
+Файл: artifacts/api-server/src/routes/chats.ts (дополнить)
+
+POST /api/chats/:id/pin
+  - requireAuth
+  - UPDATE chat_members SET is_pinned = true WHERE chat_id = :id AND user_id = userId
+  - Возвращает: { success: true }
+
+DELETE /api/chats/:id/pin
+  - requireAuth
+  - UPDATE chat_members SET is_pinned = false WHERE chat_id = :id AND user_id = userId
+  - Возвращает: { success: true }
+
+POST /api/chats/:id/mute
+  - requireAuth
+  - Body: { until?: string } (ISO datetime или null = навсегда)
+  - UPDATE chat_members SET is_muted = true, mute_until = :until WHERE chat_id = :id AND user_id = userId
+  - Возвращает: { success: true }
+
+DELETE /api/chats/:id/mute
+  - requireAuth
+  - UPDATE chat_members SET is_muted = false, mute_until = null WHERE ...
+  - Возвращает: { success: true }
+
+GET /api/chats/:id/pinned-messages
+  - requireAuth
+  - SELECT pinned_messages JOIN messages WHERE chat_id = :id ORDER BY pinned_at DESC
+  - Возвращает: [{ id, messageId, pinnedBy, pinnedAt, message: { encryptedContent, ... } }]
+
+POST /api/chats/:id/pin-message
+  - requireAuth
+  - Body: { messageId: number }
+  - Проверить что userId является членом чата
+  - INSERT INTO pinned_messages (chat_id, message_id, pinned_by)
+  - Broadcast WS: { type: "message_pinned", chatId, messageId, pinnedBy: userId }
+  - Возвращает: { success: true }
+
+DELETE /api/chats/:id/pin-message/:messageId
+  - requireAuth
+  - DELETE FROM pinned_messages WHERE chat_id = :id AND message_id = :messageId
+  - Broadcast WS: { type: "message_unpinned", chatId, messageId }
+  - Возвращает: { success: true }
+
+--- MESSAGES API — расширить ---
+Файл: artifacts/api-server/src/routes/messages.ts (дополнить)
+
+GET /api/messages/search
+  - requireAuth
+  - Query: { chatId?: number, query: string, limit?: number }
+  - SELECT FROM messages WHERE chat_id = :chatId AND encrypted_content ILIKE '%:query%'
+    AND is_deleted = false AND sender_id = userId (или chatId для групп)
+  - ВАЖНО: Работает только потому что в демо-режиме нет реального шифрования.
+    В реальном E2EE поиск невозможен серверно — это поиск по plaintext для демо.
+  - Возвращает: массив сообщений с совпадением
+
+--- CALL LOGS API ---
+Файл: artifacts/api-server/src/routes/calls.ts (создать новый)
+Подключить в: artifacts/api-server/src/routes/index.ts
+
+GET /api/calls
+  - requireAuth
+  - SELECT call_logs JOIN users WHERE caller_id = userId OR callee_id = userId
+  - ORDER BY created_at DESC LIMIT 50
+  - Возвращает: [{ id, type, status, callerId, callerUsername, calleeId, calleeUsername, durationSeconds, createdAt }]
+
+POST /api/calls
+  - requireAuth
+  - Body: { calleeId: number, chatId?: number, type: "voice" | "video" }
+  - INSERT INTO call_logs (caller_id, callee_id, chat_id, type, status: "ringing")
+  - Broadcast WS: { type: "incoming_call", callId, callerId, callerUsername, callType }
+  - Возвращает: { callId, status: "ringing" }
+
+PATCH /api/calls/:callId
+  - requireAuth
+  - Body: { status: "completed" | "declined" | "missed", durationSeconds?: number }
+  - UPDATE call_logs SET status = :status, duration_seconds = :dur, ended_at = NOW()
+  - Broadcast WS если declined/completed: { type: "call_ended", callId, status }
+  - Возвращает: { success: true }
+
+--- FOLDERS API ---
+Файл: artifacts/api-server/src/routes/folders.ts (создать новый)
+Подключить в: artifacts/api-server/src/routes/index.ts
+
+GET /api/folders
+  - requireAuth
+  - SELECT * FROM chat_folders WHERE user_id = userId ORDER BY position
+  - Возвращает: [{ id, name, emoji, chatIds, position }]
+
+POST /api/folders
+  - requireAuth
+  - Body: { name: string, emoji?: string, chatIds?: number[] }
+  - INSERT INTO chat_folders (user_id, name, emoji, chat_ids, position)
+  - position = MAX(position) + 1 для данного userId
+  - Возвращает: { id, name, emoji, chatIds, position }
+
+PATCH /api/folders/:id
+  - requireAuth
+  - Body: { name?: string, emoji?: string, chatIds?: number[], position?: number }
+  - UPDATE chat_folders SET ... WHERE id = :id AND user_id = userId
+  - Возвращает: { id, name, emoji, chatIds }
+
+DELETE /api/folders/:id
+  - requireAuth
+  - DELETE FROM chat_folders WHERE id = :id AND user_id = userId
+  - Возвращает: { success: true }
+
+--- FILES API — расширить ---
+Файл: artifacts/api-server/src/routes/files.ts (дополнить)
+
+GET /api/files/:fileId/download
+  - requireAuth
+  - SELECT data, mime_type FROM files WHERE id = :fileId
+  - Декодировать base64: Buffer.from(file.data, "base64")
+  - res.setHeader("Content-Type", file.mimeType)
+  - res.setHeader("Content-Disposition", "inline")
+  - res.send(buffer)
+  - ВАЖНО: Это позволяет отображать изображения в чате через <img src="/api/files/UUID/download" />
+
+--- WEBSOCKET — расширить ws-hub.ts ---
+Файл: artifacts/api-server/src/lib/ws-hub.ts
+
+1. Добавить обработку входящих WS-событий от клиента:
+   ws.on("message", async (data) => {
+     const msg = JSON.parse(data.toString());
+     
+     if (msg.type === "typing") {
+       // msg: { type: "typing", chatId: number, isTyping: boolean }
+       const memberIds = await getChatMemberIds(msg.chatId);
+       broadcastToChat(memberIds, {
+         type: "typing",
+         chatId: msg.chatId,
+         userId,
+         username: msg.username || "User",
+         isTyping: msg.isTyping
+       }, userId);
+     }
+     
+     if (msg.type === "call_signal") {
+       // WebRTC signaling: offer/answer/ice-candidate
+       // msg: { type: "call_signal", targetUserId, signal: { type, sdp | candidate } }
+       sendToUser(msg.targetUserId, {
+         type: "call_signal",
+         fromUserId: userId,
+         signal: msg.signal
+       });
+     }
+   });
+
+2. При connect — обновить isOnline = true, lastOnline = NOW():
+   await db.update(usersTable).set({ isOnline: true }).where(eq(usersTable.id, userId));
+   // Broadcast всем контактам: { type: "status", userId, online: true }
+
+3. При disconnect — обновить isOnline = false, lastOnline = NOW():
+   ws.on("close", async () => {
+     await db.update(usersTable)
+       .set({ isOnline: false, lastOnline: new Date() })
+       .where(eq(usersTable.id, userId));
+     // Broadcast всем контактам: { type: "status", userId, online: false }
+   });
+
+4. Добавить новые типы в WsEvent union:
+   | { type: "incoming_call"; callId: number; callerId: number; callerUsername: string; callType: string }
+   | { type: "call_signal"; fromUserId: number; signal: Record<string, unknown> }
+   | { type: "call_ended"; callId: number; status: string }
+   | { type: "message_pinned"; chatId: number; messageId: number; pinnedBy: number }
+   | { type: "message_unpinned"; chatId: number; messageId: number }
+
+================================================================================
+ЭТАП 4: OPENAPI + CODEGEN
+================================================================================
+Цель: Все новые endpoints описать в openapi.yaml, запустить codegen.
+Файл: lib/api-spec/openapi.yaml
+
+Добавить в paths:
+  /contacts, /contacts/{contactId}
+  /users/me (PATCH), /users/online
+  /chats/{id}/pin, /chats/{id}/mute
+  /chats/{id}/pinned-messages
+  /chats/{id}/pin-message, /chats/{id}/pin-message/{messageId}
+  /messages/search
+  /calls, /calls/{callId}
+  /folders, /folders/{id}
+  /files/{fileId}/download
+
+Добавить в components/schemas:
+  Contact, CallLog, PinnedMessage, ChatFolder, UserOnlineStatus
+
+После добавления запустить:
+  pnpm --filter @workspace/api-spec run codegen
+
+Это сгенерирует новые хуки в lib/api-client-react/src/generated/api.ts
+и новые схемы в lib/api-zod/src/index.ts
+
+================================================================================
+ЭТАП 5: КОНТАКТЫ (ПОЛНАЯ РЕАЛИЗАЦИЯ)
+================================================================================
+Цель: Заменить mockContacts на реальные данные из API.
+Файл: artifacts/echo-messenger/src/pages/contacts/contacts.tsx
+
+ПОЛНАЯ ЗАМЕНА:
+1. Удалить const mockContacts = [...] полностью
+2. Использовать const { data: contacts, refetch } = useGetContacts()
+   (хук сгенерирован на этапе 4)
+3. При поиске > 2 символов — показывать результат useGetUserByUsername(search)
+4. Кнопка "Добавить контакт" (+):
+   - Открывать sheet/диалог с полем поиска
+   - Результат поиска → кнопка "Добавить"
+   - useAddContact().mutate({ data: { contactId: user.id } })
+5. Свайп или long-press на контакте → меню: "Написать", "Удалить из контактов"
+6. Удаление: useDeleteContact().mutate({ contactId })
+7. Открытие чата: создаёт DM если не существует (useCreateChat), затем navigate
+8. Показывать online-статус рядом с аватаром (зелёная точка если isOnline)
+9. Последняя активность: если !isOnline → "был(а) {lastOnline}"
+   Формат: если сегодня → "сегодня в HH:MM", иначе → "DD MMM в HH:MM"
+
+================================================================================
+ЭТАП 6: ПРИКРЕПЛЕНИЕ ФАЙЛОВ И МЕДИА В ЧАТЕ
+================================================================================
+Цель: Реальная загрузка и отображение файлов/изображений.
+Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+
+РЕАЛИЗАЦИЯ handleFileSelect:
+1. Читать файл как ArrayBuffer → конвертировать в base64:
+   const reader = new FileReader();
+   reader.readAsDataURL(file);
+   reader.onload = async () => {
+     const base64 = (reader.result as string).split(",")[1];
+     // Показать toast "Загрузка..."
+     try {
+       const uploaded = await uploadFileMutation.mutateAsync({
+         data: { data: base64, mimeType: file.type, encryptedKey: null }
+       });
+       // Отправить сообщение с mediaFileId
+       sendMutation.mutate({
+         data: {
+           chatId,
+           chatType: chat?.type ?? 1,
+           encryptedContent: file.name, // для файлов — имя файла
+           mediaFileId: uploaded.fileId,
+         }
+       });
+     } catch {
+       toast({ title: "Ошибка загрузки", variant: "destructive" });
+     }
+   };
+
+2. Добавить хук: const uploadFileMutation = useUploadFile()
+
+3. ОТОБРАЖЕНИЕ медиа в пузыре сообщения:
+   Если msg.mediaFileId существует:
+   - Определить тип по encryptedContent (имя файла) или хранить mimeType
+   - Если image/* → <img src="/api/files/{mediaFileId}/download" className="max-w-[240px] rounded-xl" />
+   - Если video/* → <video controls src="/api/files/{mediaFileId}/download" className="max-w-[240px] rounded-xl" />
+   - Если audio/* → компонент голосового сообщения (см. этап 7)
+   - Иначе → карточка файла: иконка + имя + размер
+
+4. Добавить прогресс загрузки: uploadFileMutation.isPending → прогресс-бар в input area
+
+5. Лимит файла: проверять file.size < 50 * 1024 * 1024 (50MB)
+   Если больше — toast с предупреждением
+
+================================================================================
+ЭТАП 7: ГОЛОСОВЫЕ СООБЩЕНИЯ
+================================================================================
+Цель: Запись и воспроизведение голосовых сообщений через MediaRecorder API.
+Файлы:
+  - artifacts/echo-messenger/src/hooks/use-voice-recorder.ts (создать)
+  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx (дополнить)
+  - artifacts/echo-messenger/src/components/chat/voice-message-player.tsx (создать)
+
+ХУК use-voice-recorder.ts:
+  import { useState, useRef, useCallback } from "react";
+  export function useVoiceRecorder() {
+    const [isRecording, setIsRecording] = useState(false);
+    const [duration, setDuration] = useState(0);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const chunksRef = useRef<Blob[]>([]);
+    const timerRef = useRef<number | null>(null);
+
+    const startRecording = useCallback(async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      chunksRef.current = [];
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.start(100);
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setDuration(0);
+      timerRef.current = window.setInterval(() => setDuration(d => d + 1), 1000);
+    }, []);
+
+    const stopRecording = useCallback((): Promise<Blob> => {
+      return new Promise(resolve => {
+        if (!mediaRecorderRef.current) return;
+        mediaRecorderRef.current.onstop = () => {
+          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+          resolve(blob);
+        };
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+        if (timerRef.current) clearInterval(timerRef.current);
+        setIsRecording(false);
+        setDuration(0);
+      });
+    }, []);
+
+    const cancelRecording = useCallback(() => {
+      if (!mediaRecorderRef.current) return;
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      if (timerRef.current) clearInterval(timerRef.current);
+      setIsRecording(false);
+      setDuration(0);
+    }, []);
+
+    return { isRecording, duration, startRecording, stopRecording, cancelRecording };
+  }
+
+В CHAT WINDOW:
+  1. Импортировать useVoiceRecorder
+  2. Кнопка микрофона (Mic icon):
+     - onMouseDown / onTouchStart → startRecording()
+     - onMouseUp / onTouchEnd → blob = await stopRecording() → upload → send с isVoice: true
+  3. Во время записи показывать:
+     - Красная анимированная точка + таймер "0:05"
+     - Кнопка отмены (свайп влево или кнопка X)
+
+КОМПОНЕНТ voice-message-player.tsx:
+  Получает fileId (UUID) → src = "/api/files/{fileId}/download"
+  Элементы: кнопка Play/Pause + прогресс-бар + длительность
+  const audio = useRef(new Audio(src));
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
+  audio.onloadedmetadata → setTotalDuration(audio.duration)
+  audio.ontimeupdate → setProgress(audio.currentTime / audio.duration)
+  toggle: playing ? audio.pause() : audio.play()
+  Отображение: иконка волны + время прошедшее / общее
+
+================================================================================
+ЭТАП 8: ОНЛАЙН-СТАТУС ПОЛЬЗОВАТЕЛЕЙ
+================================================================================
+Цель: Показывать реальный online/offline статус в чатах и профилях.
+Файлы:
+  - artifacts/echo-messenger/src/hooks/use-ws.ts (добавить handler)
+  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+  - artifacts/echo-messenger/src/pages/chat/chat-list.tsx
+  - artifacts/echo-messenger/src/lib/online-store.ts (создать)
+
+ГЛОБАЛЬНОЕ ХРАНИЛИЩЕ ОНЛАЙН-СТАТУСОВ:
+  Файл: artifacts/echo-messenger/src/lib/online-store.ts
+  import { create } from "zustand"; // zustand уже в зависимостях или использовать useState+context
+  
+  Альтернатива без zustand (проще):
+  Создать React Context:
+  type OnlineState = { [userId: number]: { isOnline: boolean; lastOnline: string | null } };
+  const OnlineContext = createContext<OnlineState>({});
+  export function OnlineProvider({ children }) {
+    const [online, setOnline] = useState<OnlineState>({});
+    useWsEvent((event) => {
+      if (event.type === "status") {
+        setOnline(prev => ({
+          ...prev,
+          [event.userId]: { isOnline: event.online, lastOnline: event.lastOnline ?? null }
+        }));
+      }
+    });
+    return <OnlineContext.Provider value={online}>{children}</OnlineContext.Provider>;
+  }
+  export const useOnlineStatus = (userId: number) => useContext(OnlineContext)[userId];
+
+  Подключить OnlineProvider в App.tsx внутри EchoAuthProvider.
+
+В CHAT LIST:
+  - Для DM чатов определять userId собеседника (не текущего пользователя)
+  - Показывать зелёную точку только если useOnlineStatus(otherUserId)?.isOnline
+  - НЕ показывать хардкод "в сети" для всех
+
+В CHAT WINDOW header:
+  - Заменить хардкод statusLine = "в сети"
+  - Для DM: получить otherUserId из членов чата
+  - status = useOnlineStatus(otherUserId)
+  - Если isOnline → "в сети" (зелёный)
+  - Если !isOnline && lastOnline → "был(а) {formatRelative(lastOnline)}"
+  - Для групп: "{memberCount} участников"
+
+================================================================================
+ЭТАП 9: СПИСОК ЗВОНКОВ (РЕАЛЬНЫЕ ДАННЫЕ)
+================================================================================
+Цель: Заменить фейковые данные в Calls на реальные из API.
+Файл: artifacts/echo-messenger/src/pages/calls/calls.tsx
+
+ПОЛНАЯ ЗАМЕНА:
+1. Удалить const allCalls = [...] полностью
+2. Использовать const { data: calls, isLoading } = useGetCalls()
+   (хук из этапа 4 codegen)
+3. Тип CallLog: { id, type, status, callerId, callerUsername, calleeId, calleeUsername, durationSeconds, createdAt }
+4. Определить "direction" (outgoing/incoming): callerId === currentUserId → outgoing
+5. Определить "missed": status === "missed" И callee === currentUser
+6. Отображение:
+   - outgoing → иконка PhoneOutgoing (синяя)
+   - incoming && completed → иконка PhoneIncoming (зелёная)  
+   - missed → иконка PhoneMissed (красная)
+   - Имя: если outgoing → calleeUsername, если incoming → callerUsername
+   - Дата: форматировать createdAt
+   - Длительность: если completed → durationSeconds → "М:СС"
+7. Кнопка "Новый звонок" → navigate("/chat/new") (выбрать собеседника)
+8. При клике на запись → navigate("/chat/{chatId}/voice") если chatId существует
+
+================================================================================
+ЭТАП 10: ПОИСК ПО ЧАТУ И ГЛОБАЛЬНЫЙ ПОИСК
+================================================================================
+Цель: Реальный поиск сообщений внутри чата + глобальный поиск.
+
+ПОИСК ПО ЧАТУ:
+Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+  - Кнопка Search в хедере открывает панель поиска (AnimatePresence + motion.div)
+  - Панель содержит: input + кнопки "предыдущий" / "следующий" + "X закрыть"
+  - Использует хук useSearchMessages({ chatId, query: searchQuery })
+    (хук из codegen, endpoint GET /api/messages/search)
+  - При вводе > 2 символов → debounce 300мс → запрос
+  - Результаты: подсветить совпадение в encryptedContent (<mark>)
+  - Кнопки nav → прокрутка к нужному сообщению через refs
+
+ГЛОБАЛЬНЫЙ ПОИСК:
+Файл: artifacts/echo-messenger/src/pages/search/search.tsx
+  Текущее состояние: нужно проверить, но likely есть "Recent searches" захардкоженные.
+  ЗАМЕНА:
+  1. Убрать захардкоженные "недавние поиски"
+  2. Хранить историю поиска в localStorage (ключ "echo_search_history", массив строк)
+  3. При вводе → параллельные запросы:
+     - useGetUserByUsername(q) → секция "Пользователи"
+     - useGetChats() → фильтровать локально по title.includes(q) → секция "Чаты"
+     - (опционально) useSearchMessages({ query: q }) → секция "Сообщения"
+  4. При выборе результата → добавить в историю localStorage
+  5. Секция "Недавние" → читать из localStorage
+  6. Кнопка X рядом с недавним → удалить из localStorage
+
+================================================================================
+ЭТАП 11: ЗАКРЕПЛЕНИЕ СООБЩЕНИЙ И ЧАТОВ
+================================================================================
+Цель: Реальное закрепление — сохраняется в БД.
+
+ЗАКРЕПЛЕНИЕ СООБЩЕНИЯ:
+Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+  - В context menu кнопка "Закрепить":
+    usePinMessage().mutate({ id: chatId, data: { messageId: selectedMsg!.id } })
+  - Показывать "закреплённое сообщение" баннер под хедером чата:
+    const { data: pinned } = useGetPinnedMessages(chatId)
+    if pinned.length > 0 → показывать sticky-баннер: "📌 {pinned[0].message.encryptedContent.slice(0, 50)}..."
+    Клик на баннер → scrollToMessage(pinned[0].messageId)
+  - WS-событие message_pinned → invalidate pinned-messages query
+
+ЗАКРЕПЛЕНИЕ ЧАТА:
+Файл: artifacts/echo-messenger/src/pages/chat/chat-list.tsx
+  - Свайп вправо или long-press → контекстное меню: "Закрепить", "Замутить", "Удалить"
+  - "Закрепить" → usePinChat().mutate({ id: chatId })
+  - Закреплённые чаты показывать вверху списка (сортировать: isPinned first)
+  - GET /api/chats должен возвращать isPinned (из chatMembersTable)
+  - Обновить backend: в GET /api/chats добавить isPinned из chatMembersTable
+
+МУТ ЧАТА:
+  - "Замутить" → модальное окно: "1 час", "8 часов", "Навсегда"
+  - useMuteChat().mutate({ id: chatId, data: { until: ISO_or_null } })
+  - Замутированные чаты: иконка 🔕 рядом с временем вместо счётчика
+
+================================================================================
+ЭТАП 12: РЕДАКТИРОВАНИЕ ПРОФИЛЯ
+================================================================================
+Цель: Работающее редактирование имени, bio, аватара.
+Файл: artifacts/echo-messenger/src/pages/profile/my-profile.tsx
+
+1. Кнопка "Изм." (правый верхний угол) → переключить в режим редактирования
+2. В режиме редактирования:
+   - Input для bio (текстовое поле, макс 255 символов)
+   - Кнопка "Изменить" рядом с username → diалог смены username
+     (проверять /api/check-username перед сохранением)
+   - Кнопка камеры на аватаре → открыть file input (только images/*)
+     → прочитать как base64 → POST /api/files/upload → получить fileId
+     → PATCH /api/users/me с { avatarFileId: fileId }
+3. Кнопка "Сохранить":
+   - useUpdateMe().mutate({ data: { bio, username } })
+   - onSuccess → invalidate useGetMe() → выйти из режима редактирования
+
+4. Аватар в чате и списке чатов:
+   Если avatarFileId существует → <img src="/api/files/{avatarFileId}/download" />
+   (через AvatarImage компонент)
+   Иначе → буква + цвет (как сейчас)
+
+================================================================================
+ЭТАП 13: СЕКРЕТНЫЕ ЧАТЫ (ПОЛНАЯ РЕАЛИЗАЦИЯ)
+================================================================================
+Цель: Отделить секретные чаты от обычных, реализовать auto-delete.
+Файлы:
+  - artifacts/echo-messenger/src/pages/chat/secret-chat-list.tsx
+  - artifacts/api-server/src/routes/chats.ts
+  - lib/db/src/schema/chats.ts
+
+РАЗДЕЛЕНИЕ:
+  - В БД: chatType = 1 (DM), 2 (group), 3 (channel), 4 (secret)
+  - Секретный чат создаётся через POST /api/chats с type: 4
+  - В GET /api/chats: добавить параметр ?type=4 для фильтрации
+  - В secret-chat-list.tsx: useGetChats({ params: { type: 4 } })
+  - Убрать mockSecretChats полностью
+  - Создание секретного чата: тот же NewChat, но с type: 4
+  - В интерфейсе пометка 🔒 остаётся (уже есть)
+
+AUTO-DELETE TIMER (deleteAfterSeconds):
+  - При создании секретного чата → диалог: "Сообщения исчезают через: 1ч / 1д / 1нед / Никогда"
+  - Сохранять в chats.settings.deleteAfterSeconds
+  - На backend: после сохранения сообщения в секретном чате →
+    если deleteAfterSeconds > 0 → setTimeout(async () => {
+      await db.update(messagesTable).set({ isDeleted: true }).where(eq(messagesTable.id, msg.id))
+      broadcastToChat(memberIds, { type: "delete_message", messageId: msg.id, chatId })
+    }, deleteAfterSeconds * 1000)
+  - ВАЖНО: setTimeout теряется при перезапуске сервера.
+    Более надёжно: хранить deleteAt в messages, фоновая job проверяет каждую минуту:
+    SELECT * FROM messages WHERE delete_after_seconds IS NOT NULL AND is_deleted = false
+    AND timestamp + (delete_after_seconds * interval '1 second') < NOW()
+    → UPDATE ... SET is_deleted = true
+
+================================================================================
+ЭТАП 14: ПАПКИ ЧАТОВ
+================================================================================
+Цель: Telegram-like папки для организации чатов.
+Файл: artifacts/echo-messenger/src/pages/chat/chat-list.tsx
+
+1. Под строкой поиска — горизонтальный скролл с папками:
+   "Все", "Личные", "Группы", "Каналы", + кастомные папки из useGetFolders()
+
+2. При выборе папки:
+   - "Все" → показывать все чаты (текущее поведение)
+   - "Личные" → filter chat.type === 1
+   - "Группы" → filter chat.type === 2
+   - "Каналы" → filter chat.type === 3
+   - Кастомная → filter chatIds.includes(chat.id)
+
+3. Кнопка "+" рядом с папками → диалог создания:
+   - Input название папки
+   - Input эмодзи (или пикер из стандартных)
+   - Список чатов с чекбоксами
+   - Кнопка "Создать" → useCreateFolder()
+
+4. Long-press на папке → "Редактировать", "Удалить"
+
+================================================================================
+ЭТАП 15: УВЕДОМЛЕНИЯ И НАСТРОЙКИ (РЕАЛЬНЫЕ)
+================================================================================
+Цель: Настройки сохраняются в БД, Web Push работает.
+
+НАСТРОЙКИ В БД:
+  - В users.settings (уже есть jsonb поле) хранить:
+    { theme: "dark" | "light", language: "ru" | "en",
+      notifications: { enabled: boolean, sound: boolean, vibration: boolean },
+      privacy: { lastSeen: "all" | "contacts" | "nobody",
+                 readReceipts: boolean } }
+
+APPEARANCE SETTINGS (appearance.tsx):
+  - Переключатель Dark/Light → next-themes setTheme() (уже есть ThemeProvider)
+  - Сохранять в users.settings через PATCH /api/users/me { settings: { theme } }
+  - При загрузке → useGetMe() → применить theme
+
+LANGUAGE SETTINGS (language.tsx):
+  - Радио-кнопки: Русский / English
+  - Сохранять в localStorage "echo_language" и users.settings
+  - В проекте использовать простой объект переводов (i18n без библиотеки):
+    const t = useTranslation() → t("send") → "Отправить" / "Send"
+
+NOTIFICATIONS SETTINGS (notifications.tsx):
+  - Toggle "Уведомления" → запросить permission: Notification.requestPermission()
+  - Если granted → регистрировать Service Worker Push
+  - Сохранять настройки в users.settings через PATCH /api/users/me
+
+WEB PUSH NOTIFICATIONS:
+  - Создать artifacts/echo-messenger/public/sw.js (Service Worker)
+  - Регистрировать sw в main.tsx: navigator.serviceWorker.register("/sw.js")
+  - На backend: при new_message → если получатель offline (нет WS-соединения) →
+    отправлять Web Push (использовать библиотеку "web-push")
+  - Push payload: { title: senderUsername, body: encryptedContent.slice(0,50) }
+  - ВАЖНО: web-push требует VAPID ключи. Генерировать при первом запуске:
+    node -e "const wp=require('web-push'); console.log(wp.generateVAPIDKeys())"
+    Хранить в environment variables: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
+
+PRIVACY SETTINGS (privacy.tsx):
+  - Радио для "Последний вход": Все / Контакты / Никто
+  - Радио для "Фото профиля": Все / Контакты / Никто
+  - Toggle "Подтверждение прочтения"
+  - Сохранять через PATCH /api/users/me { settings: { privacy: ... } }
+  - На backend: в GET /api/users/:username учитывать privacy.lastSeen:
+    если "nobody" → не возвращать lastOnline
+
+================================================================================
+ЭТАП 16: УПРАВЛЕНИЕ КАНАЛАМИ
+================================================================================
+Цель: Каналы работают как в Telegram — только admin пишет, подписчики читают.
+Файлы:
+  - artifacts/api-server/src/routes/messages.ts
+  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+
+BACKEND:
+  - В POST /api/messages: если chat.type === 3 (channel):
+    Проверить что sender является owner/admin в chatMembersTable
+    if (member.role !== "owner" && member.role !== "admin") → 403 Forbidden
+  - В GET /api/chats/:id/members: возвращать role каждого участника
+
+FRONTEND:
+  - В ChatWindow: определять isChannel = chat.type === 3
+  - isChannel && текущий пользователь не admin → скрывать input area
+  - Показывать вместо инпута: "Вы подписчик. Только администраторы могут писать."
+  - Кнопка управления каналом (только для admin):
+    - "Добавить подписчика" → поиск пользователя → POST /api/chats/:id/members
+    - "Назначить администратора" → PATCH /api/chats/:id/members/:userId { role: "admin" }
+
+================================================================================
+ЭТАП 17: СТИКЕРЫ (РЕАЛЬНАЯ РЕАЛИЗАЦИЯ)
+================================================================================
+Цель: Стикеры хранятся в БД и отправляются в чат.
+Схема sticker_packs уже существует в lib/db/src/schema/sticker-packs.ts
+
+ПРОВЕРИТЬ СХЕМУ sticker-packs.ts:
+  Должна быть таблица sticker_packs и таблица связи user_sticker_packs (установленные).
+  Если нет таблицы user_sticker_packs — добавить:
+  export const userStickerPacksTable = pgTable("user_sticker_packs", {
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    packId: bigint("pack_id", { mode: "number" }).notNull(),
+    installedAt: timestamp("installed_at").defaultNow().notNull(),
+  });
+
+СТИКЕРЫ KAK ФАЙЛЫ (упрощённый подход):
+  Стикеры — это эмодзи. В БД хранить пак как массив эмодзи + название.
+  INSERT INTO sticker_packs (name, author, stickers_json, is_official)
+  Предзаполнить при первом запуске (seeds).
+
+BACKEND ENDPOINTS (добавить в openapi.yaml и routes):
+  GET /api/stickers/packs → все паки
+  GET /api/stickers/installed → установленные текущего пользователя
+  POST /api/stickers/install → { packId }
+  DELETE /api/stickers/install/:packId → удалить
+
+FRONTEND sticker-packs.tsx:
+  - Заменить OFFICIAL_PACKS + useState(OFFICIAL_PACKS) на:
+    const { data: allPacks } = useGetStickerPacks()
+    const { data: installed } = useGetInstalledStickerPacks()
+    const installMutation = useInstallStickerPack()
+    const uninstallMutation = useUninstallStickerPack()
+  - toggleInstall → installMutation.mutate или uninstallMutation.mutate
+  - Состояние установки определять: installed.some(p => p.packId === pack.id)
+
+СТИКЕРЫ В ЧАТЕ:
+  - Рядом с эмодзи-кнопкой добавить кнопку 🎭 "Стикеры"
+  - Открывается панель со списком установленных паков
+  - Выбор стикера → отправить сообщение с encryptedContent = "sticker:{emoji}"
+  - При отображении: если encryptedContent.startsWith("sticker:") → показывать крупный эмодзи (64px)
+
+================================================================================
+ЭТАП 18: ЖУРНАЛ АКТИВНОСТИ (РЕАЛЬНЫЙ)
+================================================================================
+Цель: Записывать реальные события, читать из БД.
+Файлы:
+  - Добавить таблицу activity_logs в lib/db/src/schema/activity-logs.ts
+  - artifacts/api-server/src/routes/auth.ts (добавить логирование)
+  - artifacts/echo-messenger/src/pages/settings/activity-log.tsx
+
+ТАБЛИЦА activity_logs:
+  CREATE TABLE activity_logs (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(32) NOT NULL, -- "login" | "logout" | "session_revoked" | "backup" | "profile_change"
+    description VARCHAR(255),
+    device VARCHAR(128),
+    ip_address VARCHAR(64),
+    risk VARCHAR(16) DEFAULT 'none', -- "none" | "low" | "medium" | "high"
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+  );
+
+ЛОГИРОВАНИЕ СОБЫТИЙ в auth.ts:
+  - После успешного login → INSERT INTO activity_logs (user_id, type, description, device, ip_address)
+    type: "login", description: "Вход в систему", device: req.headers["user-agent"], ip: req.ip
+  - При terminate session → type: "session_revoked"
+  - При upload backup → type: "backup"
+  - При delete account → type: "account_delete"
+
+ENDPOINT (добавить в openapi.yaml + routes):
+  GET /api/activity-log
+    - requireAuth
+    - SELECT * FROM activity_logs WHERE user_id = userId ORDER BY created_at DESC LIMIT 100
+    - Возвращает: [{ id, type, description, device, risk, createdAt }]
+
+FRONTEND activity-log.tsx:
+  - Заменить useState(makeEntries()) на useGetActivityLog()
+  - Убрать функцию makeEntries() полностью
+  - Отображение остаётся тем же (иконки, цвета риска)
+  - "Риск" определяется на backend: если login с нового IP (не встречался ранее) → risk: "high"
+
+================================================================================
+ЭТАП 19: PWA + SERVICE WORKER
+================================================================================
+Цель: ECHO работает как приложение (Add to Home Screen) и получает push.
+Файлы:
+  - artifacts/echo-messenger/public/manifest.json (создать)
+  - artifacts/echo-messenger/public/sw.js (создать)
+  - artifacts/echo-messenger/index.html (добавить meta)
+  - artifacts/echo-messenger/src/main.tsx (регистрировать SW)
+
+manifest.json:
+  {
+    "name": "ECHO Messenger",
+    "short_name": "ECHO",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0f0f0f",
+    "theme_color": "#0f0f0f",
+    "icons": [
+      { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+      { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    ]
+  }
+
+sw.js (Service Worker):
+  self.addEventListener("push", (event) => {
+    const data = event.data.json();
+    event.waitUntil(
+      self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        data: { chatId: data.chatId }
+      })
+    );
+  });
+  self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    event.waitUntil(clients.openWindow(`/chat/${event.notification.data.chatId}`));
+  });
+
+В main.tsx добавить:
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch(console.error);
+  }
+
+В index.html добавить в <head>:
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+================================================================================
+ЭТАП 20: ЧЕРНОВИКИ И UX-УЛУЧШЕНИЯ
+================================================================================
+Цель: Мелкие но важные функции для нормального UX.
+
+ЧЕРНОВИКИ (drafts):
+  Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+  - При смене маршрута (useEffect cleanup) → сохранить text в localStorage:
+    localStorage.setItem(`echo_draft_${chatId}`, text)
+  - При открытии чата → восстановить: setText(localStorage.getItem(`echo_draft_${chatId}`) || "")
+  - Если в chat-list у чата есть черновик → показывать "Черновик: {draft.slice(0,20)}..." вместо lastMessage
+
+ВЫБОР НЕСКОЛЬКИХ СООБЩЕНИЙ:
+  Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+  - Long-press первого сообщения → входить в режим выбора (selectionMode = true)
+  - Checkbox рядом с каждым сообщением
+  - Нижняя панель: "Удалить выбранные" / "Переслать выбранные" / "Отмена"
+  - Массовое удаление: forEach(id => deleteMessageMutation.mutate({ id }))
+
+БЕСКОНЕЧНАЯ ПРОКРУТКА (старые сообщения):
+  Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+  - При прокрутке вверх до 100px от верха → загружать следующую страницу:
+    GET /api/messages?chatId=X&before={firstMessageId}&limit=50
+  - Добавить загруженные сообщения ПЕРЕД существующими
+  - Показывать spinner вверху во время загрузки
+  - Кнопка "⬇️" для скролла вниз, если пользователь прокрутил далеко вверх
+
+ИНДИКАТОР НОВОГО СООБЩЕНИЯ:
+  - Если пришло WS new_message и пользователь прокрутил вверх (не у низа):
+    Показывать плавающую кнопку "⬇️ Новое сообщение" (badge с именем отправителя)
+    Клик → скролл вниз + invalidate messages
+
+================================================================================
+ЭТАП 21: WEBRTC ГОЛОСОВЫЕ/ВИДЕО ЗВОНКИ
+================================================================================
+Цель: Реальные P2P звонки через WebRTC с сигналингом через WebSocket.
+ВАЖНО: Это сложный этап, реализовать последним.
+
+Файлы:
+  - artifacts/echo-messenger/src/hooks/use-webrtc.ts (создать)
+  - artifacts/echo-messenger/src/pages/calls/call-screen.tsx (переделать)
+
+ХУК use-webrtc.ts:
+  const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+  
+  export function useWebRTC({ callId, targetUserId, isInitiator, callType }) {
+    const pcRef = useRef<RTCPeerConnection | null>(null);
+    const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+    const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+    
+    const init = useCallback(async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: callType === "video"
+      });
+      setLocalStream(stream);
+      
+      const pc = new RTCPeerConnection({ iceServers });
+      pcRef.current = pc;
+      
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      
+      pc.ontrack = (event) => setRemoteStream(event.streams[0]);
+      
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          echoWs.send(JSON.stringify({
+            type: "call_signal",
+            targetUserId,
+            signal: { type: "ice-candidate", candidate: event.candidate }
+          }));
+        }
+      };
+      
+      if (isInitiator) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        echoWs.send(JSON.stringify({
+          type: "call_signal",
+          targetUserId,
+          signal: { type: "offer", sdp: offer.sdp }
+        }));
+      }
+    }, [callType, isInitiator, targetUserId]);
+    
+    const handleSignal = useCallback(async (signal) => {
+      const pc = pcRef.current;
+      if (!pc) return;
+      if (signal.type === "offer") {
+        await pc.setRemoteDescription({ type: "offer", sdp: signal.sdp });
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        echoWs.send(JSON.stringify({
+          type: "call_signal",
+          targetUserId,
+          signal: { type: "answer", sdp: answer.sdp }
+        }));
+      } else if (signal.type === "answer") {
+        await pc.setRemoteDescription({ type: "answer", sdp: signal.sdp });
+      } else if (signal.type === "ice-candidate") {
+        await pc.addIceCandidate(signal.candidate);
+      }
+    }, [targetUserId]);
+    
+    const hangup = useCallback(() => {
+      localStream?.getTracks().forEach(t => t.stop());
+      pcRef.current?.close();
+      setLocalStream(null);
+      setRemoteStream(null);
+    }, [localStream]);
+    
+    return { init, handleSignal, hangup, localStream, remoteStream };
+  }
+
+CALL SCREEN (переделать):
+  1. При открытии /chat/:id/voice:
+     - Определить targetUserId (другой участник DM)
+     - Если initiator: вызвать POST /api/calls { calleeId, type }
+       → получить callId
+       → инициализировать WebRTC (isInitiator: true)
+     - Добавить localVideoRef и remoteVideoRef для видео
+  
+  2. Слушать WS-событие call_signal → handleSignal(signal)
+  
+  3. Слушать WS-событие incoming_call на стороне получателя:
+     - Показывать "Входящий звонок" overlay (compонент IncomingCallBanner)
+     - Кнопки: Принять (зелёная) / Отклонить (красная)
+     - Принять → navigate("/chat/{callerId}/voice") + init WebRTC (isInitiator: false)
+     - Отклонить → PATCH /api/calls/:callId { status: "declined" }
+  
+  4. При hangup → PATCH /api/calls/:callId { status: "completed", durationSeconds }
+
+INCOMING CALL BANNER:
+  Файл: artifacts/echo-messenger/src/components/call/incoming-call-banner.tsx
+  - Фиксированный overlay снизу (как в Telegram)
+  - Показывать имя звонящего + аватар
+  - Кнопки: красная (отклонить) и зелёная (принять)
+  - Добавить в App.tsx глобально (не только в чате)
+
+================================================================================
+                    ПРИОРИТЕТЫ И ПОРЯДОК ВЫПОЛНЕНИЯ
+================================================================================
+
+КРИТИЧЕСКИЕ (делать первыми, без них мессенджер не работает нормально):
+  Этап 1  — Исправить баги чата (имена, удаление, реакции)
+  Этап 2  — Новые таблицы в БД
+  Этап 3  — Backend API для новых функций
+  Этап 4  — Codegen после изменения openapi.yaml
+  Этап 5  — Реальные контакты
+  Этап 6  — Загрузка файлов и медиа
+  Этап 8  — Online-статус
+
+ВАЖНЫЕ (второй приоритет):
+  Этап 7  — Голосовые сообщения
+  Этап 9  — Список звонков (реальные данные)
+  Этап 10 — Поиск
+  Этап 11 — Закрепление
+  Этап 12 — Редактирование профиля
+  Этап 13 — Секретные чаты
+
+ПОЛЕЗНЫЕ (третий приоритет):
+  Этап 14 — Папки чатов
+  Этап 15 — Настройки и уведомления
+  Этап 16 — Управление каналами
+  Этап 17 — Стикеры
+  Этап 18 — Журнал активности
+  Этап 19 — PWA
+  Этап 20 — UX-улучшения
+
+СЛОЖНЫЕ (последними):
+  Этап 21 — WebRTC звонки
+
+================================================================================
+                    ПРАВИЛА ДЛЯ ИИ-РАЗРАБОТЧИКА
+================================================================================
+
+1. НИКОГДА не удалять рабочий код без причины. Только расширять и исправлять.
+
+2. НИКОГДА не использовать захардкоженные массивы или моковые данные.
+   Если данных нет в API → сначала создать endpoint, потом подключить.
+
+3. ВСЕГДА после изменения openapi.yaml запускать codegen:
+   pnpm --filter @workspace/api-spec run codegen
+
+4. ВСЕГДА после изменения lib/db/src/schema/ запускать:
+   pnpm --filter @workspace/db run push
+   pnpm run typecheck:libs
+
+5. НЕ создавать собственные fetch() вызовы. Использовать только хуки из
+   @workspace/api-client-react (они генерируются Orval).
+
+6. ПРОВЕРЯТЬ типы: TypeScript strict mode включён. Все поля должны совпадать.
+
+7. Framer Motion уже установлен — использовать для анимаций transition.
+
+8. tailwind-merge (cn() функция) уже есть в lib/utils.ts — использовать для
+   условных классов.
+
+9. toast() для уведомлений об успехе/ошибке использовать из useToast() хука.
+
+10. WS-события слушать через useWsEvent() хук из @/hooks/use-ws.
+    Отправлять через echoWs.send() из @/lib/ws-client.
+
+11. Аватары: если avatarFileId есть → src="/api/files/{avatarFileId}/download"
+    Иначе → AvatarFallback с буквой и цветом (функция getAvatarColor уже везде есть).
+
+12. Не писать комментарии в коде — только чистый, читаемый TypeScript/TSX.
+
+13. Все новые файлы routes на backend подключать в:
+    artifacts/api-server/src/routes/index.ts
+
+14. Все новые таблицы экспортировать из:
+    lib/db/src/schema/index.ts
+
+15. При добавлении новых хуков в openapi.yaml → обязательно проверить что
+    схема запроса/ответа корректна (Zod-валидация на backend должна совпадать).
+
+================================================================================
+                    КОНЕЦ ТЕХНИЧЕСКОГО ПРОЕКТА
+================================================================================
+Версия документа: 1.0
+Дата: 2026-07-03
+Проект: ECHO Messenger
+Разработчик: AI-агент по данному ТЗ
+================================================================================
