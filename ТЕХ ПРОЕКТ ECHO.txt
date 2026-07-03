@@ -3067,12 +3067,638 @@ Alt+←/→ → назад/вперёд между чатами
 [ ] Анимации работают плавно (60fps) на мобильных
 
 ================================================================================
-                         КОНЕЦ ТЕХНИЧЕСКОГО ПРОЕКТА v2.0
+         STAGE 30 — ОБХОД БЛОКИРОВОК (CENSORSHIP RESISTANCE)
+         «Работает даже если ECHO заблокирован провайдером»
+================================================================================
+
+ВАЖНО О ДИЗАЙНЕ:
+  Этот stage не меняет ни одну существующую кнопку и ни один экран.
+  Весь существующий UI сохраняется полностью.
+  Добавляется только новый раздел в Настройках → "Прокси и соединение".
+
+=== ЧТО ТАКОЕ ОБХОД БЛОКИРОВОК ДЛЯ МЕССЕНДЖЕРА ===
+
+Когда провайдер блокирует ECHO:
+  - DNS-запросы к домену ECHO → перенаправляются или блокируются
+  - Прямые HTTP/WS соединения к API → сбрасываются (RST пакет)
+  - Порты 80/443 → фильтруются по IP
+
+Что мы можем сделать без внешних проксей (внутри самого ECHO):
+
+  1. DOMAIN FRONTING через Cloudflare
+  2. Встроенный SOCKS5/HTTP прокси (пользователь вводит свой)
+  3. MTProto-like OBFUSCATION обфускация WebSocket
+  4. Несколько fallback-доменов (резервные домены)
+  5. Tor через встроенный WASM (Tor.js)
+  6. DNS over HTTPS (DoH) — обход блокировки DNS
+  7. WebRTC TURN-based соединение как транспорт
+  8. i2p/Snowflake bridge (продвинутый уровень)
+
+=== АРХИТЕКТУРА ОБХОДА ===
+
+Принцип: клиент пробует соединения в порядке приоритета:
+
+  Приоритет 1: Прямое соединение (обычный fetch/WS)
+  Приоритет 2: Альтернативный домен (резервные URL)
+  Приоритет 3: Cloudflare Workers прокси
+  Приоритет 4: Пользовательский SOCKS5/HTTP прокси
+  Приоритет 5: Tor WASM
+
+Файл: artifacts/echo-messenger/src/lib/connection-manager.ts (создать)
+
+=== РЕАЛИЗАЦИЯ — ШАГ 1: CONNECTION MANAGER ===
+
+Файл: artifacts/echo-messenger/src/lib/connection-manager.ts
+
+  type ConnectionMode =
+    | "direct"           // обычное соединение
+    | "alt-domain"       // резервный домен
+    | "cf-worker"        // Cloudflare Workers прокси
+    | "custom-proxy"     // пользовательский прокси
+    | "tor"              // Tor WASM
+
+  type ConnectionConfig = {
+    mode: ConnectionMode;
+    proxyUrl?: string;       // для custom-proxy: "socks5://host:port" или "http://host:port"
+    cfWorkerUrl?: string;    // URL Cloudflare Worker
+    altDomains?: string[];   // список резервных доменов
+    timeout: number;         // таймаут проверки соединения в мс
+  };
+
+  const DEFAULT_CONFIG: ConnectionConfig = {
+    mode: "direct",
+    altDomains: [
+      "https://echo1.example.com",
+      "https://echo2.example.com",
+      "https://echo-backup.onion.ws"  // onion-через-HTTPS мост
+    ],
+    timeout: 5000
+  };
+
+  class ConnectionManager {
+    private config: ConnectionConfig;
+    private activeMode: ConnectionMode = "direct";
+    private activeBaseUrl: string = "";
+    private listeners: Array<(mode: ConnectionMode) => void> = [];
+
+    constructor() {
+      // Загрузить сохранённый конфиг из localStorage
+      const saved = localStorage.getItem("echo_connection_config");
+      this.config = saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+      this.activeBaseUrl = window.location.origin;
+    }
+
+    async autoDetect(): Promise<ConnectionMode> {
+      // Пробуем прямое соединение
+      if (await this.testConnection("direct", window.location.origin)) {
+        this.setMode("direct");
+        return "direct";
+      }
+
+      // Пробуем резервные домены
+      for (const domain of this.config.altDomains ?? []) {
+        if (await this.testConnection("alt-domain", domain)) {
+          this.activeBaseUrl = domain;
+          this.setMode("alt-domain");
+          return "alt-domain";
+        }
+      }
+
+      // Пробуем CF Worker
+      if (this.config.cfWorkerUrl && await this.testConnection("cf-worker", this.config.cfWorkerUrl)) {
+        this.activeBaseUrl = this.config.cfWorkerUrl;
+        this.setMode("cf-worker");
+        return "cf-worker";
+      }
+
+      // Пробуем пользовательский прокси
+      if (this.config.proxyUrl) {
+        this.setMode("custom-proxy");
+        return "custom-proxy";
+      }
+
+      // Fallback: Tor
+      this.setMode("tor");
+      return "tor";
+    }
+
+    private async testConnection(mode: ConnectionMode, baseUrl: string): Promise<boolean> {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), this.config.timeout);
+        const res = await fetch(`${baseUrl}/api/health`, {
+          signal: controller.signal,
+          cache: "no-store"
+        });
+        clearTimeout(timeout);
+        return res.ok;
+      } catch {
+        return false;
+      }
+    }
+
+    private setMode(mode: ConnectionMode) {
+      this.activeMode = mode;
+      this.listeners.forEach(cb => cb(mode));
+    }
+
+    onModeChange(cb: (mode: ConnectionMode) => void) {
+      this.listeners.push(cb);
+      return () => { this.listeners = this.listeners.filter(l => l !== cb); };
+    }
+
+    getBaseUrl(): string { return this.activeBaseUrl; }
+    getMode(): ConnectionMode { return this.activeMode; }
+    getConfig(): ConnectionConfig { return this.config; }
+
+    saveConfig(cfg: Partial<ConnectionConfig>) {
+      this.config = { ...this.config, ...cfg };
+      localStorage.setItem("echo_connection_config", JSON.stringify(this.config));
+    }
+  }
+
+  export const connectionManager = new ConnectionManager();
+
+=== РЕАЛИЗАЦИЯ — ШАГ 2: ОБФУСКАЦИЯ WEBSOCKET ===
+
+Проблема: провайдер видит WS handshake и блокирует по заголовкам.
+Решение: обфускация — XOR-шифрование первых байт + случайный padding.
+
+Файл: artifacts/echo-messenger/src/lib/obfuscated-ws.ts (создать)
+
+  const OBFUSCATION_KEY = 0x5A; // простой XOR ключ (можно сделать случайным)
+
+  function xorBytes(data: Uint8Array, key: number): Uint8Array {
+    return data.map(byte => byte ^ key);
+  }
+
+  export class ObfuscatedWebSocket extends EventTarget {
+    private ws: WebSocket;
+    private enabled: boolean;
+
+    constructor(url: string, obfuscate = false) {
+      super();
+      this.enabled = obfuscate;
+      this.ws = new WebSocket(url);
+      this.ws.binaryType = "arraybuffer";
+
+      this.ws.onopen = () => this.dispatchEvent(new Event("open"));
+      this.ws.onclose = (e) => this.dispatchEvent(new CloseEvent("close", e));
+      this.ws.onerror = (e) => this.dispatchEvent(new Event("error"));
+
+      this.ws.onmessage = (e) => {
+        let data: string;
+        if (this.enabled && e.data instanceof ArrayBuffer) {
+          const decoded = xorBytes(new Uint8Array(e.data), OBFUSCATION_KEY);
+          data = new TextDecoder().decode(decoded);
+        } else {
+          data = e.data as string;
+        }
+        this.dispatchEvent(new MessageEvent("message", { data }));
+      };
+    }
+
+    send(data: string) {
+      if (this.enabled) {
+        const encoded = xorBytes(new TextEncoder().encode(data), OBFUSCATION_KEY);
+        this.ws.send(encoded.buffer);
+      } else {
+        this.ws.send(data);
+      }
+    }
+
+    close() { this.ws.close(); }
+    get readyState() { return this.ws.readyState; }
+  }
+
+Backend — обработка обфусцированных сообщений:
+  В ws-hub.ts при получении бинарного сообщения:
+    ws.on("message", (data, isBinary) => {
+      let text: string;
+      if (isBinary) {
+        const arr = new Uint8Array(data as Buffer);
+        const decoded = arr.map(b => b ^ 0x5A);
+        text = Buffer.from(decoded).toString("utf8");
+      } else {
+        text = data.toString();
+      }
+      // далее обрабатывать text как обычно
+    });
+
+=== РЕАЛИЗАЦИЯ — ШАГ 3: DNS OVER HTTPS ===
+
+Проблема: провайдер блокирует DNS-запросы к домену ECHO.
+Решение: resolve домен через DoH (Google/Cloudflare/AdGuard DNS over HTTPS).
+
+Файл: artifacts/echo-messenger/src/lib/doh-resolver.ts (создать)
+
+  const DOH_PROVIDERS = [
+    "https://cloudflare-dns.com/dns-query",
+    "https://dns.google/dns-query",
+    "https://dns.adguard.com/dns-query"
+  ];
+
+  export async function resolveHostname(hostname: string): Promise<string | null> {
+    for (const dohUrl of DOH_PROVIDERS) {
+      try {
+        const res = await fetch(`${dohUrl}?name=${hostname}&type=A`, {
+          headers: { "Accept": "application/dns-json" }
+        });
+        const json = await res.json() as { Answer?: { data: string }[] };
+        const ip = json.Answer?.[0]?.data;
+        if (ip) return ip;
+      } catch {
+        continue;
+      }
+    }
+    return null;
+  }
+
+  // Использование: при провале прямого соединения:
+  // const ip = await resolveHostname("echo-server.example.com");
+  // if (ip) baseUrl = `https://${ip}`; (с заголовком Host)
+
+=== РЕАЛИЗАЦИЯ — ШАГ 4: CLOUDFLARE WORKERS ПРОКСИ ===
+
+Создать Cloudflare Worker (бесплатный аккаунт, 100K запросов/день бесплатно):
+
+  Файл: cf-worker/proxy.js (описание для деплоя в CF):
+
+    addEventListener("fetch", event => {
+      event.respondWith(handleRequest(event.request));
+    });
+
+    const BACKEND_URL = "https://YOUR-REAL-BACKEND.replit.app";
+
+    async function handleRequest(request) {
+      const url = new URL(request.url);
+      const targetUrl = BACKEND_URL + url.pathname + url.search;
+
+      const newRequest = new Request(targetUrl, {
+        method: request.method,
+        headers: {
+          ...Object.fromEntries(request.headers),
+          "X-Forwarded-For": request.headers.get("CF-Connecting-IP") || "",
+          "X-Real-IP": request.headers.get("CF-Connecting-IP") || "",
+        },
+        body: request.method !== "GET" && request.method !== "HEAD"
+          ? await request.arrayBuffer()
+          : undefined,
+      });
+
+      const response = await fetch(newRequest);
+
+      return new Response(response.body, {
+        status: response.status,
+        headers: {
+          ...Object.fromEntries(response.headers),
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        }
+      });
+    }
+
+  Деплой: wrangler deploy (бесплатно)
+  Результат: proxy.yourname.workers.dev → forwards to ECHO backend
+  Провайдер видит соединение к Cloudflare (трудно заблокировать без блокировки всего CF)
+
+  Для WebSocket через CF Worker (Cloudflare поддерживает WS с тарифом Free):
+    Добавить обработку Upgrade: websocket в Worker
+
+=== РЕАЛИЗАЦИЯ — ШАГ 5: TOR WASM (БАЗОВАЯ ИНТЕГРАЦИЯ) ===
+
+Библиотека: @tor-client/wasm (экспериментальная) или Snowflake + meek
+
+Более реалистичный вариант — использовать Tor2Web шлюзы:
+
+  Встроенный список Tor2Web шлюзов (без Tor WASM):
+    const TOR2WEB_GATEWAYS = [
+      "https://onion.to",
+      "https://onion.ly",
+      "https://onion.link",
+      "https://www.onion.cab"
+    ];
+
+  Если backend имеет .onion адрес:
+    const onionAddress = "abcdefghijklmno.onion";
+    for (const gateway of TOR2WEB_GATEWAYS) {
+      const url = `${gateway}/${onionAddress}/api/health`;
+      if (await testConnection(url)) { ... }
+    }
+
+  ⚠️ ВАЖНО: Tor2Web менее приватен чем настоящий Tor.
+  Для полной анонимности — указывать пользователю установить Tor Browser.
+
+=== РЕАЛИЗАЦИЯ — ШАГ 6: ПОЛЬЗОВАТЕЛЬСКИЙ ПРОКСИ (SOCKS5/HTTP) ===
+
+Поскольку браузер не поддерживает SOCKS5 напрямую (только расширения),
+реализуем HTTP CONNECT proxy через fetch API (для HTTP proxy):
+
+  Файл: artifacts/echo-messenger/src/lib/proxy-fetch.ts
+
+  Примечание: браузерный JS не может напрямую работать с SOCKS5.
+  Решение — пользователь настраивает системный прокси ОС или расширение браузера,
+  и все fetch/WS запросы автоматически идут через него.
+
+  Что мы делаем:
+    1. Сохраняем proxy URL в настройках (informational)
+    2. Показываем инструкцию: "Настройте системный прокси на {host}:{port}"
+    3. Для PAC (Proxy Auto-Configuration) — генерируем PAC-файл:
+
+      function FindProxyForURL(url, host) {
+        if (shExpMatch(host, "*.echo-server.example.com")) {
+          return "PROXY 192.168.1.1:8080";
+        }
+        return "DIRECT";
+      }
+
+    4. Ссылка для скачивания PAC: data:application/x-ns-proxy-autoconfig;base64,...
+
+  Для мобильных (iOS Safari / Android Chrome):
+    Показывать QR-код с настройками прокси (mobileconfig для iOS)
+    Инструкцию как настроить Wi-Fi прокси
+
+=== РЕАЛИЗАЦИЯ — ШАГ 7: СТРАНИЦА НАСТРОЕК СОЕДИНЕНИЯ ===
+
+Файл: artifacts/echo-messenger/src/pages/settings/connection.tsx (создать)
+
+Маршрут: /settings/connection
+Добавить строку в Settings: "🌐 Прокси и соединение" → /settings/connection
+
+Дизайн (Telegram-стиль, сохраняется):
+
+ХЕДЕР: "← Назад" | "Прокси и соединение"
+
+СЕКЦИЯ "СТАТУС СОЕДИНЕНИЯ":
+  Карточка:
+    [Зелёная точка] "Прямое соединение" / "Через прокси" / "Через Cloudflare" / "Tor"
+    Ping: "45ms"
+    Кнопка "Проверить соединение" → запустить autoDetect() + показать результат
+
+СЕКЦИЯ "АВТОМАТИЧЕСКОЕ ОБНАРУЖЕНИЕ":
+  Toggle "Автоматически находить лучшее соединение"
+  Описание: "При блокировке ECHO автоматически переключится на резервный канал"
+  
+  При включении: connectionManager.autoDetect() при старте приложения
+
+СЕКЦИЯ "РЕЗЕРВНЫЕ ДОМЕНЫ":
+  Список altDomains (редактируемый):
+    + Добавить домен
+    Свайп → удалить
+  Описание: "Если основной домен заблокирован — используется первый доступный из списка"
+
+СЕКЦИЯ "CLOUDFLARE WORKER":
+  Toggle "Использовать CF Worker прокси"
+  Input: "URL Cloudflare Worker"
+  Placeholder: "https://myproxy.workers.dev"
+  Описание: "Трафик пойдёт через Cloudflare — очень сложно заблокировать"
+
+СЕКЦИЯ "ПОЛЬЗОВАТЕЛЬСКИЙ ПРОКСИ":
+  Toggle "Использовать прокси"
+  Radio: [HTTP прокси] [SOCKS5 прокси]
+  Input: "Хост"
+  Input: "Порт"
+  Input: "Логин (необязательно)"
+  Input: "Пароль (необязательно)"
+  Кнопка "Проверить прокси"
+  
+  Если SOCKS5 → показать инструкцию:
+    "Для SOCKS5 настройте системный прокси:"
+    [Инструкция iOS] [Инструкция Android] [Инструкция Windows]
+  Кнопка "Скачать PAC-файл" (автоматическая настройка прокси)
+
+СЕКЦИЯ "DNS":
+  Toggle "DNS over HTTPS (DoH)"
+  Select: Cloudflare (1.1.1.1) / Google (8.8.8.8) / AdGuard / Системный
+  Описание: "Обходит блокировку DNS-запросов к ECHO серверу"
+
+СЕКЦИЯ "ОБФУСКАЦИЯ":
+  Toggle "Обфускация трафика"
+  Описание: "Маскирует ECHO-трафик под обычные веб-запросы. Затрудняет DPI-анализ."
+  ⚠️ "Требует совместимости с сервером"
+
+СЕКЦИЯ "TOR":
+  Toggle "Использовать Tor"
+  Статус: "Tor недоступен (нет WASM)" / "Подключаюсь..." / "Tor активен"
+  Список Tor2Web шлюзов (редактируемый)
+  Кнопка "Открыть в Tor Browser" → window.open("https://echo.onion")
+  Описание: "Максимальная анонимность. Трафик проходит через несколько узлов Tor."
+
+КНОПКА "СБРОСИТЬ НАСТРОЙКИ СОЕДИНЕНИЯ"
+
+=== РЕАЛИЗАЦИЯ — ШАГ 8: STATUS BANNER ===
+
+Файл: artifacts/echo-messenger/src/components/connection-status-banner.tsx (создать)
+
+Глобальный компонент (добавить в App.tsx, под хедером):
+
+  Показывается только когда режим НЕ "direct":
+  Анимация slide-down (Framer Motion, height 0→32px)
+
+  Цвета баннера:
+    "alt-domain" → синий: "🔄 Резервный сервер"
+    "cf-worker"  → синий: "☁️ Cloudflare прокси активен"
+    "custom-proxy" → оранжевый: "🔀 HTTP прокси: {host}"
+    "tor"        → фиолетовый: "🧅 Tor активен"
+    "connecting" → серый: "⏳ Поиск соединения..."
+
+  Тап на баннер → navigate("/settings/connection")
+  Кнопка ✕ → скрыть баннер до следующего перезапуска
+
+=== РЕАЛИЗАЦИЯ — ШАГ 9: AUTO-RECONNECT ===
+
+Файл: artifacts/echo-messenger/src/lib/ws-client.ts (дополнить)
+
+При разрыве WS-соединения (onclose с code !== 1000):
+  Exponential backoff:
+    1-я попытка: через 1 сек
+    2-я попытка: через 2 сек
+    3-я попытка: через 4 сек
+    4-я попытка: через 8 сек
+    После 4 неудачных: попробовать autoDetect() → переключиться на другой режим
+
+  const reconnect = async (attempt = 0) => {
+    const delay = Math.min(1000 * Math.pow(2, attempt), 30000);
+    await new Promise(r => setTimeout(r, delay));
+    
+    if (attempt >= 4) {
+      // Переключить режим соединения
+      const newMode = await connectionManager.autoDetect();
+      const newUrl = buildWsUrl(connectionManager.getBaseUrl());
+      connect(newUrl);
+    } else {
+      connect(wsUrl);
+    }
+  };
+
+=== РЕАЛИЗАЦИЯ — ШАГ 10: BACKEND MULTI-DOMAIN ПОДДЕРЖКА ===
+
+artifacts/api-server/src/index.ts — дополнить CORS:
+
+  const allowedOrigins = [
+    process.env.FRONTEND_URL ?? "http://localhost:5000",
+    process.env.ALT_DOMAIN_1,
+    process.env.ALT_DOMAIN_2,
+    process.env.CF_WORKER_URL,
+    /\.workers\.dev$/,  // любые CF workers
+    /\.onion\.ws$/,     // Tor2Web шлюзы
+  ].filter(Boolean);
+
+  app.use(cors({
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true); // same-origin
+      const allowed = allowedOrigins.some(o =>
+        o instanceof RegExp ? o.test(origin) : o === origin
+      );
+      cb(null, allowed);
+    },
+    credentials: true
+  }));
+
+Заголовки против fingerprinting (усложняет DPI блокировку):
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    // Не раскрывать Server header:
+    res.removeHeader("X-Powered-By");
+    next();
+  });
+
+=== РЕАЛИЗАЦИЯ — ШАГ 11: CONNECTION CONTEXT В REACT ===
+
+Файл: artifacts/echo-messenger/src/lib/connection-context.tsx (создать)
+
+  type ConnectionCtxValue = {
+    mode: ConnectionMode;
+    isConnected: boolean;
+    baseUrl: string;
+    autoDetect: () => Promise<void>;
+  };
+
+  export const ConnectionContext = createContext<ConnectionCtxValue>({...});
+
+  export function ConnectionProvider({ children }) {
+    const [mode, setMode] = useState<ConnectionMode>("direct");
+    const [isConnected, setIsConnected] = useState(true);
+
+    useEffect(() => {
+      const unsub = connectionManager.onModeChange(setMode);
+      
+      // При старте — проверить соединение
+      const check = async () => {
+        const autoMode = localStorage.getItem("echo_auto_detect") === "true";
+        if (autoMode) {
+          await connectionManager.autoDetect();
+        }
+      };
+      check();
+      
+      return unsub;
+    }, []);
+
+    const autoDetect = async () => {
+      await connectionManager.autoDetect();
+    };
+
+    return (
+      <ConnectionContext.Provider value={{ mode, isConnected, baseUrl: connectionManager.getBaseUrl(), autoDetect }}>
+        {children}
+      </ConnectionContext.Provider>
+    );
+  }
+
+  export const useConnection = () => useContext(ConnectionContext);
+
+Добавить ConnectionProvider в App.tsx (снаружи всех остальных провайдеров).
+
+=== ИНТЕГРАЦИЯ В СУЩЕСТВУЮЩИЙ КОД ===
+
+custom-fetch.ts (lib/api-client-react):
+  Текущий baseURL = window.location.origin + "/api"
+  Изменить:
+    import { connectionManager } from "@/lib/connection-manager";
+    const getBaseUrl = () => connectionManager.getBaseUrl() + "/api";
+  
+  В каждом fetch-запросе:
+    const url = getBaseUrl() + path;
+
+ws-client.ts:
+  const buildWsUrl = (base: string) => {
+    const wsBase = base.replace(/^http/, "ws").replace(/^https/, "wss");
+    return wsBase + "/ws";
+  };
+
+=== ТАБЛИЦА В БД ДЛЯ РЕЗЕРВНЫХ ДОМЕНОВ ===
+
+(Опционально — для централизованного управления)
+
+Файл: lib/db/src/schema/system.ts (создать):
+
+  export const systemConfigTable = pgTable("system_config", {
+    key:   varchar("key", { length: 64 }).primaryKey(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+  });
+
+Endpoint: GET /api/system/bootstrap
+  Возвращает список резервных доменов из БД:
+  { altDomains: ["https://echo1.example.com", ...], cfWorkerUrl: "..." }
+  
+  Клиент при старте делает этот запрос и обновляет список.
+  Если основной домен недоступен — список уже закэширован в localStorage.
+
+=== ДОБАВИТЬ В ЧЕКЛИСТ ===
+
+[ ] Страница "Прокси и соединение" открывается из Настроек
+[ ] Toggle "Автообнаружение" работает и переключает режимы
+[ ] Резервные домены проверяются при сбое прямого соединения
+[ ] CF Worker прокси можно настроить и он работает
+[ ] Баннер режима соединения отображается при non-direct режиме
+[ ] WS auto-reconnect с exponential backoff работает
+[ ] DNS over HTTPS можно включить в настройках
+[ ] Обфускация WS передаёт данные (XOR) и сервер их декодирует
+
+================================================================================
+   STAGE 31 — СОХРАНЕНИЕ ТЕКУЩЕГО ДИЗАЙНА (ПРАВИЛО ДЛЯ ИИ-РАЗРАБОТЧИКА)
+================================================================================
+
+АБСОЛЮТНОЕ ПРАВИЛО: НЕ УДАЛЯТЬ СУЩЕСТВУЮЩИЙ КОД БЕЗ ПРИЧИНЫ.
+
+Что уже работает и должно ОСТАТЬСЯ без изменений:
+
+✅ ChatList.tsx — все кнопки хедера, таблетки фильтров, layout строк
+✅ ChatWindow.tsx — вся структура пузырей, emoji quick bar, reply bar
+✅ Settings.tsx — все Row компоненты, структура групп, footer
+✅ Цветовая схема — тёмная тема, синий primary, все CSS переменные
+✅ Навбар — 5 вкладок (Чаты, Контакты, Поиск, Звонки, Настройки)
+✅ Кнопки в хедере ChatWindow — Phone, Search, MoreVertical
+✅ Аватары с цветовыми hash-функциями
+✅ Dot-pattern фон чата
+✅ Анимации Framer Motion (enter/exit сообщений)
+✅ Компоненты Avatar, AvatarFallback из shadcn/ui
+✅ cn() утилита для условных классов
+✅ useToast() для уведомлений
+
+Что НУЖНО добавить, не ломая существующее:
+  → Добавлять новые импорты в начало файла
+  → Заменять заглушки (toast/mock data) на реальные API вызовы
+  → Добавлять новые компоненты РЯДОМ с существующими (не вместо)
+  → Новые страницы = новые файлы, не редактировать существующие без нужды
+
+Проверка перед каждым изменением:
+  Существующий экран → работает? → да → не трогать layout
+  Заглушка (toast/mock) → заменить только внутреннюю логику
+  Новая функция → создать новый файл, подключить через новый route
+
+================================================================================
+                         КОНЕЦ ТЕХНИЧЕСКОГО ПРОЕКТА v3.0
 ================================================================================
 Дата: 2026-07-03
-Проект: ECHO Messenger — Полный аналог Telegram
+Проект: ECHO Messenger — Полный аналог Telegram с обходом блокировок
 Статус: Готово к поэтапной реализации
-Количество этапов: 29
-Количество новых endpoints: 60+
-Количество новых таблиц: 14
+Количество этапов: 31 (29 функциональных + 2 новых)
+Количество новых endpoints: 65+
+Количество новых таблиц: 15
+Обход блокировок: 7 методов (Alt-domain, CF Worker, DoH, Obfuscation, SOCKS5, Tor2Web, Auto-detect)
 ================================================================================
