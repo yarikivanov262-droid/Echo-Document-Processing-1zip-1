@@ -1,4 +1,4 @@
-import { pgTable, bigserial, bigint, smallint, text, timestamp, boolean, integer, varchar, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, bigint, smallint, text, timestamp, boolean, integer, varchar, jsonb, decimal } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { chatsTable } from "./chats";
 import { createInsertSchema } from "drizzle-zod";
@@ -25,6 +25,30 @@ export const messagesTable = pgTable("messages", {
   forwardedFromId: bigint("forwarded_from_id", { mode: "number" }),
   selfDestructAt: timestamp("self_destruct_at", { withTimezone: true }),
   reactions: jsonb("reactions").$type<Record<string, number[]>>(),
+  senderUsername: varchar("sender_username", { length: 32 }),
+  mediaGroupId: varchar("media_group_id", { length: 36 }),
+  mediaType: varchar("media_type", { length: 16 }),
+  fileName: varchar("file_name", { length: 255 }),
+  fileSize: bigint("file_size", { mode: "number" }),
+  mediaDuration: integer("media_duration"),
+  mediaWidth: integer("media_width"),
+  mediaHeight: integer("media_height"),
+  mediaThumbFileId: varchar("media_thumb_file_id", { length: 36 }),
+  pollId: bigint("poll_id", { mode: "number" }),
+  locationLat: decimal("location_lat", { precision: 10, scale: 7 }),
+  locationLng: decimal("location_lng", { precision: 10, scale: 7 }),
+  locationTitle: varchar("location_title", { length: 128 }),
+  contactUserId: bigint("contact_user_id", { mode: "number" }),
+  isPinned: boolean("is_pinned").default(false).notNull(),
+  pinnedAt: timestamp("pinned_at", { withTimezone: true }),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  isSilent: boolean("is_silent").default(false).notNull(),
+  hasSpoiler: boolean("has_spoiler").default(false).notNull(),
+  viewOnce: boolean("view_once").default(false).notNull(),
+  viewedByIds: jsonb("viewed_by_ids").$type<number[]>(),
+  starredBy: jsonb("starred_by").$type<number[]>(),
+  reminderAt: timestamp("reminder_at", { withTimezone: true }),
+  forwardedFromUsername: varchar("forwarded_from_username", { length: 32 }),
 });
 
 export const reactionsTable = pgTable("message_reactions", {

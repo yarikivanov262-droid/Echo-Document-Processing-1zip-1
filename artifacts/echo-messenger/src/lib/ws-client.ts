@@ -42,6 +42,12 @@ class EchoWsClient {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
+  send(data: string) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(data);
+    }
+  }
+
   private openSocket() {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;

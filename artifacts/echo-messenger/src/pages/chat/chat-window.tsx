@@ -7,10 +7,11 @@ import {
   Smile, X, Search, Pin, BellOff, UserPlus
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead } from "@workspace/api-client-react";
+import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useWsEvent } from "@/hooks/use-ws";
+import { echoWs } from "@/lib/ws-client";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -50,12 +51,13 @@ type MsgItem = {
   isSelf?: boolean;
   reactions?: Record<string, number[]>;
   isEdited?: boolean;
+  senderUsername?: string;
 };
 
 export function ChatWindow() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { userId } = useEchoAuth();
+  const { userId, username } = useEchoAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const chatId = parseInt(id || "0", 10);
@@ -67,6 +69,8 @@ export function ChatWindow() {
   );
   const sendMutation = useSendMessage();
   const markReadMutation = useMarkMessageRead();
+  const deleteMessageMutation = useDeleteMessage();
+  const reactMutation = useReactToMessage();
 
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<MsgItem | null>(null);
@@ -119,6 +123,7 @@ export function ChatWindow() {
     ...m,
     timestamp: (m as { timestamp?: string }).timestamp ?? "",
     isSelf: m.senderId === userId,
+    senderUsername: (m as { senderUsername?: string }).senderUsername,
   }));
 
   // Date separators
@@ -153,12 +158,16 @@ export function ChatWindow() {
     }
   }, [messages?.length]);
 
-  // Typing indicator (local)
+  // Typing indicator
   const handleTextChange = (v: string) => {
     setText(v);
+    if (!typingTimer.current) {
+      echoWs.send(JSON.stringify({ type: "typing", chatId, isTyping: true, username }));
+    }
     if (typingTimer.current) clearTimeout(typingTimer.current);
     typingTimer.current = setTimeout(() => {
-      // typing stopped
+      echoWs.send(JSON.stringify({ type: "typing", chatId, isTyping: false, username }));
+      typingTimer.current = null;
     }, 2000);
   };
 
@@ -202,7 +211,23 @@ export function ChatWindow() {
   };
 
   const deleteMsg = () => {
-    toast({ title: "Сообщение удалено (UI)" });
+    if (!selectedMsg) return;
+    deleteMessageMutation.mutate({ id: selectedMsg.id }, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+        toast({ title: "Сообщение удалено" });
+      },
+      onError: () => toast({ title: "Ошибка удаления", variant: "destructive" }),
+    });
+    setShowMenu(false);
+  };
+
+  const reactToMsg = (emoji: string) => {
+    if (!selectedMsg) return;
+    reactMutation.mutate({ id: selectedMsg.id, data: { emoji } }, {
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }),
+      onError: () => toast({ title: "Ошибка реакции", variant: "destructive" }),
+    });
     setShowMenu(false);
   };
 
@@ -364,7 +389,7 @@ export function ChatWindow() {
                       {/* Sender name in group */}
                       {!isSelf && isGroup && (
                         <div className="text-[12px] font-semibold text-primary mb-0.5">
-                          User {msg.senderId}
+                          {msg.senderUsername || `User ${msg.senderId}`}
                         </div>
                       )}
 
@@ -448,7 +473,7 @@ export function ChatWindow() {
               {/* Quick emoji reactions */}
               <div className="flex gap-1 px-3 py-2 border-b border-border/50">
                 {EMOJI_QUICK.slice(0, 6).map(e => (
-                  <button key={e} onClick={() => { toast({ title: `Реакция ${e}` }); setShowMenu(false); }}
+                  <button key={e} onClick={() => reactToMsg(e)}
                     className="text-xl hover:scale-125 transition-transform">{e}</button>
                 ))}
               </div>

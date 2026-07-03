@@ -5,6 +5,9 @@ import usersRouter from "./users";
 import messagesRouter from "./messages";
 import chatsRouter from "./chats";
 import filesRouter from "./files";
+import contactsRouter from "./contacts";
+import activityLogRouter from "./activity-log";
+import stickersRouter from "./stickers";
 
 const router: IRouter = Router();
 
@@ -14,5 +17,8 @@ router.use(usersRouter);
 router.use(messagesRouter);
 router.use(chatsRouter);
 router.use(filesRouter);
+router.use(contactsRouter);
+router.use(activityLogRouter);
+router.use(stickersRouter);
 
 export default router;

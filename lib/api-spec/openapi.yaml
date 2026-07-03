@@ -21,6 +21,10 @@ tags:
     description: File operations
   - name: prekeys
     description: Cryptographic pre-key operations
+  - name: contacts
+    description: Contact and block-list operations
+  - name: stickers
+    description: Sticker pack operations
 paths:
   /healthz:
     get:
@@ -625,6 +629,193 @@ paths:
               schema:
                 $ref: "#/components/schemas/BackupInfo"
 
+  /contacts:
+    get:
+      operationId: getContacts
+      tags: [contacts]
+      summary: List user's contacts
+      responses:
+        "200":
+          description: Contacts list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Contact"
+    post:
+      operationId: addContact
+      tags: [contacts]
+      summary: Add a contact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddContactInput"
+      responses:
+        "201":
+          description: Contact added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Contact"
+        "409":
+          description: Already added
+
+  /contacts/{contactId}:
+    delete:
+      operationId: removeContact
+      tags: [contacts]
+      summary: Remove a contact
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /contacts/{contactId}/block:
+    post:
+      operationId: blockUser
+      tags: [contacts]
+      summary: Block a user
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Blocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+    delete:
+      operationId: unblockUser
+      tags: [contacts]
+      summary: Unblock a user
+      parameters:
+        - name: contactId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Unblocked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /blocked-users:
+    get:
+      operationId: getBlockedUsers
+      tags: [contacts]
+      summary: List blocked users
+      responses:
+        "200":
+          description: Blocked users list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BlockedUser"
+
+  /activity-log:
+    get:
+      operationId: getActivityLog
+      tags: [users]
+      summary: Get security activity log
+      responses:
+        "200":
+          description: Activity log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityLogEntry"
+
+  /stickers/packs:
+    get:
+      operationId: getStickerPacks
+      tags: [stickers]
+      summary: List all sticker packs
+      responses:
+        "200":
+          description: Sticker packs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StickerPack"
+
+  /stickers/installed:
+    get:
+      operationId: getInstalledStickerPacks
+      tags: [stickers]
+      summary: List installed sticker packs
+      responses:
+        "200":
+          description: Installed sticker packs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StickerPack"
+
+  /stickers/install:
+    post:
+      operationId: installStickerPack
+      tags: [stickers]
+      summary: Install a sticker pack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InstallStickerPackInput"
+      responses:
+        "200":
+          description: Installed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /stickers/install/{packId}:
+    delete:
+      operationId: uninstallStickerPack
+      tags: [stickers]
+      summary: Uninstall a sticker pack
+      parameters:
+        - name: packId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Uninstalled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1049,3 +1240,91 @@ components:
         createdAt:
           type: string
       required: [id, createdAt]
+
+    Contact:
+      type: object
+      properties:
+        id:
+          type: integer
+        contactId:
+          type: integer
+        nickname:
+          type: ["string", "null"]
+        username:
+          type: string
+        displayName:
+          type: ["string", "null"]
+        avatarFileId:
+          type: ["string", "null"]
+        isOnline:
+          type: boolean
+        lastOnline:
+          type: ["string", "null"]
+        addedAt:
+          type: string
+      required: [id, contactId, username, isOnline, addedAt]
+
+    AddContactInput:
+      type: object
+      properties:
+        contactId:
+          type: integer
+        nickname:
+          type: string
+      required: [contactId]
+
+    BlockedUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        blockedId:
+          type: integer
+        username:
+          type: string
+        blockedAt:
+          type: string
+      required: [id, blockedId, username, blockedAt]
+
+    ActivityLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+        action:
+          type: string
+        ipAddress:
+          type: ["string", "null"]
+        userAgent:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required: [id, action, createdAt]
+
+    StickerPack:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        thumbnail:
+          type: ["string", "null"]
+        stickers:
+          type: array
+          items:
+            type: object
+        isAnimated:
+          type: boolean
+        isOfficial:
+          type: boolean
+        installCount:
+          type: integer
+      required: [id, title, stickers, isAnimated]
+
+    InstallStickerPackInput:
+      type: object
+      properties:
+        packId:
+          type: integer
+      required: [packId]

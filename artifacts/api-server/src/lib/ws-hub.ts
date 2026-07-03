@@ -84,12 +84,34 @@ export function attachWsServer(httpServer: Server, validateToken: (token: string
     ws.send(JSON.stringify({ type: "connected", userId }));
 
     ws.on("message", (data) => {
-      try {
-        const msg = JSON.parse(data.toString());
-        logger.debug({ userId, type: msg.type }, "WS message from client");
-      } catch {
-        // ignore malformed
-      }
+      void (async () => {
+        try {
+          const msg = JSON.parse(data.toString());
+          logger.debug({ userId, type: msg.type }, "WS message from client");
+
+          if (msg.type === "typing" && typeof msg.chatId === "number") {
+            const { db, chatMembersTable } = await import("@workspace/db");
+            const { eq } = await import("drizzle-orm");
+            const members = await db
+              .select({ userId: chatMembersTable.userId })
+              .from(chatMembersTable)
+              .where(eq(chatMembersTable.chatId, msg.chatId));
+            broadcastToChat(
+              members.map((m) => m.userId),
+              {
+                type: "typing",
+                chatId: msg.chatId,
+                userId,
+                username: typeof msg.username === "string" ? msg.username : "",
+                isTyping: !!msg.isTyping,
+              },
+              userId
+            );
+          }
+        } catch {
+          // ignore malformed
+        }
+      })();
     });
 
     ws.on("close", () => {

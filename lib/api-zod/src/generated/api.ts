@@ -562,3 +562,165 @@ export const GetLatestBackupResponse = zod.object({
 })
 
 
+/**
+ * @summary List user's contacts
+ */
+export const GetContactsResponseItem = zod.object({
+  "id": zod.number(),
+  "contactId": zod.number(),
+  "nickname": zod.string().nullish(),
+  "username": zod.string(),
+  "displayName": zod.string().nullish(),
+  "avatarFileId": zod.string().nullish(),
+  "isOnline": zod.boolean(),
+  "lastOnline": zod.string().nullish(),
+  "addedAt": zod.string()
+})
+export const GetContactsResponse = zod.array(GetContactsResponseItem)
+
+
+/**
+ * @summary Add a contact
+ */
+export const AddContactBody = zod.object({
+  "contactId": zod.number(),
+  "nickname": zod.string().optional()
+})
+
+export const AddContactResponse = zod.object({
+  "id": zod.number(),
+  "contactId": zod.number(),
+  "nickname": zod.string().nullish(),
+  "username": zod.string(),
+  "displayName": zod.string().nullish(),
+  "avatarFileId": zod.string().nullish(),
+  "isOnline": zod.boolean(),
+  "lastOnline": zod.string().nullish(),
+  "addedAt": zod.string()
+})
+
+
+/**
+ * @summary Remove a contact
+ */
+export const RemoveContactParams = zod.object({
+  "contactId": zod.coerce.number()
+})
+
+export const RemoveContactResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Block a user
+ */
+export const BlockUserParams = zod.object({
+  "contactId": zod.coerce.number()
+})
+
+export const BlockUserResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Unblock a user
+ */
+export const UnblockUserParams = zod.object({
+  "contactId": zod.coerce.number()
+})
+
+export const UnblockUserResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary List blocked users
+ */
+export const GetBlockedUsersResponseItem = zod.object({
+  "id": zod.number(),
+  "blockedId": zod.number(),
+  "username": zod.string(),
+  "blockedAt": zod.string()
+})
+export const GetBlockedUsersResponse = zod.array(GetBlockedUsersResponseItem)
+
+
+/**
+ * @summary Get security activity log
+ */
+export const GetActivityLogResponseItem = zod.object({
+  "id": zod.number(),
+  "action": zod.string(),
+  "ipAddress": zod.string().nullish(),
+  "userAgent": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const GetActivityLogResponse = zod.array(GetActivityLogResponseItem)
+
+
+/**
+ * @summary List all sticker packs
+ */
+export const GetStickerPacksResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "thumbnail": zod.string().nullish(),
+  "stickers": zod.array(zod.object({
+
+}).passthrough()),
+  "isAnimated": zod.boolean(),
+  "isOfficial": zod.boolean().optional(),
+  "installCount": zod.number().optional()
+})
+export const GetStickerPacksResponse = zod.array(GetStickerPacksResponseItem)
+
+
+/**
+ * @summary List installed sticker packs
+ */
+export const GetInstalledStickerPacksResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "thumbnail": zod.string().nullish(),
+  "stickers": zod.array(zod.object({
+
+}).passthrough()),
+  "isAnimated": zod.boolean(),
+  "isOfficial": zod.boolean().optional(),
+  "installCount": zod.number().optional()
+})
+export const GetInstalledStickerPacksResponse = zod.array(GetInstalledStickerPacksResponseItem)
+
+
+/**
+ * @summary Install a sticker pack
+ */
+export const InstallStickerPackBody = zod.object({
+  "packId": zod.number()
+})
+
+export const InstallStickerPackResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Uninstall a sticker pack
+ */
+export const UninstallStickerPackParams = zod.object({
+  "packId": zod.coerce.number()
+})
+
+export const UninstallStickerPackResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+

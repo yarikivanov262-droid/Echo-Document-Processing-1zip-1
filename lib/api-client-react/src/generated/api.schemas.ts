@@ -258,6 +258,61 @@ export interface BackupInfo {
   createdAt: string;
 }
 
+export interface Contact {
+  id: number;
+  contactId: number;
+  /** @nullable */
+  nickname?: string | null;
+  username: string;
+  /** @nullable */
+  displayName?: string | null;
+  /** @nullable */
+  avatarFileId?: string | null;
+  isOnline: boolean;
+  /** @nullable */
+  lastOnline?: string | null;
+  addedAt: string;
+}
+
+export interface AddContactInput {
+  contactId: number;
+  nickname?: string;
+}
+
+export interface BlockedUser {
+  id: number;
+  blockedId: number;
+  username: string;
+  blockedAt: string;
+}
+
+export interface ActivityLogEntry {
+  id: number;
+  action: string;
+  /** @nullable */
+  ipAddress?: string | null;
+  /** @nullable */
+  userAgent?: string | null;
+  createdAt: string;
+}
+
+export type StickerPackStickersItem = { [key: string]: unknown };
+
+export interface StickerPack {
+  id: number;
+  title: string;
+  /** @nullable */
+  thumbnail?: string | null;
+  stickers: StickerPackStickersItem[];
+  isAnimated: boolean;
+  isOfficial?: boolean;
+  installCount?: number;
+}
+
+export interface InstallStickerPackInput {
+  packId: number;
+}
+
 export type ListUsersParams = {
 search?: string;
 limit?: number;
