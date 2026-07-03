@@ -66,6 +66,11 @@ export interface PublicUser {
   lastActive?: string | null;
   /** @nullable */
   avatarFileId?: string | null;
+  /** @nullable */
+  displayName?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  isPremium?: boolean;
 }
 
 export interface UserSettings {
@@ -85,8 +90,29 @@ export interface UserProfile {
   lastActive: string;
   /** @nullable */
   avatarFileId?: string | null;
+  /** @nullable */
+  displayName?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  isPremium: boolean;
+  starsBalance: number;
   settings?: UserSettings;
   createdAt: string;
+}
+
+export interface UpdateMeInput {
+  /**
+     * @maxLength 64
+     * @nullable
+     */
+  displayName?: string | null;
+  /**
+     * @maxLength 255
+     * @nullable
+     */
+  bio?: string | null;
+  /** @nullable */
+  avatarFileId?: string | null;
 }
 
 export interface SettingsUpdate {

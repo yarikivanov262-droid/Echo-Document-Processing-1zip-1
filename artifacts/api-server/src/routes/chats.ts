@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, chatsTable, chatMembersTable, messagesTable, usersTable } from "@workspace/db";
-import { eq, and, desc, count, isNull, ne } from "drizzle-orm";
+import { eq, and, desc, count, isNull, ne, inArray } from "drizzle-orm";
 import {
   GetChatsResponse,
   CreateChatBody,
@@ -160,6 +160,21 @@ router.post("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promi
     return;
   }
 
+  const requestedMemberIds = (parsed.data.memberIds ?? []).filter((id) => id !== req.userId);
+
+  if (requestedMemberIds.length > 0) {
+    const existingUsers = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(inArray(usersTable.id, requestedMemberIds));
+    const existingIds = new Set(existingUsers.map((u) => u.id));
+    const missing = requestedMemberIds.filter((id) => !existingIds.has(id));
+    if (missing.length > 0) {
+      res.status(400).json({ error: `Unknown user id(s): ${missing.join(", ")}` });
+      return;
+    }
+  }
+
   const [chat] = await db
     .insert(chatsTable)
     .values({
@@ -175,16 +190,12 @@ router.post("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promi
     role: "owner",
   });
 
-  if (parsed.data.memberIds) {
-    for (const memberId of parsed.data.memberIds) {
-      if (memberId !== req.userId) {
-        await db.insert(chatMembersTable).values({
-          chatId: chat.id,
-          userId: memberId,
-          role: "member",
-        });
-      }
-    }
+  for (const memberId of requestedMemberIds) {
+    await db.insert(chatMembersTable).values({
+      chatId: chat.id,
+      userId: memberId,
+      role: "member",
+    });
   }
 
   const [memberCount] = await db

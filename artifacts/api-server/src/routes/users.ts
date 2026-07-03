@@ -5,6 +5,8 @@ import {
   GetUserByUsernameParams,
   GetUserByUsernameResponse,
   GetMeResponse,
+  UpdateMeBody,
+  UpdateMeResponse,
   UpdateSettingsBody,
   UpdateSettingsResponse,
   UploadPrekeysBody,
@@ -25,6 +27,9 @@ router.get("/users", requireAuth, async (req: AuthenticatedRequest, res): Promis
       publicIdentityKey: usersTable.publicIdentityKey,
       lastActive: usersTable.lastActive,
       avatarFileId: usersTable.avatarFileId,
+      displayName: usersTable.displayName,
+      bio: usersTable.bio,
+      isPremium: usersTable.isPremium,
     })
     .from(usersTable)
     .where(
@@ -45,6 +50,9 @@ router.get("/users", requireAuth, async (req: AuthenticatedRequest, res): Promis
     publicIdentityKey: u.publicIdentityKey,
     lastActive: u.lastActive.toISOString(),
     avatarFileId: u.avatarFileId ?? null,
+    displayName: u.displayName ?? null,
+    bio: u.bio ?? null,
+    isPremium: u.isPremium,
     oneTimePrekey: null,
   })));
 });
@@ -67,6 +75,50 @@ router.get("/users/me", requireAuth, async (req: AuthenticatedRequest, res): Pro
       publicIdentityKey: user.publicIdentityKey,
       lastActive: user.lastActive.toISOString(),
       avatarFileId: user.avatarFileId ?? null,
+      displayName: user.displayName ?? null,
+      bio: user.bio ?? null,
+      isPremium: user.isPremium,
+      starsBalance: user.starsBalance,
+      settings: (user.settings as Record<string, unknown> | null) ?? undefined,
+      createdAt: user.createdAt.toISOString(),
+    })
+  );
+});
+
+router.patch("/users/me", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const parsed = UpdateMeBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const updates: Partial<typeof usersTable.$inferInsert> = {};
+  if ("displayName" in parsed.data) updates.displayName = parsed.data.displayName ?? null;
+  if ("bio" in parsed.data) updates.bio = parsed.data.bio ?? null;
+  if ("avatarFileId" in parsed.data) updates.avatarFileId = parsed.data.avatarFileId ?? null;
+
+  const [user] = await db
+    .update(usersTable)
+    .set(updates)
+    .where(eq(usersTable.id, req.userId!))
+    .returning();
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  res.json(
+    UpdateMeResponse.parse({
+      id: user.id,
+      username: user.username,
+      publicIdentityKey: user.publicIdentityKey,
+      lastActive: user.lastActive.toISOString(),
+      avatarFileId: user.avatarFileId ?? null,
+      displayName: user.displayName ?? null,
+      bio: user.bio ?? null,
+      isPremium: user.isPremium,
+      starsBalance: user.starsBalance,
       settings: (user.settings as Record<string, unknown> | null) ?? undefined,
       createdAt: user.createdAt.toISOString(),
     })
@@ -129,6 +181,9 @@ router.get("/users/:username", requireAuth, async (req: AuthenticatedRequest, re
       oneTimePrekey,
       lastActive: user.lastActive.toISOString(),
       avatarFileId: user.avatarFileId ?? null,
+      displayName: user.displayName ?? null,
+      bio: user.bio ?? null,
+      isPremium: user.isPremium,
     })
   );
 });

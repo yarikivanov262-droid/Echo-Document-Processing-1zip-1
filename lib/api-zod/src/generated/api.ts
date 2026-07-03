@@ -111,7 +111,10 @@ export const ListUsersResponseItem = zod.object({
   "publicSignedPrekey": zod.string().optional(),
   "oneTimePrekey": zod.string().nullish(),
   "lastActive": zod.string().nullish(),
-  "avatarFileId": zod.string().nullish()
+  "avatarFileId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "isPremium": zod.boolean().optional()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
@@ -130,7 +133,10 @@ export const GetUserByUsernameResponse = zod.object({
   "publicSignedPrekey": zod.string().optional(),
   "oneTimePrekey": zod.string().nullish(),
   "lastActive": zod.string().nullish(),
-  "avatarFileId": zod.string().nullish()
+  "avatarFileId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "isPremium": zod.boolean().optional()
 })
 
 
@@ -143,6 +149,47 @@ export const GetMeResponse = zod.object({
   "publicIdentityKey": zod.string(),
   "lastActive": zod.string(),
   "avatarFileId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "isPremium": zod.boolean(),
+  "starsBalance": zod.number(),
+  "settings": zod.object({
+  "theme": zod.string().optional(),
+  "language": zod.string().optional(),
+  "notifications": zod.boolean().optional(),
+  "showLastSeen": zod.boolean().optional(),
+  "showAvatar": zod.boolean().optional(),
+  "autoDeleteMessages": zod.number().nullish()
+}).optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update current user profile (displayName, bio, avatar)
+ */
+export const updateMeBodyDisplayNameMax = 64;
+
+export const updateMeBodyBioMax = 255;
+
+
+
+export const UpdateMeBody = zod.object({
+  "displayName": zod.string().max(updateMeBodyDisplayNameMax).nullish(),
+  "bio": zod.string().max(updateMeBodyBioMax).nullish(),
+  "avatarFileId": zod.string().nullish()
+})
+
+export const UpdateMeResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "publicIdentityKey": zod.string(),
+  "lastActive": zod.string(),
+  "avatarFileId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "isPremium": zod.boolean(),
+  "starsBalance": zod.number(),
   "settings": zod.object({
   "theme": zod.string().optional(),
   "language": zod.string().optional(),
@@ -175,6 +222,10 @@ export const UpdateSettingsResponse = zod.object({
   "publicIdentityKey": zod.string(),
   "lastActive": zod.string(),
   "avatarFileId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "isPremium": zod.boolean(),
+  "starsBalance": zod.number(),
   "settings": zod.object({
   "theme": zod.string().optional(),
   "language": zod.string().optional(),

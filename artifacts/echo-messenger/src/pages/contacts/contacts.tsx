@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Plus } from "lucide-react";
+import { Plus, UserPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useGetUserByUsername, useCreateChat } from "@workspace/api-client-react";
+import { useGetUserByUsername, useCreateChat, useGetContacts } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
 function getAvatarColor(name: string) {
@@ -12,30 +12,31 @@ function getAvatarColor(name: string) {
   return colors[Math.abs(h) % colors.length];
 }
 
-const mockContacts = [
-  { id: 1, username: "Алиса", lastSeen: "был(а) 8 часов назад" },
-  { id: 2, username: "Борис Иванов", lastSeen: "был(а) 8 часов назад" },
-  { id: 3, username: "Василий", lastSeen: "был(а) 8 часов назад" },
-  { id: 4, username: "Григорий", lastSeen: "был(а) 9 часов назад" },
-  { id: 5, username: "Дмитрий Сидоров", lastSeen: "был(а) вчера в 22:50" },
-  { id: 6, username: "Елена", lastSeen: "был(а) вчера в 22:34" },
-  { id: 7, username: "Жанна Петрова", lastSeen: "был(а) вчера в 22:24" },
-  { id: 8, username: "Захар", lastSeen: "был(а) вчера в 22:19" },
-  { id: 9, username: "Иван Кузнецов", lastSeen: "был(а) вчера в 22:02" },
-  { id: 10, username: "Кирилл", lastSeen: "был(а) 30 июн в 20:14" },
-];
+function formatLastSeen(isOnline: boolean, raw?: string | null): string {
+  if (isOnline) return "в сети";
+  if (!raw) return "не в сети";
+  const d = new Date(raw);
+  const diffMin = Math.round((Date.now() - d.getTime()) / 60000);
+  if (diffMin < 1) return "был(а) только что";
+  if (diffMin < 60) return `был(а) ${diffMin} мин. назад`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `был(а) ${diffH} ч. назад`;
+  return `был(а) ${d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" })}`;
+}
 
 export function Contacts() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const { data: contacts, isLoading: contactsLoading } = useGetContacts();
   const { data: foundUser, isLoading } = useGetUserByUsername(search, {
     query: { enabled: search.length > 2 } as never,
   });
   const createChatMutation = useCreateChat();
 
+  const allContacts = contacts ?? [];
   const filtered = search.length > 0
-    ? mockContacts.filter(c => c.username.toLowerCase().includes(search.toLowerCase()))
-    : mockContacts;
+    ? allContacts.filter(c => (c.displayName ?? c.username).toLowerCase().includes(search.toLowerCase()) || c.username.toLowerCase().includes(search.toLowerCase()))
+    : allContacts;
 
   const openChat = (userId: number, username: string) => {
     createChatMutation.mutate(
@@ -48,7 +49,7 @@ export function Contacts() {
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-        <button className="text-primary text-[17px] font-normal">Сортиров.</button>
+        <div className="w-8" />
         <span className="text-[17px] font-semibold">Контакты</span>
         <button
           onClick={() => navigate("/chat/new")}
@@ -81,24 +82,24 @@ export function Contacts() {
         {search.length > 2 && isLoading && (
           <div className="px-4 py-3 text-[14px] text-muted-foreground">Поиск...</div>
         )}
-        {search.length > 2 && foundUser && (
+        {search.length > 2 && foundUser && !allContacts.some(c => c.contactId === foundUser.id) && (
           <div className="mb-1">
             <div className="px-4 py-1">
               <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Глобальный поиск</span>
             </div>
             <button
-              onClick={() => openChat(foundUser.id, foundUser.username)}
+              onClick={() => navigate(`/profile/${foundUser.username}`)}
               disabled={createChatMutation.isPending}
               className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/30 disabled:opacity-60"
             >
               <Avatar className="h-[54px] w-[54px] shrink-0">
-                {foundUser.avatarFileId && <AvatarImage src={foundUser.avatarFileId} />}
+                {foundUser.avatarFileId && <AvatarImage src={`/api/files/${foundUser.avatarFileId}/download`} />}
                 <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(foundUser.username))}>
                   {foundUser.username.substring(0, 1).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 border-b border-border/50 py-2 text-left">
-                <div className="text-[16px] font-semibold">{foundUser.username}</div>
+                <div className="text-[16px] font-semibold">{foundUser.displayName || foundUser.username}</div>
                 <div className="text-[13px] text-primary">@{foundUser.username}</div>
               </div>
             </button>
@@ -106,24 +107,62 @@ export function Contacts() {
         )}
 
         {/* Contact list */}
-        {filtered.map((contact, i) => (
-          <button
-            key={contact.id}
-            onClick={() => openChat(contact.id, contact.username)}
-            disabled={createChatMutation.isPending}
-            className="w-full flex items-center gap-3 px-4 hover:bg-muted/30 disabled:opacity-60"
-          >
-            <Avatar className="h-[54px] w-[54px] shrink-0">
-              <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(contact.username))}>
-                {contact.username.substring(0, 1).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className={cn("flex-1 py-3 text-left", i < filtered.length - 1 && "border-b border-border/50")}>
-              <div className="text-[16px] font-semibold">{contact.username}</div>
-              <div className="text-[13px] text-muted-foreground">{contact.lastSeen}</div>
+        {contactsLoading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-2 animate-pulse">
+              <div className="w-[54px] h-[54px] rounded-full bg-muted shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-4 bg-muted rounded w-2/5" />
+                <div className="h-3 bg-muted rounded w-3/5" />
+              </div>
             </div>
-          </button>
-        ))}
+          ))
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground px-8 text-center">
+            <UserPlus className="h-10 w-10" />
+            <div className="text-[15px]">
+              {search ? "Ничего не найдено" : "У вас пока нет контактов"}
+            </div>
+            {!search && (
+              <button
+                onClick={() => navigate("/chat/new")}
+                className="text-primary text-[15px] font-medium"
+              >
+                Найти пользователя по username
+              </button>
+            )}
+          </div>
+        ) : (
+          filtered.map((contact, i) => {
+            const label = contact.nickname || contact.displayName || contact.username;
+            return (
+              <button
+                key={contact.id}
+                onClick={() => openChat(contact.contactId, contact.username)}
+                disabled={createChatMutation.isPending}
+                className="w-full flex items-center gap-3 px-4 hover:bg-muted/30 disabled:opacity-60"
+              >
+                <div className="relative shrink-0">
+                  <Avatar className="h-[54px] w-[54px]">
+                    {contact.avatarFileId && <AvatarImage src={`/api/files/${contact.avatarFileId}/download`} />}
+                    <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(contact.username))}>
+                      {label.substring(0, 1).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  {contact.isOnline && (
+                    <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-[#34c759] border-2 border-background" />
+                  )}
+                </div>
+                <div className={cn("flex-1 py-3 text-left", i < filtered.length - 1 && "border-b border-border/50")}>
+                  <div className="text-[16px] font-semibold">{label}</div>
+                  <div className="text-[13px] text-muted-foreground">
+                    {formatLastSeen(contact.isOnline, contact.lastOnline)}
+                  </div>
+                </div>
+              </button>
+            );
+          })
+        )}
       </div>
     </div>
   );

@@ -199,6 +199,23 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
+    patch:
+      operationId: updateMe
+      tags: [users]
+      summary: Update current user profile (displayName, bio, avatar)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateMeInput"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
 
   /users/me/settings:
     patch:
@@ -1029,6 +1046,12 @@ components:
           type: ["string", "null"]
         avatarFileId:
           type: ["string", "null"]
+        displayName:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        isPremium:
+          type: boolean
       required: [id, username, publicIdentityKey]
 
     UserProfile:
@@ -1044,11 +1067,31 @@ components:
           type: string
         avatarFileId:
           type: ["string", "null"]
+        displayName:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
+        isPremium:
+          type: boolean
+        starsBalance:
+          type: integer
         settings:
           $ref: "#/components/schemas/UserSettings"
         createdAt:
           type: string
-      required: [id, username, publicIdentityKey, lastActive, createdAt]
+      required: [id, username, publicIdentityKey, lastActive, createdAt, isPremium, starsBalance]
+
+    UpdateMeInput:
+      type: object
+      properties:
+        displayName:
+          type: ["string", "null"]
+          maxLength: 64
+        bio:
+          type: ["string", "null"]
+          maxLength: 255
+        avatarFileId:
+          type: ["string", "null"]
 
     UserSettings:
       type: object
