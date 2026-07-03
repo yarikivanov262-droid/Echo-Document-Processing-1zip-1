@@ -3692,13 +3692,861 @@ Endpoint: GET /api/system/bootstrap
   Новая функция → создать новый файл, подключить через новый route
 
 ================================================================================
-                         КОНЕЦ ТЕХНИЧЕСКОГО ПРОЕКТА v3.0
+    STAGE 32 — НАСТОЯЩИЙ E2EE: SIGNAL PROTOCOL (DOUBLE RATCHET + X3DH)
+    «Сервер не может прочитать ни одного сообщения физически»
+================================================================================
+
+ПРОБЛЕМА ТЕКУЩЕЙ РЕАЛИЗАЦИИ:
+  encryptedContent = просто текст сообщения (не зашифрован!)
+  Сервер хранит и видит все сообщения в открытом виде.
+  Это противоречит заявленному E2EE.
+
+ПРАВИЛЬНАЯ РЕАЛИЗАЦИЯ (Signal Protocol):
+
+=== КОНЦЕПЦИЯ ===
+
+  Каждый пользователь имеет:
+    Identity Key Pair (IK)     — долгосрочный ключ идентификации
+    Signed Prekey Pair (SPK)   — среднесрочный ключ (меняется каждые 7 дней)
+    One-Time Prekeys (OPK)     — одноразовые ключи (пул из 100 штук)
+  
+  Все публичные ключи хранятся на сервере (уже есть поля в users таблице).
+  Приватные ключи НИКОГДА не покидают устройство.
+
+=== X3DH (Extended Triple Diffie-Hellman) — установка сессии ===
+
+  Алиса хочет написать Бобу (первое сообщение):
+  
+  1. Алиса получает от сервера: IK_bob, SPK_bob, OPK_bob (один одноразовый)
+  2. Алиса генерирует временную пару EK (Ephemeral Key)
+  3. Алиса вычисляет:
+       DH1 = DH(IK_alice_private, SPK_bob_public)
+       DH2 = DH(EK_alice_private, IK_bob_public)
+       DH3 = DH(EK_alice_private, SPK_bob_public)
+       DH4 = DH(EK_alice_private, OPK_bob_public)  ← если OPK доступен
+       masterSecret = KDF(DH1 || DH2 || DH3 || DH4)
+  4. masterSecret → AES-256-GCM ключ для шифрования первого сообщения
+  5. В первом сообщении Алиса прикладывает: IK_alice_public, EK_alice_public, OPK_id
+
+  Боб при получении:
+  1. Берёт свои приватные ключи и публичные ключи Алисы из сообщения
+  2. Вычисляет те же DH1-DH4 → тот же masterSecret
+  3. Расшифровывает сообщение
+
+=== DOUBLE RATCHET — каждое сообщение новый ключ ===
+
+  После X3DH оба имеют RootKey (RK).
+  
+  Symmetric-key Ratchet (Chain Key → Message Keys):
+    CK_s_next, MK = KDF(CK_s)  ← Алиса каждый раз при отправке
+    CK_r_next, MK = KDF(CK_r)  ← Боб каждый раз при получении
+  
+  Diffie-Hellman Ratchet (при ответе):
+    Боб генерирует новую пару DH_bob_new
+    RK, CK_r = KDF(RK, DH(DH_bob_new_private, DH_alice_public))
+    Прикладывает DH_bob_new_public к сообщению
+  
+  Результат: каждое сообщение зашифровано уникальным ключом.
+  Компрометация одного ключа не раскрывает ни прошлые ни будущие сообщения.
+  Forward Secrecy + Break-in Recovery — оба свойства выполнены.
+
+=== РЕАЛИЗАЦИЯ В БРАУЗЕРЕ ===
+
+Библиотека: @privacyresearch/libsignal-protocol-typescript
+Установить: pnpm --filter @workspace/echo-messenger add @privacyresearch/libsignal-protocol-typescript
+
+Или написать самостоятельно (для понимания и контроля) через Web Crypto API:
+
+  Файл: artifacts/echo-messenger/src/lib/crypto/signal.ts
+
+  // Генерация ключевой пары (X25519 / ECDH)
+  async function generateKeyPair(): Promise<CryptoKeyPair> {
+    return crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]);
+  }
+
+  // ECDH обмен
+  async function dh(privateKey: CryptoKey, publicKey: CryptoKey): Promise<ArrayBuffer> {
+    return crypto.subtle.deriveBits({ name: "ECDH", public: publicKey }, privateKey, 256);
+  }
+
+  // KDF (HKDF)
+  async function hkdf(input: ArrayBuffer, salt: ArrayBuffer, info: string, length = 32): Promise<ArrayBuffer> {
+    const importedKey = await crypto.subtle.importKey("raw", input, "HKDF", false, ["deriveBits"]);
+    return crypto.subtle.deriveBits({
+      name: "HKDF",
+      hash: "SHA-256",
+      salt,
+      info: new TextEncoder().encode(info)
+    }, importedKey, length * 8);
+  }
+
+  // AES-256-GCM шифрование
+  async function encrypt(key: ArrayBuffer, plaintext: string): Promise<{ ciphertext: string; iv: string }> {
+    const aesKey = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["encrypt"]);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      aesKey,
+      new TextEncoder().encode(plaintext)
+    );
+    return {
+      ciphertext: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+      iv: btoa(String.fromCharCode(...iv))
+    };
+  }
+
+  // AES-256-GCM расшифровка
+  async function decrypt(key: ArrayBuffer, ciphertext: string, iv: string): Promise<string> {
+    const aesKey = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["decrypt"]);
+    const ivBytes = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
+    const ctBytes = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ivBytes }, aesKey, ctBytes);
+    return new TextDecoder().decode(decrypted);
+  }
+
+Хранение ключей:
+  Файл: artifacts/echo-messenger/src/lib/crypto/key-store.ts
+  
+  Использовать IndexedDB (через idb library) для хранения:
+    - Приватных ключей (NEVER в localStorage — можно вычитать через XSS)
+    - Session state (ratchet state) для каждого собеседника
+    - OPK пул (использованные OPK удалять)
+  
+  IndexedDB шифровать мастер-ключом, производным от seed-фразы.
+
+При генерации ключей (регистрация):
+  1. Сгенерировать IK, SPK, 100× OPK
+  2. Приватные → в IndexedDB
+  3. Публичные → POST /api/users/keys { identityKey, signedPrekey, prekeys: [...100 pubkeys] }
+
+Обновление signedPrekey (каждые 7 дней):
+  При логине проверять: if (signedPrekey.generatedAt < Date.now() - 7 * 86400000)
+  → Сгенерировать новый SPK, подписать IK, отправить PATCH /api/users/me/keys
+
+=== ИЗМЕНЕНИЕ СХЕМЫ СООБЩЕНИЙ ===
+
+messages.encryptedContent теперь хранит:
+  JSON: { ciphertext: string, iv: string, version: number, msgNum: number, prevChainLen: number }
+  
+  Для X3DH-первого сообщения добавить:
+  { ...вышеуказанное, x3dh: { ikPublic: string, ekPublic: string, opkId: number } }
+
+Сервер никогда не пытается расшифровать — просто хранит и передаёт.
+
+=== ПРОВЕРКА КЛЮЧЕЙ (SAFETY NUMBERS / KEY FINGERPRINT) ===
+
+Аналог Signal Safety Numbers:
+
+  Страница: /chat/:id/key-verification (добавить кнопку в Chat Info)
+  
+  Вычислить fingerprint:
+    const combined = myIdentityKey_bytes || theirIdentityKey_bytes;
+    const hash = await crypto.subtle.digest("SHA-256", combined);
+    // Разбить на 12 групп по 5 цифр:
+    "12345 67890 11111 22222 33333 44444 55555 66666 77777 88888 99999 00000"
+  
+  Отобразить:
+    Два QR-кода: мой fingerprint + fingerprint собеседника
+    Инструкция: "Сравните эти числа с собеседником вне ECHO (голос, лично)"
+    Кнопка "Подтвердить вручную" → ставит галочку verified на чат
+    Если verified → зелёный замок 🔒 в хедере чата
+    Если ключ изменился после верификации → красное предупреждение ⚠️
+
+================================================================================
+    STAGE 33 — МУЛЬТИАККАУНТЫ И ПСЕВДОНИМЫ
+    «Несколько личностей под одной seed-фразой»
+================================================================================
+
+=== КОНЦЕПЦИЯ ===
+
+Один пользователь = несколько независимых аккаунтов (persona).
+Каждая persona:
+  - Отдельный username
+  - Отдельный публичный ключ (derived от мастер-seed + index)
+  - Отдельная история чатов
+  - Нет связи между persona на уровне сервера
+
+Derivation:
+  masterSeed (из BIP39 фразы)
+  persona_0_seed = HKDF(masterSeed, salt="persona_0")
+  persona_1_seed = HKDF(masterSeed, salt="persona_1")
+  ...
+
+=== ТАБЛИЦА В БД ===
+
+personas (lib/db/src/schema/personas.ts):
+  id            BIGSERIAL PK
+  masterUserId  BIGINT FK users.id (главный аккаунт, скрытая связь — только на сервере)
+  userId        BIGINT FK users.id (отдельный user-запись для persona)
+  index         INTEGER              — 0, 1, 2...
+  label         VARCHAR(32)         — "Рабочий", "Личный", "Публичный"
+  createdAt     TIMESTAMP WITH TZ DEFAULT NOW()
+
+Примечание безопасности: связь persona ↔ masterUser ВИДНА СЕРВЕРУ.
+Для полного разделения — создавать отдельные seed-фразы.
+Документировать это пользователю в UI.
+
+=== UI ===
+
+Переключатель аккаунтов:
+  Долгое нажатие на аватар в Настройках → список persona
+  Каждая: аватар + label + @username
+  Кнопка "+" → создать новую persona (ввести label, derive username)
+  Переключение → сменить auth-token, reload приложения
+
+Страница: /settings/personas
+  Список persona с кнопками: "Переключиться" / "Удалить persona"
+  Кнопка "Создать новую личность"
+
+При создании:
+  Derive seed → сгенерировать username (случайный или ввести вручную)
+  Зарегистрировать как отдельного пользователя → получить отдельный auth-token
+  Сохранить токены всех persona в IndexedDB (зашифровано мастер-ключом)
+
+=== БЫСТРОЕ ПЕРЕКЛЮЧЕНИЕ ===
+
+В Настройках вверху (над профилем):
+  Горизонтальный скролл persona-аватаров:
+  [Аватар0 + label] [Аватар1 + label] [+ Добавить]
+  Активная persona: синяя рамка
+
+================================================================================
+    STAGE 34 — АНОНИМНЫЕ ССЫЛКИ (ANONYMOUS INBOX)
+    «Получай сообщения не раскрывая username»
+================================================================================
+
+=== ЧТО ЭТО ===
+
+Пользователь создаёт одноразовую или постоянную ссылку.
+Любой (даже без аккаунта ECHO) может написать через эту ссылку.
+Отправитель остаётся анонимным — ты не знаешь кто написал.
+
+Как у Telegram Anonymous (ask.fm аналог, но в мессенджере).
+
+=== ТАБЛИЦА В БД ===
+
+anonymous_inboxes (lib/db/src/schema/anon-inbox.ts):
+  id            BIGSERIAL PK
+  userId        BIGINT FK users.id ON DELETE CASCADE
+  slug          VARCHAR(32) UNIQUE NOT NULL   — короткий уникальный код
+  label         VARCHAR(64)                   — "Мои вопросы", "Анонимки"
+  isActive      BOOLEAN DEFAULT true
+  isOneTime     BOOLEAN DEFAULT false          — удалить после первого сообщения
+  allowFiles    BOOLEAN DEFAULT false
+  maxLength     INTEGER DEFAULT 500
+  createdAt     TIMESTAMP WITH TZ DEFAULT NOW()
+  messageCount  INTEGER DEFAULT 0
+
+anonymous_inbox_messages:
+  id            BIGSERIAL PK
+  inboxId       BIGINT FK anonymous_inboxes.id ON DELETE CASCADE
+  content       TEXT NOT NULL
+  mediaFileId   VARCHAR(36)
+  senderIP      VARCHAR(64)               — для спам-защиты (хешируем, не храним raw)
+  senderHash    VARCHAR(64)               — SHA256(IP+day) для дедупликации
+  sentAt        TIMESTAMP WITH TZ DEFAULT NOW()
+  isRead        BOOLEAN DEFAULT false
+
+=== API ===
+
+GET /api/inbox/:slug                    — публичный, без авторизации
+  Вернуть: { label, isActive, allowFiles, maxLength }
+  Если !isActive → 404
+
+POST /api/inbox/:slug                   — публичный, без авторизации
+  Body: { content, mediaFileId? }
+  Rate limit: 3 сообщения в минуту с одного IP
+  Проверить длину: content.length <= maxLength
+  INSERT INTO anonymous_inbox_messages
+  Broadcast WS к userId: { type: "anon_message", inboxId, preview: content.slice(0,50) }
+  Ответ: { success: true }
+
+GET /api/inbox (мои входящие)           — requireAuth
+  SELECT anonymous_inboxes WHERE user_id = userId
+
+POST /api/inbox                         — requireAuth
+  Body: { label, isOneTime?, allowFiles?, maxLength? }
+  Сгенерировать slug: nanoid(12)
+  Ответ: { id, slug, link: "https://echo.app/ask/{slug}" }
+
+DELETE /api/inbox/:id                   — requireAuth (только свой)
+PATCH /api/inbox/:id                    — requireAuth (isActive on/off)
+
+GET /api/inbox/:id/messages             — requireAuth (только свой)
+  SELECT * FROM anonymous_inbox_messages WHERE inbox_id = :id ORDER BY sent_at DESC
+
+POST /api/inbox/:id/reply               — requireAuth
+  Ответить анонимному сообщению (через обычный чат или публично)
+
+=== UI ===
+
+Страница: /ask/:slug (публичная, без логина)
+  Анонимная форма:
+    Аватар получателя (только если они публично его открыли)
+    Сообщение: "{label}" или "Отправь анонимное сообщение"
+    Textarea: "Ваше сообщение..." (макс maxLength символов)
+    Счётчик символов
+    Кнопка "Отправить анонимно"
+    После отправки: "✓ Сообщение отправлено"
+    
+    Нет капчи по умолчанию, rate limit на backend.
+
+Страница: /settings/anon-inbox (мой ящик)
+  Список моих inbox-ссылок
+  Переключатель активности
+  Кнопка "Скопировать ссылку"
+  QR-код для ссылки
+  Список непрочитанных сообщений
+  Статистика: "Получено 47 сообщений"
+
+Интеграция в ChatList:
+  Новый тип "записи" в Chat list: AnonymousInbox entries
+  Отображается как обычный чат с иконкой 💌 и "Анонимный ящик"
+
+================================================================================
+    STAGE 35 — РЕЖИМЫ КОНФИДЕНЦИАЛЬНОСТИ И АНТИКРИМИНАЛИСТИКА
+    «Максимальная защита данных на устройстве»
+================================================================================
+
+=== PANIC BUTTON / ЭКСТРЕННОЕ УНИЧТОЖЕНИЕ ===
+
+Файл: artifacts/echo-messenger/src/components/panic-button.tsx
+
+Настройка: /settings/security → "Экстренное уничтожение"
+  
+  Варианты активации:
+    - Встряхнуть телефон 5 раз быстро (DeviceMotion API)
+    - Ввести специальный "код уничтожения"
+    - Нажать скрытую область (5 раз в один угол экрана)
+  
+  При активации:
+    1. Очистить весь localStorage
+    2. Очистить весь IndexedDB (все ключи, сессии, кэш)
+    3. DELETE /api/sessions/all (завершить все сессии)
+    4. Очистить sessionStorage
+    5. Очистить все cookies
+    6. Перезагрузить страницу (window.location.href = "/")
+    
+    Опционально: POST /api/delete-account { emergency: true }
+    → Удалить аккаунт полностью (включая все сообщения)
+  
+  Настройка: Toggle "Удалять аккаунт при экстренном уничтожении"
+  (по умолчанию: только локальные данные)
+
+Реализация встряхивания:
+  const SHAKE_THRESHOLD = 20; // м/с²
+  const SHAKE_COUNT_REQUIRED = 5;
+  let shakeCount = 0;
+  let lastShake = 0;
+  
+  window.addEventListener("devicemotion", e => {
+    const acc = e.acceleration;
+    if (!acc) return;
+    const magnitude = Math.sqrt(acc.x!**2 + acc.y!**2 + acc.z!**2);
+    const now = Date.now();
+    if (magnitude > SHAKE_THRESHOLD && now - lastShake > 200) {
+      shakeCount++;
+      lastShake = now;
+      if (shakeCount >= SHAKE_COUNT_REQUIRED) {
+        shakeCount = 0;
+        triggerPanic();
+      }
+    }
+    if (now - lastShake > 2000) shakeCount = 0; // сброс если пауза
+  });
+
+=== ДУРАК-КОД (DURESS PIN / FAKE UNLOCK) ===
+
+Идея: два PIN-кода.
+  Реальный PIN → обычный вход в приложение
+  Дурак-PIN → показывает "чистый" аккаунт (без реальных чатов)
+
+Реализация:
+  В IndexedDB хранить:
+    realPinHash: string
+    duressPinHash: string
+    duressUserId: number (другой аккаунт-приманка)
+  
+  При вводе PIN:
+    if (pin === duressPin) → переключиться на duressUserId (приманка)
+    if (pin === realPin) → обычный вход
+  
+  Приманка-аккаунт: создаётся пользователем заранее,
+  содержит несколько фейковых чатов "о погоде".
+
+Настройка: /settings/security → "Дурак-код"
+  Toggle "Включить режим приманки"
+  Кнопка "Настроить аккаунт-приманку" → выбрать или создать
+
+=== АНТИ-СКРИНШОТ ===
+
+CSS-защита (частичная, работает на iOS с PWA):
+  .protected-content {
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: none;
+  }
+
+Для секретных чатов: при window.visibilitychange (вкладка скрыта):
+  Показывать overlay с логотипом ECHO (чтобы скриншот не показывал контент)
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      showOverlay(); // blur все сообщения
+    } else {
+      hideOverlay();
+    }
+  });
+
+На iOS PWA: нативный Screen Recording защита невозможна в браузере.
+Документировать это пользователю.
+
+=== ОЧИСТКА EXIF МЕТАДАННЫХ ===
+
+При загрузке фото/видео — удалять все EXIF данные.
+EXIF содержит: GPS координаты, модель камеры, время съёмки, серийный номер.
+
+Реализация (без библиотек, через canvas):
+  Файл: artifacts/echo-messenger/src/lib/media/strip-exif.ts
+  
+  export async function stripExif(file: File): Promise<File> {
+    return new Promise(resolve => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(objectUrl);
+        canvas.toBlob(blob => {
+          resolve(new File([blob!], file.name, { type: "image/jpeg" }));
+        }, "image/jpeg", 0.95);
+      };
+      img.src = objectUrl;
+    });
+  }
+
+При загрузке любого изображения → stripExif() перед base64 конвертацией.
+
+=== ЗАШИФРОВАННОЕ ЛОКАЛЬНОЕ ХРАНИЛИЩЕ ===
+
+IndexedDB (сессии, ключи, кэш):
+  Мастер-ключ = PBKDF2(seedPhrase, userId, 200000 iterations) → AES-256-GCM
+  При каждой записи: encrypt(data, masterKey) → сохранить зашифрованное
+  При каждом чтении: decrypt(data, masterKey) → вернуть
+
+  Файл: artifacts/echo-messenger/src/lib/secure-storage.ts
+  
+  class SecureStorage {
+    private key: CryptoKey | null = null;
+    
+    async init(seedPhrase: string, userId: number) {
+      const encoder = new TextEncoder();
+      const baseKey = await crypto.subtle.importKey("raw", encoder.encode(seedPhrase), "PBKDF2", false, ["deriveKey"]);
+      this.key = await crypto.subtle.deriveKey({
+        name: "PBKDF2",
+        salt: encoder.encode(`echo-${userId}`),
+        iterations: 200000,
+        hash: "SHA-256"
+      }, baseKey, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+    }
+    
+    async set(key: string, value: unknown): Promise<void> {
+      if (!this.key) throw new Error("SecureStorage not initialized");
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const data = new TextEncoder().encode(JSON.stringify(value));
+      const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, this.key, data);
+      // Сохранить iv + encrypted в IndexedDB
+      await idbSet(key, { iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) });
+    }
+    
+    async get<T>(key: string): Promise<T | null> {
+      const stored = await idbGet(key);
+      if (!stored) return null;
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: new Uint8Array(stored.iv) },
+        this.key!,
+        new Uint8Array(stored.data)
+      );
+      return JSON.parse(new TextDecoder().decode(decrypted)) as T;
+    }
+  }
+  
+  export const secureStorage = new SecureStorage();
+
+Инициализировать в auth-context.tsx после логина:
+  await secureStorage.init(seedPhrase, userId);
+
+=== АНОНИМИЗАЦИЯ СЕТИ ===
+
+При каждом fetch-запросе — не передавать fingerprinting заголовки:
+  headers: {
+    "User-Agent": undefined,   // удалить (браузер всё равно добавит, но не кастомный)
+    "Accept-Language": "en",   // нормализовать (не раскрывать регион)
+    "DNT": "1",                // Do Not Track
+    // Не передавать: Referer, Origin (при cross-origin)
+  }
+
+=== САМОУНИЧТОЖЕНИЕ АККАУНТА ПОСЛЕ НЕАКТИВНОСТИ ===
+
+Настройка уже есть в Privacy: "Удалить аккаунт если не в сети: 1 месяц / 3 / 6 / 12"
+
+Backend реализация (jobs.ts дополнить):
+  Каждые 24 часа:
+    SELECT id FROM users WHERE last_active < NOW() - INTERVAL 'N months'
+      AND settings->>'deleteAfterInactive' IS NOT NULL
+    → Помечать аккаунты для удаления (is_deleted = true)
+    → Удалять все сообщения пользователя
+    → Отправлять WS всем контактам: { type: "contact_deleted", userId }
+
+=== РЕЖИМ ИНКОГНИТО (скрытые сессии) ===
+
+Страница: /settings/security → Toggle "Режим инкогнито"
+
+При включении:
+  - Не показывать статус "в сети" другим пользователям (даже контактам)
+  - Не обновлять lastOnline
+  - Не отправлять typing indicator никому
+  - Не отправлять read receipts (✓✓ остаются серыми у отправителя)
+  - Не показываться в "Люди рядом"
+  
+  Backend: при WS-подключении если settings.incognito = true:
+    НЕ broadcast { type: "status", online: true }
+    НЕ UPDATE users SET is_online = true
+
+================================================================================
+    STAGE 36 — АНТИ-СПАМ И ЗАЩИТА ОТ ЗЛОУПОТРЕБЛЕНИЙ
+================================================================================
+
+=== RATE LIMITING ===
+
+Файл: artifacts/api-server/src/middlewares/rate-limit.ts (создать)
+
+Установить: pnpm --filter @workspace/api-server add express-rate-limit
+
+  import rateLimit from "express-rate-limit";
+
+  export const messageRateLimit = rateLimit({
+    windowMs: 60 * 1000,   // 1 минута
+    max: 60,               // 60 сообщений в минуту
+    message: { error: "Слишком много сообщений. Подождите." },
+    keyGenerator: (req) => req.user?.id?.toString() ?? req.ip
+  });
+
+  export const authRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15 минут
+    max: 10,                    // 10 попыток входа
+    message: { error: "Слишком много попыток. Подождите 15 минут." }
+  });
+
+  export const anonInboxRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    max: 3,               // 3 анонимных сообщения в минуту с одного IP
+    keyGenerator: (req) => req.ip
+  });
+
+  export const fileUploadRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,              // 20 файлов в минуту
+    keyGenerator: (req) => req.user?.id?.toString() ?? req.ip
+  });
+
+Подключить в routes/index.ts:
+  router.use("/api/messages", messageRateLimit, messagesRouter);
+  router.use("/api/auth", authRateLimit, authRouter);
+  router.use("/api/inbox", anonInboxRateLimit, inboxRouter);
+  router.use("/api/files", fileUploadRateLimit, filesRouter);
+
+=== ANTISPAM SCORE ===
+
+При каждой регистрации → вычислять spam score:
+  Факторы: скорость регистрации, похожий username на известных спамеров,
+  слишком быстрая отправка сообщений после регистрации.
+
+spamScore: 0-100
+  0-30: нормальный пользователь
+  31-70: подозрительный → ограниченные действия (нельзя создавать группы)
+  71-100: спамер → автоматическая блокировка
+
+Добавить поле в users: spamScore INTEGER DEFAULT 0
+
+=== СИСТЕМНЫЕ РЕПОРТЫ ===
+
+POST /api/report (создать)
+  Body: { targetUserId?, chatId?, messageId?, reason: string, description?: string }
+  Типы reason: "spam" | "abuse" | "illegal" | "impersonation" | "scam"
+  INSERT INTO reports (reporter_id, target_user_id, chat_id, message_id, reason, description)
+
+reports таблица:
+  id, reporterId, targetUserId, chatId, messageId, reason, description, status, reviewedAt
+
+=== СЛОВАРЬ СТОП-СЛОВ (опционально) ===
+
+Если нужна базовая модерация (для публичных каналов):
+  POST /api/chats/:id/messages → проверить content против stop_words list
+  Если найдено → добавить предупреждение (но не блокировать — только log)
+
+================================================================================
+    STAGE 37 — ДЕЦЕНТРАЛИЗАЦИЯ И P2P РЕЖИМ
+    «Работает без сервера между двумя устройствами»
+================================================================================
+
+=== P2P-DM РЕЖИМ (WebRTC DataChannel) ===
+
+Если оба пользователя онлайн в WebSocket → можно передавать сообщения напрямую
+через WebRTC DataChannel, минуя сервер.
+
+Как это работает:
+  1. Алиса и Боб оба подключены к WS
+  2. Алиса инициирует P2P соединение (RTCPeerConnection с dataChannel)
+  3. Через WS сервер выполняется signaling (offer/answer/ICE — как для звонков)
+  4. После установки соединения — сообщения идут напрямую P2P
+  5. Сервер не видит содержимое (уже зашифровано E2EE)
+
+Backend всё равно нужен:
+  - Для доставки когда один из пользователей offline
+  - Для хранения истории (зашифрованной)
+  - Для discovery (найти другого пользователя)
+  - Для signaling P2P
+
+Реализация:
+  Файл: artifacts/echo-messenger/src/lib/p2p-channel.ts
+  
+  export class P2PChannel {
+    private pc: RTCPeerConnection | null = null;
+    private dc: RTCDataChannel | null = null;
+    
+    async initiate(targetUserId: number, signal: (data: object) => void) {
+      this.pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      this.dc = this.pc.createDataChannel("messages", { ordered: true });
+      
+      this.dc.onopen = () => console.log("P2P channel open");
+      this.dc.onmessage = (e) => this.onMessage(e.data);
+      
+      this.pc.onicecandidate = e => {
+        if (e.candidate) signal({ type: "p2p-ice", targetUserId, candidate: e.candidate });
+      };
+      
+      const offer = await this.pc.createOffer();
+      await this.pc.setLocalDescription(offer);
+      signal({ type: "p2p-offer", targetUserId, sdp: offer.sdp });
+    }
+    
+    sendMessage(encryptedMsg: string) {
+      if (this.dc?.readyState === "open") {
+        this.dc.send(encryptedMsg);
+        return true; // успешно отправлено P2P
+      }
+      return false; // нужно слать через сервер
+    }
+    
+    private onMessage(data: string) {
+      // Получено P2P сообщение — обработать как обычное входящее
+    }
+  }
+
+В sendMutation: сначала пробовать P2P, если канал не открыт → обычный API.
+
+=== FEDERATED РЕЖИМ (несколько ECHO серверов) ===
+
+Концепция:
+  user@echo1.example.com может писать user@echo2.example.com
+  Как email, но с E2EE и в реальном времени.
+
+Реализация (базовая):
+  Формат адреса: @username@server.com
+  При отправке сообщения пользователю с другим сервером:
+    POST https://server.com/api/federation/inbox
+    Headers: X-Origin-Server: echo1.example.com, X-Signature: [подпись сервера]
+    Body: { fromUser: "username@echo1.example.com", encryptedContent, ... }
+  
+  Сервер-получатель:
+    GET https://echo1.example.com/.well-known/echo-server → публичный ключ сервера
+    Проверить подпись → если OK → доставить пользователю
+
+  Таблица federated_servers (whitelist доверенных серверов)
+
+=== SELF-HOSTING GUIDE ===
+
+Добавить в README и /settings → "О приложении" → "Запустить свой сервер":
+  
+  "ECHO с открытым исходным кодом. Вы можете запустить свой сервер:
+   1. git clone https://github.com/echo/echo-messenger
+   2. Создать PostgreSQL базу данных
+   3. Настроить .env (DATABASE_URL, VAPID_KEYS)
+   4. npm install && npm run build && npm start
+   5. Использовать свой домен в Настройки → Прокси → Резервные домены"
+
+================================================================================
+    STAGE 38 — АНАЛИЗАТОР ПРИВАТНОСТИ (PRIVACY SCORE)
+    «Покажи пользователю насколько он защищён»
+================================================================================
+
+=== PRIVACY DASHBOARD ===
+
+Страница: /settings/privacy-score (создать)
+
+Открывается из: Настройки → "🛡️ Анализ приватности" (новая строка)
+
+Дизайн: круговая диаграмма с оценкой 0-100 ("Privacy Score")
+
+Вычислять Privacy Score на основе настроек:
+
+  Параметр                            Вес    Зачтён если...
+  ──────────────────────────────────────────────────────────
+  E2EE включён                        +20    settings.e2ee = true
+  Ключи верифицированы                +15    verified = true в чатах
+  Обфускация WS включена              +10    connectionMode = "obfuscated"
+  Tor или CF Worker активен           +10    mode !== "direct"
+  Секретный чат для личного общения   +5     есть secret chats
+  Режим инкогнито включён             +5     settings.incognito = true
+  Panic button настроен               +10    panicMode.enabled = true
+  Read receipts отключены             +5     settings.noReadReceipts = true
+  Typing indicator отключён           +5     settings.noTyping = true
+  Статус "в сети" скрыт               +5     privacy.lastSeen = "nobody"
+  Двухэтапный PIN активен             +5     pin.enabled = true
+  Минимальный срок удаления сообщ.    +5     defaultDeleteAfterSeconds <= 86400
+
+Итого максимум: 100 баллов
+
+Цветовая шкала:
+  80-100: 🟢 Отлично — "Вы максимально защищены"
+  60-79:  🟡 Хорошо — "Есть несколько слабых мест"
+  40-59:  🟠 Средне — "Рекомендуем улучшить защиту"
+  0-39:   🔴 Слабо — "Ваша приватность под угрозой"
+
+Под оценкой — список конкретных рекомендаций:
+  ❌ "Включите обфускацию WS для защиты от DPI"
+  ❌ "Верифицируйте ключи с вашими контактами"
+  ✅ "E2EE активен"
+  Кнопка "Исправить" рядом с каждой — ведёт прямо на нужную настройку
+
+=== CANARY TOKENS ===
+
+"Канарейки" — способ узнать если кто-то взломал ваш аккаунт.
+
+Принцип: создаём уникальную "ловушку" (уникальный URL или код),
+которую ТОЛЬКО вы знаете. Если кто-то использует ваш аккаунт —
+они активируют ловушку и вы узнаете.
+
+Реализация:
+  Страница: /settings/security → "Canary Token"
+  
+  Генерировать: уникальный URL: https://echo.app/api/canary/{uuid}
+  
+  "Отправьте этот URL себе в Избранные. Если вы когда-нибудь увидите
+   в Журнале активности 'Canary активирован' — ваш аккаунт скомпрометирован."
+  
+  GET /api/canary/:uuid:
+    Найти пользователя по uuid
+    INSERT INTO activity_logs { type: "canary_triggered", risk: "high", description: "Canary token was accessed" }
+    Broadcast WS: { type: "security_alert", message: "Canary token активирован" }
+    return 200 OK (не 403 — не раскрывать что это ловушка)
+
+================================================================================
+    STAGE 39 — ЗАШИФРОВАННЫЕ РЕЗЕРВНЫЕ КОПИИ
+================================================================================
+
+=== ЭКСПОРТ ===
+
+Файл: artifacts/api-server/src/routes/backup.ts (дополнить или создать)
+
+GET /api/backup/export
+  Собрать все данные пользователя:
+    messages, chats, contacts, starred messages, settings
+  Зашифровать на сервере ключом = SHA256(userId + timestamp) + передать ключ клиенту
+  Или: отправить зашифрованный blob + ключ шифрования пользователю
+  Ответ: { encryptedData: string (base64), key: string, exportedAt: string }
+
+На клиенте:
+  Кнопка "Скачать резервную копию" → POST /api/backup/export
+  Сохранить файл: echo-backup-{date}.enc
+
+=== ИМПОРТ ===
+
+Страница: /settings/data → "Импортировать резервную копию"
+  Загрузить .enc файл + ввести ключ шифрования
+  POST /api/backup/import { encryptedData, key }
+  Backend: расшифровать, вставить данные (merge, не replace)
+
+=== CLOUD BACKUP (зашифрованный) ===
+
+Настройка: /settings/data → "Автоматические резервные копии"
+  
+  Варианты хранения:
+    "Только локально" (по умолчанию)
+    "Зашифрованный в аккаунте" → хранить в files таблице
+  
+  Расписание: Ежедневно / Еженедельно / Вручную
+  
+  ВАЖНО: резервные копии шифруются seed-фразой.
+  Сервер не может расшифровать резервную копию.
+
+================================================================================
+    STAGE 40 — АНОНИМНЫЕ ПЛАТЁЖНЫЕ КАНАЛЫ (КОНФИДЕНЦИАЛЬНЫЕ STARS)
+================================================================================
+
+=== КОНФИДЕНЦИАЛЬНЫЕ ТРАНЗАКЦИИ ===
+
+Проблема: сервер видит кто кому сколько Stars перевёл.
+Решение: скрыть участников транзакций при желании.
+
+Реализация: при отправке Stars можно выбрать "Анонимный перевод":
+  Отправитель → сервер знает кто отправил
+  Получатель → не знает кто отправил (только amount)
+
+В starsTransactionsTable:
+  isAnonymousSender BOOLEAN DEFAULT false
+  
+  При isAnonymousSender = true:
+    fromUserId хранится на сервере, но НЕ передаётся получателю через API
+    В истории транзакций получателя: "от анонимного пользователя"
+
+=== СКРЫТЫЙ БАЛАНС ===
+
+В Настройки → Конфиденциальность: Toggle "Скрыть баланс Stars от других"
+  При enabled = true: в публичном профиле starsBalance не отображается
+  В GET /api/users/:username: если publicUsername — не возвращать starsBalance
+  Баланс виден только самому пользователю
+
+================================================================================
+    ИТОГ: ЧТО ДЕЛАЕТ ECHO ПРИНЦИПИАЛЬНО АНОНИМНЕЕ TELEGRAM
+================================================================================
+
+  Особенность                      Telegram        ECHO (план)
+  ──────────────────────────────────────────────────────────────────
+  Регистрация без телефона          ❌               ✅
+  Регистрация без email             ❌               ✅
+  Настоящий E2EE для всех чатов     Только секретные ✅ (Stage 32)
+  Множественные личности            ❌               ✅ (Stage 33)
+  Анонимный ящик для сообщений      ❌               ✅ (Stage 34)
+  Panic button                      ❌               ✅ (Stage 35)
+  Дурак-код                         ❌               ✅ (Stage 35)
+  EXIF очистка при загрузке         ❌               ✅ (Stage 35)
+  Зашифрованный IndexedDB           ❌               ✅ (Stage 35)
+  P2P без сервера                   ❌               ✅ (Stage 37)
+  Federated (несколько серверов)    ❌               ✅ (Stage 37)
+  Privacy Score анализатор          ❌               ✅ (Stage 38)
+  Canary Token                      ❌               ✅ (Stage 38)
+  Seed-зашифрованные резервные      ❌               ✅ (Stage 39)
+  Анонимные Stars транзакции        ❌               ✅ (Stage 40)
+  Обход блокировок встроенный       Частично         ✅ (Stage 30)
+  DNS over HTTPS встроенный         ❌               ✅ (Stage 30)
+  Privacy Score дашборд             ❌               ✅ (Stage 38)
+  Самоуничтожение по встряхиванию   ❌               ✅ (Stage 35)
+  Режим инкогнито (всё скрыто)      ❌               ✅ (Stage 35)
+
+================================================================================
+                         КОНЕЦ ТЕХНИЧЕСКОГО ПРОЕКТА v4.0
 ================================================================================
 Дата: 2026-07-03
-Проект: ECHO Messenger — Полный аналог Telegram с обходом блокировок
+Проект: ECHO Messenger — Анонимный E2EE аналог Telegram
 Статус: Готово к поэтапной реализации
-Количество этапов: 31 (29 функциональных + 2 новых)
-Количество новых endpoints: 65+
-Количество новых таблиц: 15
-Обход блокировок: 7 методов (Alt-domain, CF Worker, DoH, Obfuscation, SOCKS5, Tor2Web, Auto-detect)
+Количество этапов: 40
+Уникальных анонимных фич: 16 (недоступных в Telegram)
+Методов обхода блокировок: 7
+Новых таблиц в БД: 17+
+Новых API endpoints: 70+
 ================================================================================
