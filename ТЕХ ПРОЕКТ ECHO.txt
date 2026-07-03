@@ -1,210 +1,540 @@
 ================================================================================
-                    ECHO MESSENGER — ПОЛНЫЙ ТЕХНИЧЕСКИЙ ПРОЕКТ
-                    Веб-мессенджер уровня Telegram. Версия 1.0
+         ECHO MESSENGER — ПОЛНЫЙ ТЕХНИЧЕСКИЙ ПРОЕКТ v2.0
+         «Говори. Никто не узнает.»
+         Аналог Telegram. Без телефона. Без email. Только seed-фраза.
 ================================================================================
 
-СТЕК: Node.js 24 + Express 5 + PostgreSQL + Drizzle ORM + React 18 + Vite +
-      Tailwind CSS + Framer Motion + Wouter + TanStack Query + WebSocket (ws)
-      Монорепо: pnpm workspaces
+СТЕК:
+  Node.js 24 + Express 5 + PostgreSQL + Drizzle ORM
+  React 18 + Vite + Tailwind CSS + Framer Motion + Wouter + TanStack Query
+  WebSocket (ws lib) + WebRTC (нативный браузер API)
+  Монорепо pnpm workspaces
 
-СТРУКТУРА ПРОЕКТА:
-  artifacts/api-server/   — Express backend (порт 8080)
-  artifacts/echo-messenger/ — React PWA frontend (порт 5000)
-  lib/db/                 — Drizzle ORM схема и клиент
-  lib/api-spec/           — OpenAPI yaml + Orval codegen
-  lib/api-client-react/   — Сгенерированные TanStack Query хуки
-  lib/api-zod/            — Сгенерированные Zod-схемы
+СТРУКТУРА МОНОРЕПО:
+  artifacts/api-server/         — Express backend (порт 8080)
+  artifacts/echo-messenger/     — React PWA frontend (порт 5000)
+  lib/db/src/schema/            — Drizzle ORM таблицы
+  lib/api-spec/openapi.yaml     — OpenAPI контракт (источник истины)
+  lib/api-client-react/         — Сгенерированные TanStack Query хуки
+  lib/api-zod/                  — Сгенерированные Zod-схемы
 
-ВАЖНО ДЛЯ ИИ-РАЗРАБОТЧИКА:
-  - После изменения openapi.yaml → запускать: pnpm --filter @workspace/api-spec run codegen
-  - После изменения lib/db/src/schema/ → запускать: pnpm --filter @workspace/db run push
-  - Frontend использует Vite proxy: /api/* → localhost:8080 (настроено в vite.config.ts)
-  - Все API-хуки генерируются Orval из OpenAPI, НЕ ПИСАТЬ вручную
-  - setAuthTokenGetter импортируется только из @workspace/api-client-react
-  - WebSocket подключается через /ws?token=SESSION_TOKEN (порт 8080)
-  - Сообщения хранятся в поле encryptedContent (сервер не знает содержимое)
-  - Аватары хранятся как base64 в таблице files, fileId — UUID string
-  - Bearer-токен хранится в localStorage под ключом echo_session_token
+ПРАВИЛО №1: После любого изменения openapi.yaml:
+  pnpm --filter @workspace/api-spec run codegen
 
-================================================================================
-                           ТЕКУЩЕЕ СОСТОЯНИЕ ПРОЕКТА
-================================================================================
+ПРАВИЛО №2: После любого изменения lib/db/src/schema/:
+  pnpm --filter @workspace/db run push && pnpm run typecheck:libs
 
-ЧТО РАБОТАЕТ ПОЛНОСТЬЮ:
-  ✅ Регистрация (username + seed phrase, POST /api/register)
-  ✅ Вход (POST /api/login)
-  ✅ Восстановление аккаунта по seed (POST /api/restore)
-  ✅ Удаление аккаунта (POST /api/delete-account)
-  ✅ Сессии: список и завершение (GET/DELETE /api/sessions)
-  ✅ Создание чатов любого типа (POST /api/chats)
-  ✅ Список чатов с последним сообщением и непрочитанными (GET /api/chats)
-  ✅ Отправка/получение сообщений (GET/POST /api/messages)
-  ✅ Удаление сообщений (soft-delete, DELETE /api/messages/:id)
-  ✅ Редактирование сообщений (PATCH /api/messages/:id/edit)
-  ✅ Реакции на сообщения (POST /api/messages/:id/react)
-  ✅ Пометка прочитанным (POST /api/messages/:id/read)
-  ✅ WebSocket: new_message, delete_message, edit_message, read_ack, reaction
-  ✅ Загрузка файлов как base64 в БД (POST /api/files/upload)
-  ✅ Резервные копии (POST /api/backup/upload, GET /api/backup/latest)
-  ✅ Управление участниками чата (GET/POST/DELETE /api/chats/:id/members)
-  ✅ Поиск пользователя по username (GET /api/users/:username)
-  ✅ ChatWindow: отображение, отправка, ответ на сообщение (UI), реакции (UI)
-  ✅ ChatList: реальные данные из API, счётчик непрочитанных
+ПРАВИЛО №3: Никогда не писать fetch() вручную. Только хуки из @workspace/api-client-react.
 
-ЧТО ЕСТЬ НО СЛОМАНО / ЗАГЛУШКИ:
-  ❌ Звонки (calls.tsx) — ПОЛНОСТЬЮ ФЕЙКОВЫЕ данные (захардкоженный массив)
-  ❌ Контакты (contacts.tsx) — mockContacts массив (нет таблицы contacts в БД)
-  ❌ Стикеры (sticker-packs.tsx) — только UI, состояние теряется при перезагрузке
-  ❌ Прикрепление файлов в чате — показывает toast "скоро", файл не отправляется
-  ❌ Голосовые сообщения — кнопка есть, запись не работает
-  ❌ Typing indicator — таймер есть, WS-событие не отправляется
-  ❌ Удаление сообщения из UI — toast показывается, API не вызывается
-  ❌ Пересылка сообщений — только toast, логики нет
-  ❌ Закрепление сообщений — только toast, в БД не сохраняется
-  ❌ Имена отправителей в группах — показывает "User 123" вместо username
-  ❌ Online-статус — хардкод "в сети" для всех
-  ❌ Секретные чаты — показывает обычные чаты, не фильтрует тип
-  ❌ Журнал активности — полностью захардкоженные данные
-  ❌ Настройки (notifications, appearance, privacy, language) — UI без логики
-  ❌ Профиль пользователя — нет редактирования bio, смены аватара
-  ❌ Поиск по чату — только toast
-  ❌ Список звонков (call screen) — UI без WebRTC, автоматически "завершается"
-  ❌ Избранное — пустая страница-заглушка
-  ❌ Создание канала — нет отдельного UI для управления каналом
-  ❌ Папки чатов (Folders) — отсутствует
+ПРАВИЛО №4: Никаких моковых данных, захардкоженных массивов, фейковых таймеров.
+  Если нет API — сначала создать endpoint, потом UI.
 
-ЧТО ПОЛНОСТЬЮ ОТСУТСТВУЕТ:
-  ❌ Таблица contacts в БД
-  ❌ Таблица call_logs в БД
-  ❌ Таблица pinned_messages в БД
-  ❌ Таблица user_settings в БД (или использовать jsonb в users)
-  ❌ Таблица chat_folders в БД
-  ❌ Таблица sticker_packs_installed в БД (схема есть, но таблица не используется)
-  ❌ Online-статус пользователей (WS broadcast при connect/disconnect)
-  ❌ Typing indicator WS-события (клиент→сервер→участники чата)
-  ❌ Реальная загрузка и отображение файлов в чате
-  ❌ Голосовые сообщения (MediaRecorder API + upload + playback)
-  ❌ WebRTC звонки (signaling через WS + peer connection)
-  ❌ PWA Service Worker + Web Push Notifications
-  ❌ Сквозное шифрование (реальное, с webcrypto API)
-  ❌ Поиск по сообщениям внутри чата (API + UI)
-  ❌ Полнотекстовый глобальный поиск (чаты + сообщения + пользователи)
-  ❌ Пагинация сообщений (прокрутка вверх для загрузки старых)
-  ❌ Папки/категории чатов
-  ❌ Мут чата (сохранение в БД)
-  ❌ Закрепление чата в списке (isPinned в БД)
-  ❌ Редактирование профиля (bio, имя, аватар — upload через API)
-  ❌ Управление каналом (только admin постит, subscribers read-only)
-  ❌ Invite-ссылки для групп/каналов
-  ❌ Scheduled messages (запланированные)
-  ❌ Само-уничтожающиеся сообщения (deleteAfterSeconds — поле есть, таймер нет)
-  ❌ Черновики (draft сообщения сохраняется при уходе из чата)
-  ❌ Переход к конкретному сообщению (при ответе — скролл)
-  ❌ Выбор нескольких сообщений (множественное удаление/пересылка)
-  ❌ Бот-аккаунты / webhook-интеграции
+ПРАВИЛО №5: Все новые route-файлы подключать в artifacts/api-server/src/routes/index.ts
+ПРАВИЛО №6: Все новые таблицы экспортировать из lib/db/src/schema/index.ts
+ПРАВИЛО №7: TypeScript strict mode. Все поля типизированы. Нет any без обоснования.
+ПРАВИЛО №8: Framer Motion для всех анимаций. cn() для условных классов Tailwind.
+ПРАВИЛО №9: toast() из useToast() для уведомлений об успехе/ошибке.
+ПРАВИЛО №10: WS-события слушать через useWsEvent(), отправлять через echoWs.send().
 
 ================================================================================
-                         ЭТАПЫ РАЗРАБОТКИ (STAGE PLAN)
+                      ДИЗАЙН-СИСТЕМА (TELEGRAM STYLE)
 ================================================================================
 
-Каждый этап — самодостаточная единица работы. ИИ выполняет этапы последовательно.
-Порядок строгий: каждый следующий этап зависит от предыдущего.
+ЦВЕТОВАЯ ПАЛИТРА (CSS переменные, уже настроены в globals.css):
+  Primary blue:    #007AFF  (кнопки, ссылки, иконки)
+  Green online:    #34C759  (онлайн-точка, успех)
+  Red danger:      #FF3B30  (удаление, опасные действия)
+  Orange:          #FF9500  (предупреждения, стикеры)
+  Purple:          #5856D6  (каналы, premium)
+  Gold Stars:      #FFD700  (Stars валюта)
+  Premium gold:    #F4A522  (Premium badge)
+  Background dark: #0F0F0F  (тёмная тема)
+  Card dark:       #1C1C1E  (карточки в тёмной теме)
+  Muted:           #2C2C2E  (подложки в тёмной)
+  Border:          #38383A  (разделители)
+  Text primary:    #FFFFFF  (основной текст)
+  Text secondary:  #8E8E93  (вспомогательный текст)
+
+ТИПОГРАФИКА:
+  System font stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif
+  Заголовки чата:    17px font-semibold
+  Имя отправителя:   15–16px font-semibold
+  Тело сообщения:    15–16px font-normal line-height: 1.45
+  Метка времени:     12–13px text-muted-foreground
+  Подзаголовки:      13px uppercase tracking-wider (секции настроек)
+
+ИКОНКИ: Lucide React (уже установлен). Размер 20×20px в хедерах, 18×18px в списках.
+
+РАЗМЕРЫ UI-ЭЛЕМЕНТОВ:
+  Avatar в списке:   54×54px
+  Avatar в чате:     36×36px
+  Avatar профиля:    80–96×80–96px
+  Высота хедера:     56px
+  Нижний nav-бар:    56px + safe-area-inset-bottom
+  Bubble max-width:  75% экрана (min 80px)
+  Border-radius bubble: 18px (внешний угол) / 4px (внутренний угол у хвостика)
+  Row высота:        50px в настройках
+
+ПУЗЫРИ СООБЩЕНИЙ (Telegram-стиль):
+  Исходящие (isSelf):
+    Цвет фона:   var(--primary) = #007AFF (тёмная тема) / #007AFF (светлая)
+    Текст:       белый
+    Позиция:     margin-left: auto, align-right
+    Border-radius: 18px 18px 4px 18px (нижний правый угол острый)
+  Входящие:
+    Цвет фона:   var(--card) = #1C1C1E
+    Текст:       var(--foreground)
+    Позиция:     margin-right: auto, align-left
+    Border-radius: 18px 18px 18px 4px (нижний левый угол острый)
+
+  Хвостик (SVG):
+    Исходящий: маленький треугольник справа-снизу (#007AFF)
+    Входящий:  маленький треугольник слева-снизу (#1C1C1E)
+
+  Медиа-пузырь (фото/видео):
+    Border-radius: 12px, без внутренних отступов
+    Фото: max 240×240px, клик → fullscreen viewer
+
+  Голосовое сообщение:
+    Ширина: 240px фиксированная
+    Иконка микрофона + волновая форма (30 баров) + время 0:15
+    Play/Pause кнопка слева
+    Скорость: 1x / 1.5x / 2x (трёхкратный тап)
+
+  Стикер: 160×160px без фона, без пузыря
+  GIF: автоплей, нет звука, 240×180px max
+  Документ: иконка типа файла + название + размер
+
+ФОНЫ ЧАТОВ:
+  По умолчанию: dot-pattern (radial-gradient) как сейчас
+  Варианты: Solid color, Gradient, Custom image (загрузить из галереи)
+  Telegram-паттерны: 10 встроенных паттернов (geometrical shapes)
+
+АНИМАЦИИ (Framer Motion):
+  Появление пузыря: scale 0.85→1 + opacity 0→1, duration: 150ms, easing: ease-out
+  Удаление пузыря:  scale 1→0.85 + opacity 1→0, duration: 120ms
+  Slide-in панели:  translateY(100%)→0, duration: 300ms, ease: cubic-bezier
+  Реакция pop:      scale 0→1.2→1, duration: 250ms
+  Typing dots:      3 точки с stagger 100ms, bounce animation
+
+ТЁМНАЯ / СВЕТЛАЯ ТЕМА:
+  next-themes уже подключён. ThemeProvider в App.tsx.
+  Переключатель в Оформление → системная / светлая / тёмная.
+  Все цвета через CSS-переменные (уже настроено).
 
 ================================================================================
-ЭТАП 1: ИСПРАВЛЕНИЕ КРИТИЧЕСКИХ БАГОВ ЧАТА
+                    ПОЛНАЯ БАЗА ДАННЫХ — ВСЕ ТАБЛИЦЫ
 ================================================================================
-Цель: Чат должен работать корректно — отображать имена, удалять, пересылать.
-Файлы для изменения:
-  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx
 
-ЗАДАЧА 1.1 — Имена отправителей в групповых чатах
-  ПРОБЛЕМА: В группах показывается "User 123" вместо реального имени.
-  РЕШЕНИЕ: Поле senderUsername уже возвращается из GET /api/messages.
-    В типе MsgItem добавить поле: senderUsername?: string
-    В enriched.map() прокинуть: senderUsername: m.senderUsername ?? ""
-    В рендере группового чата заменить:
-      <div className="text-[12px] font-semibold text-primary mb-0.5">User {msg.senderId}</div>
-    на:
-      <div className="text-[12px] font-semibold text-primary mb-0.5">{msg.senderUsername || `User ${msg.senderId}`}</div>
+Все таблицы описать в lib/db/src/schema/ и экспортировать из index.ts.
+После добавления: pnpm --filter @workspace/db run push
 
-ЗАДАЧА 1.2 — Реальное удаление сообщения через API
-  ПРОБЛЕМА: deleteMsg() только показывает toast, не вызывает API.
-  РЕШЕНИЕ:
-    1. Добавить хук: const deleteMessageMutation = useDeleteMessage()
-       (хук useDeleteMessage уже сгенерирован Orval)
-    2. В deleteMsg() заменить toast на:
-       if (!selectedMsg) return;
-       deleteMessageMutation.mutate({ id: selectedMsg.id }, {
-         onSuccess: () => {
-           void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
-           toast({ title: "Сообщение удалено" });
-         },
-         onError: () => toast({ title: "Ошибка удаления", variant: "destructive" })
-       });
-       setShowMenu(false);
+--- УЖЕ СУЩЕСТВУЮЩИЕ ТАБЛИЦЫ (не трогать структуру, только расширять) ---
 
-ЗАДАЧА 1.3 — Реакции через API (не toast)
-  ПРОБЛЕМА: При выборе реакции показывается toast, API не вызывается.
-  РЕШЕНИЕ:
-    1. Добавить хук: const reactMutation = useReactToMessage()
-    2. В onClick эмодзи в EMOJI_QUICK.slice(0,6):
-       reactMutation.mutate({ id: selectedMsg!.id, data: { emoji: e } }, {
-         onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey })
-       });
-       setShowMenu(false);
+users (lib/db/src/schema/users.ts):
+  id, username, publicIdentityKey, publicSignedPrekey, publicOneTimePrekeys,
+  seedHash, isAdmin, isDeleted, avatarFileId, settings (jsonb), createdAt, lastActive
+  → ДОБАВИТЬ ПОЛЯ:
+    bio              VARCHAR(255)          — описание профиля
+    isOnline         BOOLEAN DEFAULT false — текущий статус
+    lastOnline       TIMESTAMP WITH TZ     — последний раз в сети
+    isPremium        BOOLEAN DEFAULT false — Premium подписка
+    premiumUntil     TIMESTAMP WITH TZ     — до какого числа Premium
+    starsBalance     INTEGER DEFAULT 0     — баланс Stars
+    displayName      VARCHAR(64)           — отображаемое имя (может отличаться от username)
+    pinnedChats      JSONB (number[])      — IDs закреплённых чатов
+    publicUsername   BOOLEAN DEFAULT true  — виден ли username в поиске
 
-ЗАДАЧА 1.4 — Реальная пересылка сообщений
-  ПРОБЛЕМА: Кнопка "Переслать" показывает toast.
-  РЕШЕНИЕ:
-    1. Добавить состояние: const [forwardMsg, setForwardMsg] = useState<MsgItem | null>(null)
-    2. При клике "Переслать" — открывать модальное окно выбора чата из useGetChats()
-    3. При выборе чата — вызвать useSendMessage() с:
-       { chatId: selectedChatId, chatType: targetChat.type, encryptedContent: forwardMsg.encryptedContent }
-       и в API добавить forwardedFromId: forwardMsg.id
-    4. Модальное окно: список чатов из API, поиск по названию, кнопка "Переслать"
+messages (lib/db/src/schema/messages.ts):
+  id, senderId, receiverId, chatType, chatId, encryptedContent, timestamp,
+  deliveredAt, readAt, deleteAfterRead, deleteAfterSeconds, isVoice, mediaFileId,
+  replyToId, isDeleted, isEdited, editedAt, forwardedFromId, selfDestructAt, reactions
+  → ДОБАВИТЬ ПОЛЯ:
+    senderUsername   VARCHAR(32)           — snapshot имени (для пересланных)
+    mediaGroupId     VARCHAR(36)           — UUID группы медиа (альбом)
+    mediaType        VARCHAR(16)           — "photo"|"video"|"audio"|"voice"|"document"|"sticker"|"gif"|"location"|"poll"|"contact"
+    fileName         VARCHAR(255)          — оригинальное имя файла
+    fileSize         BIGINT                — размер в байтах
+    mediaDuration    INTEGER               — длительность аудио/видео в секундах
+    mediaWidth       INTEGER               — ширина фото/видео
+    mediaHeight      INTEGER               — высота фото/видео
+    mediaThumbFileId VARCHAR(36)           — превью (thumbnail) fileId
+    pollId           BIGINT                — ссылка на polls.id
+    locationLat      DECIMAL(10,7)         — широта для геолокации
+    locationLng      DECIMAL(10,7)         — долгота для геолокации
+    locationTitle    VARCHAR(128)          — название места
+    contactUserId    BIGINT                — userId для shared contact
+    isPinned         BOOLEAN DEFAULT false — закреплено в чате
+    pinnedAt         TIMESTAMP WITH TZ
+    scheduledAt      TIMESTAMP WITH TZ     — запланированная отправка
+    isSilent         BOOLEAN DEFAULT false — без уведомления
+    hasSpoiler       BOOLEAN DEFAULT false — контент скрыт как спойлер
+    viewOnce         BOOLEAN DEFAULT false — просмотр один раз
+    viewedByIds      JSONB (number[])      — кто уже посмотрел viewOnce
+    starredBy        JSONB (number[])      — кто добавил в Избранные сообщения
+    reminderAt       TIMESTAMP WITH TZ     — напомнить о сообщении
+    forwardedFromUsername VARCHAR(32)      — имя оригинального отправителя
 
-ЗАДАЧА 1.5 — Typing indicator (исходящий WS-сигнал)
-  ПРОБЛЕМА: handleTextChange() запускает таймер, но WS-событие не отправляется.
-  РЕШЕНИЕ:
-    1. Получить WS-клиент: import { echoWs } from "@/lib/ws-client"
-    2. В handleTextChange(), до setTimeout, добавить отправку:
-       echoWs.send(JSON.stringify({ type: "typing", chatId, isTyping: true, username: currentUsername }))
-    3. В setTimeout callback — отправить isTyping: false
-    4. На backend в ws-hub.ts обработать входящие "typing" события и broadcast их другим участникам чата
-       (getChatMemberIds(chatId) → broadcastToChat)
+chats (lib/db/src/schema/chats.ts):
+  id, type, title, description, avatarFileId, settings, createdAt, createdBy
+  → ДОБАВИТЬ ПОЛЯ:
+    isVerified       BOOLEAN DEFAULT false — верифицированный канал/бот
+    isScam           BOOLEAN DEFAULT false — помечен как мошенничество
+    linkedChatId     BIGINT                — дискуссионная группа для канала
+    inviteLink       VARCHAR(128)          — приватная ссылка-приглашение
+    inviteLinkExpiry TIMESTAMP WITH TZ
+    joinByRequest    BOOLEAN DEFAULT false — вступление по запросу
+    slowMode         INTEGER DEFAULT 0     — задержка между сообщениями (сек)
+    isProtected      BOOLEAN DEFAULT false — защита контента (нельзя пересылать)
+    isForum          BOOLEAN DEFAULT false — режим форума (Topics)
+    messageCount     INTEGER DEFAULT 0     — кол-во сообщений
+    memberCount      INTEGER DEFAULT 0     — кол-во участников
+    pinnedMessageId  BIGINT                — ID закреплённого сообщения
+    defaultPermissions JSONB               — права участников по умолчанию
 
-ЗАДАЧА 1.6 — Скролл к сообщению при ответе
-  ПРОБЛЕМА: При клике на reply-preview не происходит скролл к оригиналу.
-  РЕШЕНИЕ:
-    1. Добавить ref-ы к сообщениям: msgRefs.current[msg.id] = el
-    2. В reply-preview добавить onClick={() => msgRefs.current[replyTo.replyToId]?.scrollIntoView({ behavior: "smooth" })}
+chat_members (lib/db/src/schema/chats.ts):
+  chatId, userId, role ("owner"|"admin"|"member"|"restricted"|"banned")
+  → ДОБАВИТЬ ПОЛЯ:
+    customTitle      VARCHAR(32)           — кастомный заголовок ("модератор")
+    permissions      JSONB                 — персональные права (CanPostMessages и т.д.)
+    restrictedUntil  TIMESTAMP WITH TZ     — до когда ограничен
+    mutedUntil       TIMESTAMP WITH TZ     — мут (со стороны пользователя)
+    isPinned         BOOLEAN DEFAULT false — закреплён чат у этого пользователя
+    unreadCount      INTEGER DEFAULT 0     — кол-во непрочитанных
+    draftText        TEXT                  — черновик сообщения
+    lastReadMsgId    BIGINT                — ID последнего прочитанного
+    isArchived       BOOLEAN DEFAULT false — чат в архиве
+    joinedAt         TIMESTAMP WITH TZ
+
+--- НОВЫЕ ТАБЛИЦЫ ---
+
+contacts (lib/db/src/schema/contacts.ts):
+  id           BIGSERIAL PK
+  ownerId      BIGINT FK users.id ON DELETE CASCADE
+  contactId    BIGINT FK users.id ON DELETE CASCADE
+  nickname     VARCHAR(64)               — локальное имя контакта
+  addedAt      TIMESTAMP WITH TZ DEFAULT NOW()
+  UNIQUE(ownerId, contactId)
+
+call_logs (lib/db/src/schema/call-logs.ts):
+  id               BIGSERIAL PK
+  callId           UUID DEFAULT gen_random_uuid() UNIQUE
+  callerId         BIGINT FK users.id
+  calleeId         BIGINT FK users.id
+  chatId           BIGINT FK chats.id NULLABLE
+  type             VARCHAR(16)  — "voice" | "video"
+  status           VARCHAR(16)  — "missed" | "completed" | "declined" | "busy" | "failed"
+  startedAt        TIMESTAMP WITH TZ
+  answeredAt       TIMESTAMP WITH TZ
+  endedAt          TIMESTAMP WITH TZ
+  durationSeconds  INTEGER
+  signalingData    JSONB        — WebRTC offer/answer (если нужно логировать)
+  createdAt        TIMESTAMP WITH TZ DEFAULT NOW()
+
+pinned_messages (lib/db/src/schema/pinned-messages.ts):
+  id           BIGSERIAL PK
+  chatId       BIGINT FK chats.id ON DELETE CASCADE
+  messageId    BIGINT FK messages.id ON DELETE CASCADE
+  pinnedBy     BIGINT FK users.id
+  pinnedAt     TIMESTAMP WITH TZ DEFAULT NOW()
+  UNIQUE(chatId, messageId)
+
+chat_folders (lib/db/src/schema/chat-folders.ts):
+  id           BIGSERIAL PK
+  userId       BIGINT FK users.id ON DELETE CASCADE
+  name         VARCHAR(64) NOT NULL
+  emoji        VARCHAR(8) DEFAULT '📁'
+  chatIds      JSONB (number[]) DEFAULT []
+  filters      JSONB  — { includeDMs: bool, includeGroups: bool, includeChannels: bool, includeUnread: bool }
+  position     INTEGER DEFAULT 0
+  createdAt    TIMESTAMP WITH TZ DEFAULT NOW()
+
+polls (lib/db/src/schema/polls.ts):
+  id             BIGSERIAL PK
+  chatId         BIGINT FK chats.id
+  creatorId      BIGINT FK users.id
+  question       VARCHAR(255) NOT NULL
+  options        JSONB (string[]) NOT NULL        — варианты ответа
+  votes          JSONB ({ optionIdx: userId[] })  — кто за что проголосовал
+  isAnonymous    BOOLEAN DEFAULT true
+  isMultiple     BOOLEAN DEFAULT false            — множественный выбор
+  isQuiz         BOOLEAN DEFAULT false            — викторина (один правильный)
+  correctOption  INTEGER                          — индекс правильного ответа (для quiz)
+  explanation    TEXT                             — объяснение ответа (для quiz)
+  isClosed       BOOLEAN DEFAULT false
+  closeAt        TIMESTAMP WITH TZ               — автозакрытие
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+
+sticker_packs (lib/db/src/schema/sticker-packs.ts):  ← ПРОВЕРИТЬ: возможно уже есть
+  id             BIGSERIAL PK
+  name           VARCHAR(64) NOT NULL
+  author         VARCHAR(64)
+  emoji          VARCHAR(8)                       — иконка пака
+  stickers       JSONB (строки: эмодзи или fileId)
+  isAnimated     BOOLEAN DEFAULT false
+  isOfficial     BOOLEAN DEFAULT false
+  isPremium      BOOLEAN DEFAULT false            — только для Premium
+  installCount   INTEGER DEFAULT 0
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+
+user_sticker_packs (lib/db/src/schema/sticker-packs.ts):
+  userId         BIGINT FK users.id ON DELETE CASCADE
+  packId         BIGINT FK sticker_packs.id ON DELETE CASCADE
+  installedAt    TIMESTAMP WITH TZ DEFAULT NOW()
+  PRIMARY KEY(userId, packId)
+
+activity_logs (lib/db/src/schema/activity-logs.ts):
+  id             BIGSERIAL PK
+  userId         BIGINT FK users.id ON DELETE CASCADE
+  type           VARCHAR(32)  — "login"|"logout"|"session_revoked"|"backup"|"profile_change"|"password_change"|"message_deleted"|"account_delete_attempt"
+  description    VARCHAR(255)
+  device         VARCHAR(128) — User-Agent
+  ipAddress      VARCHAR(64)
+  country        VARCHAR(64)  — определять по IP через geoip-lite
+  risk           VARCHAR(16) DEFAULT 'none' — "none"|"low"|"medium"|"high"
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+
+stars_transactions (lib/db/src/schema/stars.ts):
+  id             BIGSERIAL PK
+  fromUserId     BIGINT FK users.id NULLABLE
+  toUserId       BIGINT FK users.id NULLABLE
+  amount         INTEGER NOT NULL           — количество Stars
+  type           VARCHAR(32)               — "purchase"|"gift"|"tip"|"reaction_paid"|"premium_sub"|"premium_gift"|"earned_channel"
+  description    VARCHAR(255)
+  chatId         BIGINT NULLABLE
+  messageId      BIGINT NULLABLE
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+
+premium_subscriptions (lib/db/src/schema/premium.ts):
+  id             BIGSERIAL PK
+  userId         BIGINT FK users.id ON DELETE CASCADE
+  tier           VARCHAR(16)  — "monthly" | "annual"
+  starsSpent     INTEGER      — потрачено Stars на подписку
+  startedAt      TIMESTAMP WITH TZ DEFAULT NOW()
+  expiresAt      TIMESTAMP WITH TZ NOT NULL
+  isActive       BOOLEAN DEFAULT true
+  autoRenew      BOOLEAN DEFAULT false
+
+reactions_paid (lib/db/src/schema/stars.ts):
+  id             BIGSERIAL PK
+  messageId      BIGINT FK messages.id ON DELETE CASCADE
+  userId         BIGINT FK users.id
+  starsAmount    INTEGER NOT NULL
+  emoji          VARCHAR(16) DEFAULT '⭐'
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+
+chat_join_requests (lib/db/src/schema/chats.ts):
+  id             BIGSERIAL PK
+  chatId         BIGINT FK chats.id ON DELETE CASCADE
+  userId         BIGINT FK users.id ON DELETE CASCADE
+  status         VARCHAR(16) DEFAULT 'pending' — "pending"|"approved"|"rejected"
+  message        TEXT NULLABLE                — сопроводительное сообщение
+  reviewedBy     BIGINT NULLABLE FK users.id
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+  reviewedAt     TIMESTAMP WITH TZ
+
+topics (lib/db/src/schema/topics.ts):  — для Forum-групп
+  id             BIGSERIAL PK
+  chatId         BIGINT FK chats.id ON DELETE CASCADE
+  title          VARCHAR(64) NOT NULL
+  emoji          VARCHAR(8)
+  color          VARCHAR(16)
+  createdBy      BIGINT FK users.id
+  messageCount   INTEGER DEFAULT 0
+  isClosed       BOOLEAN DEFAULT false
+  isPinned       BOOLEAN DEFAULT false
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+
+saved_messages_stars (lib/db/src/schema/stars.ts):  — "Избранные сообщения" (звёздочка)
+  id             BIGSERIAL PK
+  userId         BIGINT FK users.id ON DELETE CASCADE
+  messageId      BIGINT FK messages.id ON DELETE CASCADE
+  savedAt        TIMESTAMP WITH TZ DEFAULT NOW()
+  UNIQUE(userId, messageId)
+
+message_reminders (lib/db/src/schema/messages.ts):
+  id             BIGSERIAL PK
+  userId         BIGINT FK users.id ON DELETE CASCADE
+  messageId      BIGINT FK messages.id ON DELETE CASCADE
+  remindAt       TIMESTAMP WITH TZ NOT NULL
+  isDone         BOOLEAN DEFAULT false
+  createdAt      TIMESTAMP WITH TZ DEFAULT NOW()
+
+blocked_users (lib/db/src/schema/contacts.ts):
+  id             BIGSERIAL PK
+  userId         BIGINT FK users.id ON DELETE CASCADE
+  blockedId      BIGINT FK users.id ON DELETE CASCADE
+  blockedAt      TIMESTAMP WITH TZ DEFAULT NOW()
+  UNIQUE(userId, blockedId)
 
 ================================================================================
-ЭТАП 2: БАЗА ДАННЫХ — НОВЫЕ ТАБЛИЦЫ
+                   STAGE 1 — КРИТИЧЕСКИЕ БАГИ ЧАТА (ИСПРАВИТЬ ПЕРВЫМ)
 ================================================================================
-Цель: Добавить отсутствующие таблицы для всех новых функций.
-Файлы для изменения:
-  - lib/db/src/schema/contacts.ts (новый файл)
-  - lib/db/src/schema/call-logs.ts (новый файл)
-  - lib/db/src/schema/pinned-messages.ts (новый файл)
-  - lib/db/src/schema/chat-folders.ts (новый файл)
-  - lib/db/src/schema/index.ts (добавить экспорты)
-  - lib/db/src/schema/chats.ts (добавить поля isPinned, isMuted, muteUntil)
-  - lib/db/src/schema/users.ts (добавить поля bio, lastOnline)
-  - lib/db/src/schema/messages.ts (добавить поля pinnedAt)
-После изменений → pnpm --filter @workspace/db run push
 
-НОВАЯ ТАБЛИЦА: contacts
-  CREATE TABLE contacts (
-    id          BIGSERIAL PRIMARY KEY,
-    owner_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    contact_id  BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    nickname    VARCHAR(64),            -- локальное имя
-    added_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    UNIQUE(owner_id, contact_id)
-  );
+Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
 
-  Drizzle-определение в lib/db/src/schema/contacts.ts:
+ПРОБЛЕМА 1: Удаление сообщений — только toast, API не вызывается.
+ИСПРАВЛЕНИЕ:
+  Добавить импорт: import { useDeleteMessage } from "@workspace/api-client-react";
+  Добавить хук: const deleteMessageMutation = useDeleteMessage();
+  В deleteMsg() заменить toast на:
+    if (!selectedMsg) return;
+    deleteMessageMutation.mutate({ id: selectedMsg.id }, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+        toast({ title: "Сообщение удалено" });
+      },
+      onError: () => toast({ title: "Ошибка удаления", variant: "destructive" })
+    });
+    setShowMenu(false);
+
+ПРОБЛЕМА 2: Реакции — только toast, API не вызывается.
+ИСПРАВЛЕНИЕ:
+  Добавить импорт: import { useReactToMessage } from "@workspace/api-client-react";
+  Добавить хук: const reactMutation = useReactToMessage();
+  В onClick эмодзи-кнопок заменить toast на:
+    reactMutation.mutate({ id: selectedMsg!.id, data: { emoji: e } }, {
+      onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey })
+    });
+    setShowMenu(false);
+
+ПРОБЛЕМА 3: Имена в группах — показывает "User 123".
+ИСПРАВЛЕНИЕ:
+  MsgItem добавить поле: senderUsername?: string
+  В enriched.map() добавить: senderUsername: (m as { senderUsername?: string }).senderUsername
+  В рендере заменить: <div>User {msg.senderId}</div>
+  На:                  <div>{msg.senderUsername || `User ${msg.senderId}`}</div>
+
+ПРОБЛЕМА 4: Typing indicator — WS-событие не отправляется.
+ИСПРАВЛЕНИЕ:
+  Импортировать: import { echoWs } from "@/lib/ws-client";
+  Импортировать: const { userId, username } = useEchoAuth();
+  В handleTextChange() ПЕРЕД clearTimeout добавить:
+    echoWs.send(JSON.stringify({ type: "typing", chatId, isTyping: true, username }));
+  В setTimeout callback:
+    echoWs.send(JSON.stringify({ type: "typing", chatId, isTyping: false, username }));
+
+ПРОБЛЕМА 5: Backend не обрабатывает входящие "typing" WS-события.
+  В artifacts/api-server/src/lib/ws-hub.ts добавить обработку:
+    ws.on("message", async (rawData) => {
+      try {
+        const msg = JSON.parse(rawData.toString());
+        if (msg.type === "typing") {
+          const memberIds = await db.select({ userId: chatMembersTable.userId })
+            .from(chatMembersTable)
+            .where(eq(chatMembersTable.chatId, msg.chatId));
+          for (const { userId: memberId } of memberIds) {
+            if (memberId !== userId) {
+              sendToUser(memberId, {
+                type: "typing",
+                chatId: msg.chatId,
+                userId,
+                username: msg.username || "User",
+                isTyping: msg.isTyping
+              });
+            }
+          }
+        }
+      } catch {}
+    });
+
+ПРОБЛЕМА 6: StatusLine всегда показывает "в сети" для DM.
+ВРЕМЕННОЕ ИСПРАВЛЕНИЕ:
+  Убрать хардкод: const statusLine = isGroup ? `${memberCount} участников` : "в сети"
+  Сделать: const statusLine = isGroup ? `${memberCount ?? "?"} участников` : typingUsers.size > 0 ? [...typingUsers][0] + " печатает..." : "в сети"
+  ПОЛНАЯ реализация в Stage 9.
+
+ПРОБЛЕМА 7: Файлы — только toast, не отправляются.
+ВРЕМЕННОЕ ИСПРАВЛЕНИЕ (передвинуть в Stage 6 для полной реализации):
+  Добавить import { useUploadFile } from "@workspace/api-client-react";
+  const uploadMutation = useUploadFile();
+  В handleFileSelect():
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const b64 = (reader.result as string).split(",")[1];
+      try {
+        const res = await uploadMutation.mutateAsync({ data: { data: b64, mimeType: file.type, encryptedKey: null } });
+        sendMutation.mutate({ data: { chatId, chatType: chat?.type ?? 1, encryptedContent: file.name, mediaFileId: res.fileId } });
+      } catch { toast({ title: "Ошибка загрузки", variant: "destructive" }); }
+    };
+    reader.readAsDataURL(file);
+
+ПРОБЛЕМА 8: Иконка Phone → навигация на /chat/:id/voice (не toast).
+  onClick={() => navigate(`/chat/${chatId}/voice`)
+
+================================================================================
+                STAGE 2 — НОВЫЕ ПОЛЯ В СУЩЕСТВУЮЩИХ ТАБЛИЦАХ
+================================================================================
+
+Файлы для изменения в lib/db/src/schema/:
+
+users.ts — добавить поля:
+  bio:             varchar("bio", { length: 255 })
+  isOnline:        boolean("is_online").default(false).notNull()
+  lastOnline:      timestamp("last_online", { withTimezone: true })
+  isPremium:       boolean("is_premium").default(false).notNull()
+  premiumUntil:    timestamp("premium_until", { withTimezone: true })
+  starsBalance:    integer("stars_balance").default(0).notNull()
+  displayName:     varchar("display_name", { length: 64 })
+  publicUsername:  boolean("public_username").default(true).notNull()
+
+messages.ts — добавить поля:
+  senderUsername:  varchar("sender_username", { length: 32 })
+  mediaGroupId:    varchar("media_group_id", { length: 36 })
+  mediaType:       varchar("media_type", { length: 16 })
+  fileName:        varchar("file_name", { length: 255 })
+  fileSize:        bigint("file_size", { mode: "number" })
+  mediaDuration:   integer("media_duration")
+  mediaWidth:      integer("media_width")
+  mediaHeight:     integer("media_height")
+  mediaThumbFileId:varchar("media_thumb_file_id", { length: 36 })
+  pollId:          bigint("poll_id", { mode: "number" })
+  locationLat:     doublePrecision("location_lat")
+  locationLng:     doublePrecision("location_lng")
+  locationTitle:   varchar("location_title", { length: 128 })
+  isPinned:        boolean("is_pinned").default(false).notNull()
+  scheduledAt:     timestamp("scheduled_at", { withTimezone: true })
+  isSilent:        boolean("is_silent").default(false).notNull()
+  hasSpoiler:      boolean("has_spoiler").default(false).notNull()
+  viewOnce:        boolean("view_once").default(false).notNull()
+  viewedByIds:     jsonb("viewed_by_ids").$type<number[]>().default([])
+  starredByIds:    jsonb("starred_by_ids").$type<number[]>().default([])
+  forwardedFromUsername: varchar("forwarded_from_username", { length: 32 })
+
+chats.ts — добавить поля в chatsTable:
+  isVerified:      boolean("is_verified").default(false).notNull()
+  linkedChatId:    bigint("linked_chat_id", { mode: "number" })
+  inviteLink:      varchar("invite_link", { length: 128 })
+  joinByRequest:   boolean("join_by_request").default(false).notNull()
+  slowMode:        integer("slow_mode").default(0).notNull()
+  isProtected:     boolean("is_protected").default(false).notNull()
+  isForum:         boolean("is_forum").default(false).notNull()
+  memberCount:     integer("member_count").default(0).notNull()
+  pinnedMessageId: bigint("pinned_message_id", { mode: "number" })
+  defaultPerms:    jsonb("default_perms").$type<Record<string,boolean>>()
+
+chats.ts — добавить поля в chatMembersTable:
+  customTitle:     varchar("custom_title", { length: 32 })
+  permissions:     jsonb("permissions").$type<Record<string,boolean>>()
+  restrictedUntil: timestamp("restricted_until", { withTimezone: true })
+  mutedUntil:      timestamp("muted_until", { withTimezone: true })
+  isPinned:        boolean("is_pinned").default(false).notNull()
+  draftText:       text("draft_text")
+  lastReadMsgId:   bigint("last_read_msg_id", { mode: "number" })
+  isArchived:      boolean("is_archived").default(false).notNull()
+  joinedAt:        timestamp("joined_at", { withTimezone: true }).defaultNow()
+
+После добавления: pnpm --filter @workspace/db run push
+
+================================================================================
+                   STAGE 3 — НОВЫЕ ТАБЛИЦЫ В БД
+================================================================================
+
+Создать файлы в lib/db/src/schema/:
+
+contacts.ts:
   import { pgTable, bigserial, bigint, varchar, timestamp, unique } from "drizzle-orm/pg-core";
   export const contactsTable = pgTable("contacts", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -214,400 +544,1204 @@
     addedAt: timestamp("added_at", { withTimezone: true }).defaultNow().notNull(),
   }, (t) => ({ uniq: unique().on(t.ownerId, t.contactId) }));
 
-НОВАЯ ТАБЛИЦА: call_logs
-  Drizzle-определение в lib/db/src/schema/call-logs.ts:
-  import { pgTable, bigserial, bigint, varchar, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+  export const blockedUsersTable = pgTable("blocked_users", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    blockedId: bigint("blocked_id", { mode: "number" }).notNull(),
+    blockedAt: timestamp("blocked_at", { withTimezone: true }).defaultNow().notNull(),
+  }, (t) => ({ uniq: unique().on(t.userId, t.blockedId) }));
+
+call-logs.ts:
+  import { pgTable, bigserial, bigint, varchar, timestamp, integer, uuid } from "drizzle-orm/pg-core";
   export const callLogsTable = pgTable("call_logs", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
+    callUuid: uuid("call_uuid").defaultRandom().unique().notNull(),
     callerId: bigint("caller_id", { mode: "number" }).notNull(),
     calleeId: bigint("callee_id", { mode: "number" }).notNull(),
     chatId: bigint("chat_id", { mode: "number" }),
-    type: varchar("type", { length: 16 }).notNull().default("voice"), -- "voice" | "video"
-    status: varchar("status", { length: 16 }).notNull().default("missed"), -- "missed" | "completed" | "declined"
+    type: varchar("type", { length: 16 }).notNull().default("voice"),
+    status: varchar("status", { length: 16 }).notNull().default("missed"),
     startedAt: timestamp("started_at", { withTimezone: true }),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
     endedAt: timestamp("ended_at", { withTimezone: true }),
     durationSeconds: integer("duration_seconds"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   });
 
-НОВАЯ ТАБЛИЦА: pinned_messages
-  Drizzle-определение в lib/db/src/schema/pinned-messages.ts:
-  import { pgTable, bigserial, bigint, timestamp } from "drizzle-orm/pg-core";
+pinned-messages.ts:
   export const pinnedMessagesTable = pgTable("pinned_messages", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     chatId: bigint("chat_id", { mode: "number" }).notNull(),
     messageId: bigint("message_id", { mode: "number" }).notNull(),
     pinnedBy: bigint("pinned_by", { mode: "number" }).notNull(),
     pinnedAt: timestamp("pinned_at", { withTimezone: true }).defaultNow().notNull(),
-  });
+  }, (t) => ({ uniq: unique().on(t.chatId, t.messageId) }));
 
-НОВАЯ ТАБЛИЦА: chat_folders
-  Drizzle-определение в lib/db/src/schema/chat-folders.ts:
-  import { pgTable, bigserial, bigint, varchar, jsonb, integer, timestamp } from "drizzle-orm/pg-core";
+chat-folders.ts:
   export const chatFoldersTable = pgTable("chat_folders", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     userId: bigint("user_id", { mode: "number" }).notNull(),
     name: varchar("name", { length: 64 }).notNull(),
     emoji: varchar("emoji", { length: 8 }).default("📁"),
     chatIds: jsonb("chat_ids").$type<number[]>().default([]),
-    position: integer("position").default(0),
+    filters: jsonb("filters").$type<Record<string,boolean>>(),
+    position: integer("position").default(0).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   });
 
-ИЗМЕНЕНИЕ: chats_members → добавить поля мута и закрепления
-  В lib/db/src/schema/chats.ts добавить таблицу chat_member_settings (или добавить в chatMembersTable):
-  isPinned: boolean("is_pinned").default(false).notNull(),
-  isMuted: boolean("is_muted").default(false).notNull(),
-  muteUntil: timestamp("mute_until", { withTimezone: true }),
+polls.ts:
+  export const pollsTable = pgTable("polls", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    chatId: bigint("chat_id", { mode: "number" }).notNull(),
+    creatorId: bigint("creator_id", { mode: "number" }).notNull(),
+    question: varchar("question", { length: 255 }).notNull(),
+    options: jsonb("options").$type<string[]>().notNull(),
+    votes: jsonb("votes").$type<Record<string,number[]>>().default({}),
+    isAnonymous: boolean("is_anonymous").default(true).notNull(),
+    isMultiple: boolean("is_multiple").default(false).notNull(),
+    isQuiz: boolean("is_quiz").default(false).notNull(),
+    correctOption: integer("correct_option"),
+    explanation: text("explanation"),
+    isClosed: boolean("is_closed").default(false).notNull(),
+    closeAt: timestamp("close_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
 
-ИЗМЕНЕНИЕ: users — добавить bio и lastOnline
-  В lib/db/src/schema/users.ts добавить поля:
-  bio: varchar("bio", { length: 255 }),
-  lastOnline: timestamp("last_online", { withTimezone: true }),
-  isOnline: boolean("is_online").default(false).notNull(),
+stars.ts:
+  export const starsTransactionsTable = pgTable("stars_transactions", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    fromUserId: bigint("from_user_id", { mode: "number" }),
+    toUserId: bigint("to_user_id", { mode: "number" }),
+    amount: integer("amount").notNull(),
+    type: varchar("type", { length: 32 }).notNull(),
+    description: varchar("description", { length: 255 }),
+    chatId: bigint("chat_id", { mode: "number" }),
+    messageId: bigint("message_id", { mode: "number" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
 
-ПОСЛЕ ВСЕХ ИЗМЕНЕНИЙ СХЕМЫ:
-  1. Добавить все новые экспорты в lib/db/src/schema/index.ts
-  2. Запустить: pnpm --filter @workspace/db run push
-  3. Запустить: pnpm run typecheck:libs
+  export const reactionsPaidTable = pgTable("reactions_paid", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    messageId: bigint("message_id", { mode: "number" }).notNull(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    starsAmount: integer("stars_amount").notNull(),
+    emoji: varchar("emoji", { length: 16 }).default("⭐"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
+
+  export const savedMessageStarsTable = pgTable("saved_message_stars", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    messageId: bigint("message_id", { mode: "number" }).notNull(),
+    savedAt: timestamp("saved_at", { withTimezone: true }).defaultNow().notNull(),
+  }, (t) => ({ uniq: unique().on(t.userId, t.messageId) }));
+
+premium.ts:
+  export const premiumSubscriptionsTable = pgTable("premium_subscriptions", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    tier: varchar("tier", { length: 16 }).notNull(),
+    starsSpent: integer("stars_spent").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
+  });
+
+activity-logs.ts:
+  export const activityLogsTable = pgTable("activity_logs", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    type: varchar("type", { length: 32 }).notNull(),
+    description: varchar("description", { length: 255 }),
+    device: varchar("device", { length: 128 }),
+    ipAddress: varchar("ip_address", { length: 64 }),
+    country: varchar("country", { length: 64 }),
+    risk: varchar("risk", { length: 16 }).default("none").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
+
+topics.ts (для Forum-групп):
+  export const topicsTable = pgTable("topics", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    chatId: bigint("chat_id", { mode: "number" }).notNull(),
+    title: varchar("title", { length: 64 }).notNull(),
+    emoji: varchar("emoji", { length: 8 }),
+    color: varchar("color", { length: 16 }),
+    createdBy: bigint("created_by", { mode: "number" }).notNull(),
+    messageCount: integer("message_count").default(0).notNull(),
+    isClosed: boolean("is_closed").default(false).notNull(),
+    isPinned: boolean("is_pinned").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
+
+chat-join-requests.ts:
+  export const chatJoinRequestsTable = pgTable("chat_join_requests", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    chatId: bigint("chat_id", { mode: "number" }).notNull(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    status: varchar("status", { length: 16 }).default("pending").notNull(),
+    message: text("message"),
+    reviewedBy: bigint("reviewed_by", { mode: "number" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  }, (t) => ({ uniq: unique().on(t.chatId, t.userId) }));
+
+message-reminders.ts:
+  export const messageRemindersTable = pgTable("message_reminders", {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    messageId: bigint("message_id", { mode: "number" }).notNull(),
+    remindAt: timestamp("remind_at", { withTimezone: true }).notNull(),
+    isDone: boolean("is_done").default(false).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  });
+
+После ВСЕХ новых таблиц:
+  - Добавить экспорты в lib/db/src/schema/index.ts
+  - pnpm --filter @workspace/db run push
+  - pnpm run typecheck:libs
 
 ================================================================================
-ЭТАП 3: BACKEND API — НОВЫЕ ENDPOINTS
+                 STAGE 4 — BACKEND API. ПОЛНЫЙ СПИСОК ENDPOINTS
 ================================================================================
-Цель: Добавить все недостающие маршруты в Express. Сначала openapi.yaml,
-      потом codegen, потом реализация routes.
 
-ВАЖНО: Каждый endpoint сначала описывается в lib/api-spec/openapi.yaml,
-       потом запускается codegen:
-       pnpm --filter @workspace/api-spec run codegen
-       Только после этого реализуется в artifacts/api-server/src/routes/
+Каждый endpoint: сначала описать в lib/api-spec/openapi.yaml, потом codegen,
+потом реализовать в artifacts/api-server/src/routes/.
+После добавления в openapi.yaml → pnpm --filter @workspace/api-spec run codegen
 
---- CONTACTS API ---
-Файл: artifacts/api-server/src/routes/contacts.ts (создать новый)
-Подключить в: artifacts/api-server/src/routes/index.ts
-
-GET /api/contacts
-  - requireAuth
-  - SELECT contacts JOIN users WHERE owner_id = userId
-  - Возвращает: [{ id, contactId, username, avatarFileId, nickname, addedAt, isOnline, lastOnline }]
-
-POST /api/contacts
-  - requireAuth
-  - Body: { contactId: number, nickname?: string }
-  - INSERT INTO contacts (owner_id, contact_id, nickname)
-  - Возвращает: { id, contactId, username, nickname }
-
-DELETE /api/contacts/:contactId
-  - requireAuth
-  - DELETE FROM contacts WHERE owner_id = userId AND contact_id = :contactId
-  - Возвращает: { success: true }
-
-PATCH /api/contacts/:contactId
-  - requireAuth
-  - Body: { nickname: string }
-  - UPDATE contacts SET nickname = :nickname WHERE owner_id = userId AND contact_id = :contactId
-  - Возвращает: { success: true }
-
---- USERS API — расширить ---
-Файл: artifacts/api-server/src/routes/users.ts (дополнить)
-
-PATCH /api/users/me
-  - requireAuth
-  - Body: { bio?: string, username?: string, avatarFileId?: string }
-  - UPDATE users SET bio = :bio WHERE id = userId
-  - Проверять уникальность username если меняется
-  - Возвращает: { id, username, bio, avatarFileId }
+=== USERS API (дополнить artifacts/api-server/src/routes/users.ts) ===
 
 GET /api/users/me
-  - requireAuth (уже есть, но добавить bio и isOnline в ответ)
-  - Возвращает: { id, username, publicIdentityKey, bio, avatarFileId, createdAt, isOnline, lastOnline }
+  Уже есть. ДОБАВИТЬ в ответ: bio, isOnline, lastOnline, isPremium, starsBalance, displayName
+
+PATCH /api/users/me
+  Body: { bio?: string, displayName?: string, avatarFileId?: string }
+  Логика: UPDATE users SET bio=:bio, displayName=:displayName, avatarFileId=:avId WHERE id=userId
+  Ответ: { id, username, bio, displayName, avatarFileId, isPremium }
+
+GET /api/users/:username
+  Уже есть. ДОБАВИТЬ: bio, isOnline, lastOnline (с учётом privacy), isPremium, displayName
 
 GET /api/users/online
-  - requireAuth
-  - Принимает: ?userIds=1,2,3 (query param, comma-separated)
-  - Возвращает: { [userId]: { isOnline: boolean, lastOnline: string | null } }
+  Query: ?ids=1,2,3 (comma-separated userIds)
+  SELECT id, is_online, last_online FROM users WHERE id = ANY(ids)
+  Ответ: { [userId]: { isOnline: boolean, lastOnline: string | null } }
 
---- CHATS API — расширить ---
-Файл: artifacts/api-server/src/routes/chats.ts (дополнить)
+POST /api/users/block
+  Body: { userId: number }
+  INSERT INTO blocked_users (user_id, blocked_id)
+  Ответ: { success: true }
+
+DELETE /api/users/block/:userId
+  DELETE FROM blocked_users WHERE user_id = currentUserId AND blocked_id = :userId
+  Ответ: { success: true }
+
+GET /api/users/blocked
+  SELECT blocked_users JOIN users WHERE user_id = currentUserId
+  Ответ: [{ id, username, avatarFileId }]
+
+=== CONTACTS API (создать artifacts/api-server/src/routes/contacts.ts) ===
+
+GET /api/contacts
+  SELECT contacts JOIN users ON contact_id = users.id WHERE owner_id = userId
+  Ответ: [{ id, contactId, username, displayName, avatarFileId, nickname, addedAt, isOnline, lastOnline }]
+
+POST /api/contacts
+  Body: { contactId: number, nickname?: string }
+  Проверить что contactId существует в users
+  INSERT INTO contacts (owner_id, contact_id, nickname)
+  Ответ: { id, contactId, username, nickname }
+
+DELETE /api/contacts/:contactId
+  DELETE FROM contacts WHERE owner_id = userId AND contact_id = :contactId
+  Ответ: { success: true }
+
+PATCH /api/contacts/:contactId
+  Body: { nickname: string }
+  UPDATE contacts SET nickname = :nickname WHERE owner_id = userId AND contact_id = :contactId
+  Ответ: { success: true }
+
+=== CHATS API (дополнить artifacts/api-server/src/routes/chats.ts) ===
+
+GET /api/chats
+  Уже есть. ДОБАВИТЬ в ответ:
+    isPinned (из chatMembersTable)
+    isMuted / mutedUntil (из chatMembersTable)
+    isArchived (из chatMembersTable)
+    draftText (из chatMembersTable)
+  Query params: ?archived=true (отдельный список архива)
 
 POST /api/chats/:id/pin
-  - requireAuth
-  - UPDATE chat_members SET is_pinned = true WHERE chat_id = :id AND user_id = userId
-  - Возвращает: { success: true }
+  UPDATE chat_members SET is_pinned = true WHERE chat_id = :id AND user_id = userId
+  Ответ: { success: true }
 
 DELETE /api/chats/:id/pin
-  - requireAuth
-  - UPDATE chat_members SET is_pinned = false WHERE chat_id = :id AND user_id = userId
-  - Возвращает: { success: true }
+  UPDATE chat_members SET is_pinned = false WHERE chat_id = :id AND user_id = userId
+  Ответ: { success: true }
 
 POST /api/chats/:id/mute
-  - requireAuth
-  - Body: { until?: string } (ISO datetime или null = навсегда)
-  - UPDATE chat_members SET is_muted = true, mute_until = :until WHERE chat_id = :id AND user_id = userId
-  - Возвращает: { success: true }
+  Body: { until?: string } (ISO datetime, null = навсегда)
+  UPDATE chat_members SET muted_until = :until WHERE chat_id = :id AND user_id = userId
+  Ответ: { success: true }
 
 DELETE /api/chats/:id/mute
-  - requireAuth
-  - UPDATE chat_members SET is_muted = false, mute_until = null WHERE ...
-  - Возвращает: { success: true }
+  UPDATE chat_members SET muted_until = null WHERE chat_id = :id AND user_id = userId
+  Ответ: { success: true }
+
+POST /api/chats/:id/archive
+  UPDATE chat_members SET is_archived = true WHERE chat_id = :id AND user_id = userId
+  Ответ: { success: true }
+
+DELETE /api/chats/:id/archive
+  UPDATE chat_members SET is_archived = false WHERE chat_id = :id AND user_id = userId
+  Ответ: { success: true }
+
+PATCH /api/chats/:id/draft
+  Body: { text: string }
+  UPDATE chat_members SET draft_text = :text WHERE chat_id = :id AND user_id = userId
+  Ответ: { success: true }
 
 GET /api/chats/:id/pinned-messages
-  - requireAuth
-  - SELECT pinned_messages JOIN messages WHERE chat_id = :id ORDER BY pinned_at DESC
-  - Возвращает: [{ id, messageId, pinnedBy, pinnedAt, message: { encryptedContent, ... } }]
+  SELECT pinned_messages JOIN messages WHERE chat_id = :id ORDER BY pinned_at DESC
+  Ответ: [{ id, messageId, pinnedBy, pinnedAt, message: { encryptedContent, senderUsername, ... } }]
 
 POST /api/chats/:id/pin-message
-  - requireAuth
-  - Body: { messageId: number }
-  - Проверить что userId является членом чата
-  - INSERT INTO pinned_messages (chat_id, message_id, pinned_by)
-  - Broadcast WS: { type: "message_pinned", chatId, messageId, pinnedBy: userId }
-  - Возвращает: { success: true }
+  Body: { messageId: number }
+  Проверить что userId является admin/owner в этом чате
+  INSERT INTO pinned_messages (chat_id, message_id, pinned_by)
+  UPDATE chats SET pinned_message_id = :messageId WHERE id = :id
+  Broadcast WS: { type: "message_pinned", chatId, messageId, pinnedBy: userId }
+  Ответ: { success: true }
 
 DELETE /api/chats/:id/pin-message/:messageId
-  - requireAuth
-  - DELETE FROM pinned_messages WHERE chat_id = :id AND message_id = :messageId
-  - Broadcast WS: { type: "message_unpinned", chatId, messageId }
-  - Возвращает: { success: true }
+  DELETE FROM pinned_messages WHERE chat_id = :id AND message_id = :messageId
+  Broadcast WS: { type: "message_unpinned", chatId, messageId }
+  Ответ: { success: true }
 
---- MESSAGES API — расширить ---
-Файл: artifacts/api-server/src/routes/messages.ts (дополнить)
+GET /api/chats/:id/members
+  Уже есть. ДОБАВИТЬ role, customTitle, joinedAt, isPremium в ответ
+
+POST /api/chats/:id/members/:userId/promote
+  Body: { role: "admin", customTitle?: string, permissions: Record<string,boolean> }
+  UPDATE chat_members SET role = :role, custom_title = :title, permissions = :perms
+  Ответ: { success: true }
+
+POST /api/chats/:id/members/:userId/restrict
+  Body: { permissions: Record<string,boolean>, until?: string }
+  UPDATE chat_members SET role = "restricted", permissions = :perms, restricted_until = :until
+  Ответ: { success: true }
+
+POST /api/chats/:id/members/:userId/ban
+  UPDATE chat_members SET role = "banned"
+  Ответ: { success: true }
+
+POST /api/chats/:id/invite-link
+  Сгенерировать случайный UUID-ссылку: crypto.randomUUID()
+  UPDATE chats SET invite_link = :link WHERE id = :id AND created_by = userId
+  Ответ: { inviteLink: string }
+
+POST /api/chats/join/:inviteLink
+  SELECT chats WHERE invite_link = :inviteLink
+  if joinByRequest → INSERT INTO chat_join_requests
+  else → INSERT INTO chat_members (role: "member")
+  Broadcast WS: { type: "member_joined", chatId, userId, username }
+  Ответ: { chatId } или { status: "pending" } если joinByRequest
+
+GET /api/chats/:id/join-requests
+  requireAuth (admin/owner only)
+  SELECT chat_join_requests JOIN users WHERE chat_id = :id AND status = "pending"
+  Ответ: [{ id, userId, username, avatarFileId, message, createdAt }]
+
+POST /api/chats/:id/join-requests/:requestId/approve
+  UPDATE chat_join_requests SET status = "approved", reviewed_by = userId, reviewed_at = NOW()
+  INSERT INTO chat_members (chat_id, user_id, role: "member")
+  Ответ: { success: true }
+
+POST /api/chats/:id/join-requests/:requestId/reject
+  UPDATE chat_join_requests SET status = "rejected"
+  Ответ: { success: true }
+
+=== MESSAGES API (дополнить artifacts/api-server/src/routes/messages.ts) ===
+
+GET /api/messages
+  Уже есть. ДОБАВИТЬ в ответ:
+    senderUsername, mediaType, fileName, fileSize, mediaDuration, mediaGroupId,
+    pollId, hasSpoiler, viewOnce, starredByIds, isPinned
+
+POST /api/messages
+  Уже есть. ДОБАВИТЬ в body:
+    mediaType, fileName, fileSize, mediaDuration, mediaGroupId,
+    scheduledAt, isSilent, hasSpoiler, viewOnce, forwardedFromId, forwardedFromUsername
 
 GET /api/messages/search
-  - requireAuth
-  - Query: { chatId?: number, query: string, limit?: number }
-  - SELECT FROM messages WHERE chat_id = :chatId AND encrypted_content ILIKE '%:query%'
-    AND is_deleted = false AND sender_id = userId (или chatId для групп)
-  - ВАЖНО: Работает только потому что в демо-режиме нет реального шифрования.
-    В реальном E2EE поиск невозможен серверно — это поиск по plaintext для демо.
-  - Возвращает: массив сообщений с совпадением
+  requireAuth
+  Query: { chatId?: number, query: string, limit?: number, offset?: number }
+  SELECT FROM messages WHERE (chatId IS NULL OR chat_id = :chatId)
+    AND encrypted_content ILIKE :query AND is_deleted = false
+    AND (senderId = userId OR chatId IN [member chats])
+  Ответ: [{ ...message, chatTitle }]
 
---- CALL LOGS API ---
-Файл: artifacts/api-server/src/routes/calls.ts (создать новый)
-Подключить в: artifacts/api-server/src/routes/index.ts
+POST /api/messages/:id/star
+  INSERT INTO saved_message_stars (user_id, message_id)
+  UPDATE messages SET starred_by_ids = array_append(starred_by_ids, userId)
+  Ответ: { success: true }
+
+DELETE /api/messages/:id/star
+  DELETE FROM saved_message_stars WHERE user_id = userId AND message_id = :id
+  Ответ: { success: true }
+
+GET /api/messages/starred
+  SELECT saved_message_stars JOIN messages WHERE user_id = userId ORDER BY saved_at DESC
+  Ответ: [{ ...message, savedAt }]
+
+POST /api/messages/:id/remind
+  Body: { remindAt: string } (ISO datetime)
+  INSERT INTO message_reminders (user_id, message_id, remind_at)
+  Ответ: { success: true }
+
+POST /api/messages/:id/view
+  Для viewOnce: UPDATE messages SET viewed_by_ids = array_append(viewed_by_ids, userId)
+  Если viewed_by_ids.length >= 1 (уже просмотрено) → пометить isDeleted = true
+  Broadcast WS: { type: "message_viewed", messageId, chatId }
+  Ответ: { success: true }
+
+=== POLLS API (создать artifacts/api-server/src/routes/polls.ts) ===
+
+POST /api/polls
+  requireAuth
+  Body: { chatId, question, options: string[], isAnonymous?, isMultiple?, isQuiz?, correctOption?, explanation?, closeAt? }
+  INSERT INTO polls, получить pollId
+  Отправить сообщение в чат: sendMessage({ chatId, mediaType: "poll", pollId, encryptedContent: question })
+  Ответ: { pollId, ...poll }
+
+POST /api/polls/:id/vote
+  Body: { options: number[] } (индексы выбранных вариантов)
+  Проверить isClosed, если закрыт → 400
+  UPDATE polls SET votes = votes || { optionIdx: [userId] }
+  Broadcast WS: { type: "poll_updated", pollId, chatId }
+  Ответ: { votes, totalVoters }
+
+POST /api/polls/:id/close
+  requireAuth (только создатель)
+  UPDATE polls SET is_closed = true
+  Broadcast WS: { type: "poll_closed", pollId, chatId }
+  Ответ: { success: true }
+
+GET /api/polls/:id
+  SELECT * FROM polls WHERE id = :id
+  Ответ: { ...poll }
+
+=== CALLS API (создать artifacts/api-server/src/routes/calls.ts) ===
 
 GET /api/calls
-  - requireAuth
-  - SELECT call_logs JOIN users WHERE caller_id = userId OR callee_id = userId
-  - ORDER BY created_at DESC LIMIT 50
-  - Возвращает: [{ id, type, status, callerId, callerUsername, calleeId, calleeUsername, durationSeconds, createdAt }]
+  requireAuth
+  SELECT call_logs JOIN users ON caller/callee WHERE caller_id = userId OR callee_id = userId
+  ORDER BY created_at DESC LIMIT 50
+  Ответ: [{ id, callUuid, type, status, callerId, callerUsername, calleeId, calleeUsername, durationSeconds, createdAt }]
 
 POST /api/calls
-  - requireAuth
-  - Body: { calleeId: number, chatId?: number, type: "voice" | "video" }
-  - INSERT INTO call_logs (caller_id, callee_id, chat_id, type, status: "ringing")
-  - Broadcast WS: { type: "incoming_call", callId, callerId, callerUsername, callType }
-  - Возвращает: { callId, status: "ringing" }
+  Body: { calleeId: number, type: "voice" | "video" }
+  Проверить что callee не заблокировал caller
+  INSERT INTO call_logs (caller_id, callee_id, type, status: "ringing")
+  Broadcast WS к calleeId: { type: "incoming_call", callId: row.id, callUuid, callerId, callerUsername, callType }
+  Ответ: { callId, callUuid }
 
 PATCH /api/calls/:callId
-  - requireAuth
-  - Body: { status: "completed" | "declined" | "missed", durationSeconds?: number }
-  - UPDATE call_logs SET status = :status, duration_seconds = :dur, ended_at = NOW()
-  - Broadcast WS если declined/completed: { type: "call_ended", callId, status }
-  - Возвращает: { success: true }
+  Body: { status: "completed" | "declined" | "missed", durationSeconds? }
+  UPDATE call_logs SET status, duration_seconds, ended_at = NOW(), answered_at (если completed)
+  Broadcast WS: { type: "call_ended", callId, status }
+  Ответ: { success: true }
 
---- FOLDERS API ---
-Файл: artifacts/api-server/src/routes/folders.ts (создать новый)
-Подключить в: artifacts/api-server/src/routes/index.ts
+=== FOLDERS API (создать artifacts/api-server/src/routes/folders.ts) ===
 
 GET /api/folders
-  - requireAuth
-  - SELECT * FROM chat_folders WHERE user_id = userId ORDER BY position
-  - Возвращает: [{ id, name, emoji, chatIds, position }]
+  SELECT * FROM chat_folders WHERE user_id = userId ORDER BY position
 
 POST /api/folders
-  - requireAuth
-  - Body: { name: string, emoji?: string, chatIds?: number[] }
-  - INSERT INTO chat_folders (user_id, name, emoji, chat_ids, position)
-  - position = MAX(position) + 1 для данного userId
-  - Возвращает: { id, name, emoji, chatIds, position }
+  Body: { name, emoji?, chatIds?, filters? }
+  INSERT INTO chat_folders
+  Ответ: { id, name, emoji, chatIds, position }
 
 PATCH /api/folders/:id
-  - requireAuth
-  - Body: { name?: string, emoji?: string, chatIds?: number[], position?: number }
-  - UPDATE chat_folders SET ... WHERE id = :id AND user_id = userId
-  - Возвращает: { id, name, emoji, chatIds }
+  Body: { name?, emoji?, chatIds?, filters?, position? }
+  UPDATE chat_folders WHERE id = :id AND user_id = userId
+  Ответ: { id, name, emoji, chatIds }
 
 DELETE /api/folders/:id
-  - requireAuth
-  - DELETE FROM chat_folders WHERE id = :id AND user_id = userId
-  - Возвращает: { success: true }
+  DELETE FROM chat_folders WHERE id = :id AND user_id = userId
+  Ответ: { success: true }
 
---- FILES API — расширить ---
-Файл: artifacts/api-server/src/routes/files.ts (дополнить)
+=== STARS & PREMIUM API (создать artifacts/api-server/src/routes/stars.ts) ===
+
+GET /api/stars/balance
+  SELECT stars_balance FROM users WHERE id = userId
+  Ответ: { balance: number }
+
+GET /api/stars/transactions
+  SELECT * FROM stars_transactions WHERE from_user_id = userId OR to_user_id = userId ORDER BY created_at DESC
+  Ответ: [{ id, type, amount, description, fromUserId, toUserId, createdAt }]
+
+POST /api/stars/gift
+  Body: { toUserId: number, amount: number }
+  Проверить что users.starsBalance >= amount
+  BEGIN TRANSACTION:
+    UPDATE users SET stars_balance = stars_balance - amount WHERE id = userId
+    UPDATE users SET stars_balance = stars_balance + amount WHERE id = toUserId
+    INSERT INTO stars_transactions (from, to, amount, type: "gift")
+  COMMIT
+  Broadcast WS к toUserId: { type: "stars_received", amount, fromUsername }
+  Ответ: { success: true, newBalance: number }
+
+POST /api/stars/purchase
+  Body: { package: "100" | "250" | "500" | "1000" | "2500" }
+  Пакеты цен (демо-режим, без реальной оплаты):
+    "100" → +100 stars, стоимость 0 (демо)
+    Реальная интеграция: проверить payment_id от платёжного провайдера
+  UPDATE users SET stars_balance = stars_balance + :amount WHERE id = userId
+  INSERT INTO stars_transactions (to_user_id: userId, amount, type: "purchase")
+  Ответ: { success: true, newBalance: number }
+
+POST /api/stars/tip
+  Body: { messageId: number, amount: number }
+  Найти senderId сообщения
+  Списать stars у текущего пользователя, начислить автору
+  INSERT INTO reactions_paid (message_id, user_id, stars_amount)
+  Broadcast WS к chatId: { type: "paid_reaction", messageId, amount, fromUsername }
+  Ответ: { success: true }
+
+POST /api/premium/subscribe
+  Body: { tier: "monthly" | "annual" }
+  Цены: monthly = 280 Stars, annual = 2800 Stars
+  Проверить баланс, списать Stars
+  UPDATE users SET is_premium = true, premium_until = :date WHERE id = userId
+  INSERT INTO premium_subscriptions
+  Ответ: { success: true, expiresAt: string }
+
+GET /api/premium/features
+  Ответ: { features: [...список Premium функций с описанием] }
+
+=== FILES API (дополнить artifacts/api-server/src/routes/files.ts) ===
 
 GET /api/files/:fileId/download
-  - requireAuth
-  - SELECT data, mime_type FROM files WHERE id = :fileId
-  - Декодировать base64: Buffer.from(file.data, "base64")
-  - res.setHeader("Content-Type", file.mimeType)
-  - res.setHeader("Content-Disposition", "inline")
-  - res.send(buffer)
-  - ВАЖНО: Это позволяет отображать изображения в чате через <img src="/api/files/UUID/download" />
+  SELECT data, mime_type FROM files WHERE id = :fileId
+  Декодировать base64: Buffer.from(file.data, "base64")
+  res.setHeader("Content-Type", file.mimeType)
+  res.setHeader("Cache-Control", "private, max-age=86400")
+  res.send(buffer)
 
---- WEBSOCKET — расширить ws-hub.ts ---
-Файл: artifacts/api-server/src/lib/ws-hub.ts
+GET /api/files/:fileId/thumb
+  SELECT thumb_data FROM files WHERE id = :fileId
+  Если thumb_data is null → 404
+  res.send(Buffer.from(file.thumbData, "base64"))
 
-1. Добавить обработку входящих WS-событий от клиента:
-   ws.on("message", async (data) => {
-     const msg = JSON.parse(data.toString());
-     
-     if (msg.type === "typing") {
-       // msg: { type: "typing", chatId: number, isTyping: boolean }
-       const memberIds = await getChatMemberIds(msg.chatId);
-       broadcastToChat(memberIds, {
-         type: "typing",
-         chatId: msg.chatId,
-         userId,
-         username: msg.username || "User",
-         isTyping: msg.isTyping
-       }, userId);
-     }
-     
-     if (msg.type === "call_signal") {
-       // WebRTC signaling: offer/answer/ice-candidate
-       // msg: { type: "call_signal", targetUserId, signal: { type, sdp | candidate } }
-       sendToUser(msg.targetUserId, {
-         type: "call_signal",
-         fromUserId: userId,
-         signal: msg.signal
-       });
-     }
-   });
+=== ACTIVITY LOG API (создать artifacts/api-server/src/routes/activity.ts) ===
 
-2. При connect — обновить isOnline = true, lastOnline = NOW():
-   await db.update(usersTable).set({ isOnline: true }).where(eq(usersTable.id, userId));
-   // Broadcast всем контактам: { type: "status", userId, online: true }
+GET /api/activity-log
+  SELECT * FROM activity_logs WHERE user_id = userId ORDER BY created_at DESC LIMIT 100
+  Ответ: [{ id, type, description, device, country, risk, createdAt }]
 
-3. При disconnect — обновить isOnline = false, lastOnline = NOW():
-   ws.on("close", async () => {
-     await db.update(usersTable)
-       .set({ isOnline: false, lastOnline: new Date() })
-       .where(eq(usersTable.id, userId));
-     // Broadcast всем контактам: { type: "status", userId, online: false }
-   });
+=== STICKERS API (дополнить/создать artifacts/api-server/src/routes/stickers.ts) ===
 
-4. Добавить новые типы в WsEvent union:
-   | { type: "incoming_call"; callId: number; callerId: number; callerUsername: string; callType: string }
-   | { type: "call_signal"; fromUserId: number; signal: Record<string, unknown> }
-   | { type: "call_ended"; callId: number; status: string }
-   | { type: "message_pinned"; chatId: number; messageId: number; pinnedBy: number }
-   | { type: "message_unpinned"; chatId: number; messageId: number }
+GET /api/stickers/packs
+  SELECT * FROM sticker_packs ORDER BY install_count DESC
 
-================================================================================
-ЭТАП 4: OPENAPI + CODEGEN
-================================================================================
-Цель: Все новые endpoints описать в openapi.yaml, запустить codegen.
-Файл: lib/api-spec/openapi.yaml
+GET /api/stickers/installed
+  SELECT sticker_packs JOIN user_sticker_packs WHERE user_id = userId
 
-Добавить в paths:
-  /contacts, /contacts/{contactId}
-  /users/me (PATCH), /users/online
-  /chats/{id}/pin, /chats/{id}/mute
-  /chats/{id}/pinned-messages
-  /chats/{id}/pin-message, /chats/{id}/pin-message/{messageId}
-  /messages/search
-  /calls, /calls/{callId}
-  /folders, /folders/{id}
-  /files/{fileId}/download
+POST /api/stickers/install
+  Body: { packId: number }
+  INSERT INTO user_sticker_packs (user_id, pack_id)
+  UPDATE sticker_packs SET install_count = install_count + 1
+  Ответ: { success: true }
 
-Добавить в components/schemas:
-  Contact, CallLog, PinnedMessage, ChatFolder, UserOnlineStatus
+DELETE /api/stickers/install/:packId
+  DELETE FROM user_sticker_packs WHERE user_id = userId AND pack_id = :packId
+  Ответ: { success: true }
 
-После добавления запустить:
-  pnpm --filter @workspace/api-spec run codegen
+=== WEBSOCKET — ДОПОЛНИТЬ ws-hub.ts ===
 
-Это сгенерирует новые хуки в lib/api-client-react/src/generated/api.ts
-и новые схемы в lib/api-zod/src/index.ts
+Новые входящие типы от клиента:
+  "typing"      → { chatId, isTyping, username } → broadcast членам чата
+  "call_signal" → { targetUserId, signal } → forward к targetUserId
+  "read_batch"  → { chatId, messageIds: number[] } → пометить прочитанными batch
+
+Новые исходящие типы к клиентам:
+  "incoming_call"    → { callId, callUuid, callerId, callerUsername, callType }
+  "call_signal"      → { fromUserId, signal }
+  "call_ended"       → { callId, status }
+  "message_pinned"   → { chatId, messageId, pinnedBy }
+  "message_unpinned" → { chatId, messageId }
+  "poll_updated"     → { pollId, chatId, votes }
+  "poll_closed"      → { pollId, chatId }
+  "message_viewed"   → { messageId, chatId }
+  "stars_received"   → { amount, fromUsername }
+  "paid_reaction"    → { messageId, chatId, amount, fromUsername }
+  "member_joined"    → { chatId, userId, username }
+  "member_left"      → { chatId, userId }
+  "status"           → { userId, online: boolean, lastOnline? }
+
+При WS-соединении (connect):
+  UPDATE users SET is_online = true, last_online = NOW()
+  Broadcast к контактам: { type: "status", userId, online: true }
+
+При WS-закрытии (close):
+  UPDATE users SET is_online = false, last_online = NOW()
+  Broadcast к контактам: { type: "status", userId, online: false, lastOnline: NOW() }
 
 ================================================================================
-ЭТАП 5: КОНТАКТЫ (ПОЛНАЯ РЕАЛИЗАЦИЯ)
+                   STAGE 5 — CODEGEN ПОСЛЕ ВСЕХ ИЗМЕНЕНИЙ OPENAPI
 ================================================================================
-Цель: Заменить mockContacts на реальные данные из API.
+
+1. Внести ВСЕ новые endpoints в lib/api-spec/openapi.yaml
+2. Добавить ВСЕ новые компоненты/схемы в components/schemas:
+   Contact, BlockedUser, CallLog, PinnedMessage, ChatFolder, Poll,
+   StarsTransaction, PremiumSubscription, ActivityLogEntry, Topic,
+   ChatJoinRequest, MessageReminder
+3. Запустить: pnpm --filter @workspace/api-spec run codegen
+4. Проверить что lib/api-client-react/src/generated/api.ts содержит все хуки
+5. Запустить: pnpm run typecheck
+
+Полный список новых хуков после codegen:
+  useGetContacts, useAddContact, useDeleteContact, usePatchContact
+  useGetBlockedUsers, useBlockUser, useUnblockUser
+  useGetOnlineStatuses
+  usePinChat, useUnpinChat, useMuteChat, useUnmuteChat
+  useArchiveChat, useUnarchiveChat, useSaveDraft
+  useGetPinnedMessages, usePinMessage, useUnpinMessage
+  usePromoteMember, useRestrictMember, useBanMember
+  useCreateInviteLink, useJoinByInviteLink
+  useGetJoinRequests, useApproveJoinRequest, useRejectJoinRequest
+  useSearchMessages, useStarMessage, useUnstarMessage, useGetStarredMessages
+  useRemindMessage, useViewMessage
+  useCreatePoll, useVotePoll, useClosePoll, useGetPoll
+  useGetCalls, useCreateCall, useUpdateCall
+  useGetFolders, useCreateFolder, usePatchFolder, useDeleteFolder
+  useGetStarsBalance, useGetStarsTransactions, useGiftStars, usePurchaseStars, useTipStars
+  useSubscribePremium, useGetPremiumFeatures
+  useDownloadFile (или использовать URL напрямую)
+  useGetActivityLog
+  useGetStickerPacks, useGetInstalledPacks, useInstallPack, useUninstallPack
+  useUpdateMe
+
+================================================================================
+                    STAGE 6 — СТРАНИЦА: СПИСОК ЧАТОВ (ChatList)
+================================================================================
+
+Файл: artifacts/echo-messenger/src/pages/chat/chat-list.tsx
+Дизайн: точная копия Telegram для iOS/Android
+
+ХЕДЕР (56px высота):
+  Левый край:  кнопка "≡" (меню) — открывает боковой drawer
+  Центр:       "ECHO" логотип + текст / "Чаты"
+  Правый край: кнопка 🔍 (поиск), кнопка ✏️ (новый чат)
+
+ПОИСК (раскрывается при тапе на 🔍):
+  Анимация: height 0→44px + opacity 0→1
+  Input: "Поиск" (placeholder)
+  Кнопка "Отмена" справа
+  В режиме поиска:
+    Фильтровать чаты локально по chat.title.toLowerCase().includes(query)
+    При query > 2 символов — также GET /api/users/:username → показывать в секции "Глобальный поиск"
+    Секции: "Мои чаты", "Глобальный поиск", "Сообщения" (useSearchMessages)
+
+ФИЛЬТРЫ-ТАБЛЕТКИ (горизонтальный скролл под поиском):
+  Вкладки из useGetFolders() + стандартные: "Все", "Личные", "Группы", "Каналы", "Непрочитанные"
+  Кастомные папки из БД — с иконкой-эмодзи
+  Активная таблетка: синяя подложка, белый текст
+  Тап на таблетке → фильтровать список ниже
+
+СПИСОК ЧАТОВ (основная прокручиваемая часть):
+  Для каждого чата — строка высотой 74px:
+  
+  [АВАТАР 54×54] [КОНТЕНТ] [ПРАВЫЙ БЛОК]
+  
+  Аватар:
+    Если avatarFileId → <img src="/api/files/{avatarFileId}/download" className="rounded-full" />
+    Иначе → цветовой круг с первой буквой
+    Поверх аватара: онлайн-точка (зелёный круг 14px) для DM, если isOnline
+    Для каналов → иконка 📢 в уголке
+    Для групп → иконка 👥 в уголке (опционально)
+  
+  Контент (flex-1, min-w-0):
+    Строка 1:
+      [Иконка типа чата] [Название чата] [Мут-иконка 🔕 если mutedUntil] [Закреплён📌 если isPinned]
+      font-semibold 16px
+    Строка 2:
+      [Если я последний → "Вы: "] [Превью последнего сообщения 14px muted-foreground, truncate]
+      Если дraftText → "Черновик: " (красный) + draftText
+      Если typing → "печатает..." (синий/primary цвет)
+      Если голосовое → "🎤 Голосовое сообщение"
+      Если фото → "📷 Фото"
+      Если видео → "📹 Видео"
+      Если документ → "📎 {fileName}"
+      Если стикер → "{emoji} Стикер"
+  
+  Правый блок (align-right):
+    Строка 1: время последнего сообщения (13px muted-foreground)
+    Строка 2: badge непрочитанных (синий круг 20px с числом) / серый если muted
+    Иконки: ✓ (доставлено) / ✓✓ (прочитано) для исходящих сообщений
+
+  Жест свайп влево: кнопки "Архив" (серый) / "Удалить" (красный) / "Мут" (синий)
+  Long press: контекстное меню: Закрепить / Замутить / Архивировать / Удалить историю / Покинуть
+
+СЕКЦИЯ "АРХИВИРОВАНО":
+  Вверху списка, если есть архивированные чаты
+  Строка: архивная иконка + "Архив" + счётчик
+  Тап → navigate("/chats/archived")
+
+НИЖНИЙ НАВБАР (Tab Bar):
+  5 вкладок:
+  [💬 Чаты] [👥 Контакты] [🔍 Поиск] [📞 Звонки] [⚙️ Настройки]
+  Активная вкладка: синяя иконка + синий текст
+  Неактивная: серая иконка
+  Бейдж (красный) на Чатах = суммарное кол-во непрочитанных
+
+================================================================================
+                  STAGE 7 — СТРАНИЦА: ОКНО ЧАТА (ChatWindow)
+================================================================================
+
+Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
+Полностью переделать по образцу Telegram.
+
+=== ХЕДЕР ЧАТА (56px) ===
+
+Левый:  ← кнопка назад (только на мобайл) + счётчик непрочитанных в других чатах
+Центр:  Аватар (36×36) + [Название / Online-статус]
+        Клик на центр → открыть ChatInfo (панель информации о чате)
+Правый: 📞 Звонок, 🔍 Поиск по чату, ⋮ Меню
+
+Online-статус (строка под именем, 12px):
+  DM: если isOnline → "в сети" (зелёный)
+      если !isOnline && lastOnline → "был(а) {relative time}"
+      если !isOnline && !lastOnline → "был(а) давно"
+  Группа: "{N} участников" / "{N} участников, {K} в сети"
+  Канал:  "{N} подписчиков"
+  Набирает: "печатает..." / "ИМЕНА_ЧЕРЕЗ_ЗАПЯТУЮ печатают..."
+
+Меню (⋮) → BottomSheet / Dropdown:
+  - Добавить в контакты (если DM и не в контактах)
+  - Поиск по чату
+  - Закрепить / Открепить чат
+  - Замутить / Включить уведомления
+  - Изменить обои чата
+  - Очистить историю
+  - Архивировать / Удалить чат (для DM)
+  - Покинуть группу / Удалить канал (для групп/каналов)
+  - Сообщить о спаме
+
+=== ЗАКРЕПЛЁННОЕ СООБЩЕНИЕ (Pinned Banner) ===
+
+Показывается если GET /api/chats/:id/pinned-messages вернул > 0 результатов.
+Анимированный баннер под хедером (не перекрывает чат):
+  [📌 иконка] [Превью текста, 1 строка, truncate]
+  Правый край: кнопка X (открепить, только admin)
+  Тап → скролл к закреплённому сообщению
+
+Если закреплённых несколько → тапы циклически переключают между ними.
+
+=== ФОН ЧАТА ===
+
+По умолчанию: точечный паттерн (radial-gradient, уже есть)
+Кастомные фоны (из ChatWindow меню → "Изменить обои"):
+  - 10 встроенных Telegram-паттернов (SVG-паттерны)
+  - Solid color (16 цветов)
+  - Загрузить из галереи (useUploadFile → сохранить fileId в users.settings.chatBg)
+Фон сохраняется: для всех чатов или для конкретного чата
+
+=== ОБЛАСТЬ СООБЩЕНИЙ ===
+
+Прокручиваемый список (overflow-y: auto, flex-column, gap: 2px).
+При первом открытии → скролл вниз (последнее сообщение видно).
+
+Группировка сообщений:
+  Если несколько сообщений подряд от одного человека (< 2 мин между ними):
+    Только у первого → аватар и имя
+    У последующих → маленький отступ слева, нет аватара
+    У последнего → хвостик пузыря
+
+Разделитель дня (Date separator):
+  Центровой pill: "Сегодня", "Вчера", "15 декабря 2025"
+  Фон: var(--card)/80 + backdrop-blur, border-radius: 12px
+
+Непрочитанные сообщения:
+  Разделитель: "Непрочитанные сообщения" pill (синий фон)
+
+ПУЗЫРИ СООБЩЕНИЙ — типы:
+
+1. ТЕКСТОВОЕ СООБЩЕНИЕ:
+   Пузырь: padding 8px 12px, border-radius 18px/4px
+   Текст: 16px, line-height: 1.45
+   Внутри: [Имя отправителя (только в группах) синий/цветной]
+            [Пересланное: "Переслано от @username" серый блок]
+            [Ответ: выделенный блок сверху — имя + превью]
+            [Текст]
+            [Время 12px + статус (✓✓) справа-снизу]
+   Спойлер: если hasSpoiler → текст размыт, тап → разблюрить
+
+2. ФОТО:
+   Без padding, border-radius 12px
+   Max 240×240px, сохраняя пропорции
+   Загрузочный skeleton пока грузится
+   Тап → fullscreen viewer (zoom, свайп между фото альбома)
+   Если viewOnce → иконка глаза 👁, после просмотра → исчезает
+   Если hasSpoiler → полностью размыто, тап → подтвердить просмотр
+
+3. ВИДЕО:
+   Превью-thumbnail (из mediaThumbFileId)
+   Overlay: ▶ (play кнопка) + длительность "0:45" в уголке
+   Тап → fullscreen видеоплеер (controls: play, seek, fullscreen, скорость)
+   Telegram-стиль: плеер внизу экрана (mini-player при скролле)
+
+4. ГОЛОСОВОЕ СООБЩЕНИЕ:
+   Ширина 240px, высота 56px
+   Иконка: 🎤 (или аватар отправителя)
+   Waveform: 30 баров, нажатые — синие, непрошедшие — серые
+   Play/Pause кнопка (38×38px, круглая)
+   Время прошедшее + слеш + общая длительность "0:05 / 0:32"
+   Тройной тап → переключить скорость: 1x → 1.5x → 2x
+   Listening status: голубые наушники если recipient уже слушал
+
+5. ВИДЕО-КРУЖОК (Video Note):
+   Круглое видео 200×200px
+   Автоплей при просмотре (без звука по умолчанию)
+   Тап → воспроизвести со звуком в fullscreen
+
+6. ДОКУМЕНТ:
+   Иконка типа файла (PDF=красная, DOCX=синяя, ZIP=жёлтая, и т.д.)
+   [Иконка] [Название файла] [Размер]
+   Кнопка скачать → GET /api/files/:id/download, создать <a> и .click()
+
+7. СТИКЕР:
+   160×160px без пузыря (прозрачный фон)
+   Если isAnimated (Premium) → Lottie-анимация (lottie-react)
+   Тап → анимация + набор стикеров из того же пака
+
+8. GIF:
+   240×180px, autoplay, loop, без звука
+   Overlay: "GIF" бейдж в уголке
+
+9. ГЕОЛОКАЦИЯ:
+   Статичная карта (OpenStreetMap iframe / скриншот)
+   [Иконка 📍] [Название места] [Координаты]
+   Тап → открыть в картах (maps.google.com или yandex.maps)
+   Live location: если currentTime < locationExpiresAt → показывать "Живая геолокация"
+
+10. ОПРОС (Poll):
+    Вопрос жирным
+    Варианты ответов (кнопки-радио или чекбоксы)
+    Прогресс-бары с % после голосования
+    Если quiz → подсветить правильный ответ зелёным после голосования
+    Кнопка "Показать результаты" для анонимных
+
+11. ПЕРЕСЛАННОЕ СООБЩЕНИЕ:
+    Серый блок вверху пузыря:
+    "Переслано от" [Avatar tiny] @username
+    Если forwardedFromUsername — показывать
+
+12. ОТВЕТ НА СООБЩЕНИЕ:
+    Выделенный блок вверху: синяя полоса слева + [Имя] + [Превью 1 строка]
+    Тап → прокрутить к оригинальному сообщению (smooth scroll)
+
+13. КОНТАКТ:
+    Виртуальная визитка: аватар + имя + кнопка "Открыть профиль"
+
+14. НАПОМИНАНИЕ (системное):
+    Серый bubble по центру: "⏰ Напоминание: {текст сообщения}"
+
+15. SERVICE MESSAGES (системные):
+    По центру, серый pill: "Вася добавил Петю", "Название группы изменено", "Ключ шифрования обновлён"
+
+РЕАКЦИИ НА СООБЩЕНИЯ:
+  Под пузырём (снаружи, не внутри):
+  Каждая реакция: [emoji][count], border-radius: 20px, padding: 2px 8px
+  Если я поставил эту реакцию → синяя рамка
+  Тап → убрать свою реакцию / добавить эту реакцию
+  Тап+hold → показать кто поставил (всплывающий список)
+  Long press → показать полный список реакций (emoji-picker)
+  Premium-реакции: анимированные эмодзи (Lottie)
+
+PAID REACTIONS (Stars):
+  Специальный режим реакций для каналов/групп
+  Отображение: ⭐{N} — количество собранных Stars
+  Тап → платная реакция (выбрать 1, 5, 50, 100, 500 Stars)
+  Анимация: gold burst эффект при отправке платной реакции
+
+КОНТЕКСТНОЕ МЕНЮ (long press на сообщении):
+  Появляется с анимацией: scale 0.8→1 + blur backdrop
+  Поверх пузыря — быстрые реакции: 👍 ❤️ 😂 😮 😢 🔥 ⭐ (последнее — Stars)
+  Ниже — список действий:
+  - Ответить
+  - Редактировать (только своё, до 48 часов)
+  - Закрепить / Открепить
+  - Переслать
+  - Копировать текст
+  - Выбрать (для мультивыбора)
+  - Добавить в Избранные ★
+  - Напомнить ⏰ (выбрать время)
+  - Удалить (красный)
+    → Диалог: "Удалить для меня" / "Удалить для всех" (если своё)
+
+ПАНЕЛЬ ВВОДА (Input Area):
+
+Состав:
+  [+ Прикрепить] [TextArea] [Кнопка Отправить / 🎤 Голосовое]
+
+Кнопка "+":
+  Всегда слева от текстового поля
+  Тап → выдвигается панель вложений (BottomSheet, Telegram-стиль):
+    ┌────────────────────────────┐
+    │ 📷 Фото и видео            │
+    │ 📎 Файл                    │
+    │ 📍 Геолокация              │
+    │ 👤 Контакт                 │
+    │📊 Опрос                   │
+    │ 🎵 Музыка (только audio/*)  │
+    └────────────────────────────┘
+  Каждый вариант → соответствующий picker/flow
+
+TextArea:
+  min-height: 36px, max-height: 120px (авторасширение)
+  При вводе emoji → нативный emoji keyboard
+  Поддержка Shift+Enter для новой строки
+  Показывать draft из БД при открытии чата
+  Сохранять draft при закрытии (PATCH /api/chats/:id/draft)
+
+Правая кнопка:
+  Если text.trim().length > 0 → синяя кнопка "Отправить" (Send icon)
+  Если text пустой → кнопка микрофона 🎤 (серая)
+    Hold → запись голосового (см. Stage 11)
+
+Расширенный ввод (кнопка 😊 слева от TextArea):
+  → Панель стикеров/эмодзи (BottomSheet, высота 40% экрана):
+    Вкладки: [Эмодзи] [Стикеры] [GIF]
+    Эмодзи: категории, недавно использованные, поиск
+    Стикеры: установленные паки, тренды
+    GIF: поиск через Tenor API или локальная коллекция
+
+Опции при отправке (long press на кнопке Отправить):
+  - Отправить без звука 🔕
+  - Запланировать отправку 📅 → DateTimePicker
+
+ПАНЕЛЬ ЗАПИСИ ГОЛОСОВОГО (заменяет TextArea при hold):
+  Полная ширина
+  Левый: ← "Свайп для отмены" с анимацией стрелки
+  Центр: красный пульс + таймер "0:05"
+  Правый: кнопка 🗑️ (отмена) / кнопка ✓ (отправить)
+
+ПАНЕЛЬ МУЛЬТИВЫБОРА (Selection Mode):
+  Хедер меняется: показывает "N выбрано" + X закрыть
+  У каждого сообщения появляется чекбокс слева
+  Нижняя панель: "Переслать" | "Удалить"
+  Тап Переслать → открыть список чатов (ForwardPicker)
+  Тап Удалить → подтверждение "Удалить N сообщений?"
+
+ПОИСК ПО ЧАТУ (раскрывается из 🔍 в хедере):
+  Анимация: panel скользит сверху вниз
+  Input + [↑ Пред.] [↓ След.] [✕ Закрыть]
+  Текущее совпадение: "{K} из {N}"
+  Подсветка совпадения в пузырях (<mark className="bg-yellow-400/40">)
+  GET /api/messages/search?chatId=X&query=Y
+
+ИНДИКАТОР ПРОКРУТКИ:
+  Кнопка "↓" (FAB) появляется при прокрутке > 200px вверх
+  Бейдж с числом новых сообщений
+  Тап → анимированный скролл вниз
+
+=== CHAT INFO (панель информации) ===
+
+Открывается при тапе на аватар/имя в хедере.
+Реализовать как отдельный route: /chat/:id/info
+(или как slide-in Sheet)
+
+Для DM:
+  Большой аватар (96px) + имя + username + bio
+  Кнопки действий: [💬 Сообщение] [🔔 Звонок] [🔍 Поиск] [⋮ Ещё]
+  Секции:
+    "О пользователе": bio (если есть)
+    Общие медиа:      Grid 3 колонки фото/видео → тап → MediaViewer
+    Общие файлы:      список документов
+    Общие ссылки:     список URL из сообщений
+    Общие голосовые:  список аудио
+  Кнопки внизу:
+    "Добавить в контакты" / "Редактировать контакт"
+    "Уведомления" (переключатель)
+    "Заблокировать пользователя" (красный)
+
+Для группы:
+  Аватар + название + "{N} участников"
+  Кнопки: [🔍 Поиск] [🔔 Звонок] [📢 Добавить] [⋮ Ещё]
+  Описание группы
+  Participants список (первые 5, кнопка "Показать всех")
+    Каждый: аватар + имя + роль badge (Владелец / Администратор)
+  Ссылка-приглашение (если admin)
+  Общие медиа/файлы/ссылки
+  Кнопки: "Изменить группу" (admin), "Покинуть группу" (красный)
+
+Для канала:
+  Аватар + название + "{N} подписчиков"
+  Описание
+  Кнопки: Поделиться ссылкой, Копировать ссылку
+  Статистика (для admin): просмотры, рост, охват
+  Кнопки: "Управлять каналом" (admin), "Отписаться" (красный)
+
+================================================================================
+                STAGE 8 — СТРАНИЦА: ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ
+================================================================================
+
+Файлы:
+  artifacts/echo-messenger/src/pages/profile/my-profile.tsx       — Мой профиль
+  artifacts/echo-messenger/src/pages/profile/user-profile.tsx     — Чужой профиль
+
+=== МОЙ ПРОФИЛЬ (/settings/my-profile) ===
+
+Режим просмотра:
+  Хедер: "Назад" | "Мой профиль" | "Изм."
+  
+  Блок аватара:
+    Аватар 96×96px
+    Если avatarFileId → src="/api/files/{avatarFileId}/download"
+    Кнопка камеры (нижний правый угол) → открыть picker
+    Имя (displayName или username, 22px bold)
+    Username: @username (синий, с кнопкой копирования)
+    Badge "⭐ ECHO Premium" (золотой, если isPremium)
+  
+  Карточки информации:
+    "Имя пользователя": @{username} | кнопка "Изменить"
+    "Отображаемое имя": {displayName} | кнопка "Изменить"  
+    "О себе": {bio или placeholder} | кнопка "Изменить"
+    "ID аккаунта": {id} (монospace, серый)
+  
+  Секция "Безопасность":
+    "Сид-фраза активна" (шильдик)
+    "Центр безопасности" →
+
+  Секция "Stars":
+    "⭐ {starsBalance} Stars"
+    "Пополнить" → /stars/purchase
+    "История транзакций" → /stars/history
+  
+  Кнопки:
+    "Уничтожить аккаунт" (красный) → /settings/security
+
+Режим редактирования (нажать "Изм."):
+  Хедер: "Отмена" | "Редактировать" | "Готово"
+  
+  Аватар становится кликабельным:
+    Тап → ActionSheet: "Выбрать фото", "Удалить фото"
+    Выбрать фото → file input (accept="image/*")
+    → FileReader → base64 → POST /api/files/upload → получить fileId
+    → PATCH /api/users/me { avatarFileId }
+    → Сразу показать новый аватар (оптимистичный update)
+  
+  Поля становятся редактируемыми Input:
+    displayName: Input с валидацией (1-64 символа)
+    bio: Textarea (макс 255 символов, счётчик символов)
+  
+  Сохранение: PATCH /api/users/me { bio, displayName, avatarFileId }
+  onSuccess → invalidate useGetMe() → выйти из режима
+  onError → toast "Ошибка сохранения" + остаться в режиме
+
+=== ПРОФИЛЬ ДРУГОГО ПОЛЬЗОВАТЕЛЯ (/profile/:userId) ===
+
+Открывается при тапе на аватар в чате или контактах.
+
+Хедер: прозрачный overlay поверх аватара, кнопки "←" и "⋮"
+
+Большой аватар (full-width hero, 280px высота):
+  Фон: размытый аватар
+  Поверх: аватар 80px + имя + username
+  Если isPremium → золотая звезда рядом с именем
+
+Кнопки действий под аватаром:
+  [💬 Написать] [📞 Позвонить] [⋮ Ещё]
+
+Информация:
+  Bio (если не скрыт privacy)
+  "Последний раз в сети: {relative time}" (если privacy позволяет)
+  "ID: {userId}"
+
+Если в контактах:
+  Поле "Nickname": редактируемое локальное имя
+
+Общие чаты:
+  "N общих групп/каналов" → список
+
+Кнопка "Заблокировать" / "Разблокировать" (если заблокирован → серая кнопка)
+Кнопка "Пожаловаться" → форма репорта
+
+================================================================================
+                STAGE 9 — ONLINE-СТАТУС И КОНТАКТЫ
+================================================================================
+
+=== ONLINE-СТАТУС (глобальный context) ===
+
+Файл: artifacts/echo-messenger/src/lib/online-store.tsx (создать)
+
+  import { createContext, useContext, useState, useCallback } from "react";
+  import { useWsEvent } from "@/hooks/use-ws";
+
+  type OnlineMap = Record<number, { isOnline: boolean; lastOnline: string | null }>;
+  const OnlineCtx = createContext<OnlineMap>({});
+  const OnlineSetCtx = createContext<(userId: number, data: OnlineMap[number]) => void>(() => {});
+
+  export function OnlineProvider({ children }: { children: React.ReactNode }) {
+    const [map, setMap] = useState<OnlineMap>({});
+    const update = useCallback((userId: number, data: OnlineMap[number]) => {
+      setMap(prev => ({ ...prev, [userId]: data }));
+    }, []);
+
+    useWsEvent((event) => {
+      if (event.type === "status") {
+        update(event.userId, { isOnline: event.online, lastOnline: event.lastOnline ?? null });
+      }
+    });
+
+    return (
+      <OnlineCtx.Provider value={map}>
+        <OnlineSetCtx.Provider value={update}>
+          {children}
+        </OnlineSetCtx.Provider>
+      </OnlineCtx.Provider>
+    );
+  }
+
+  export const useOnlineStatus = (userId?: number) => {
+    const map = useContext(OnlineCtx);
+    if (!userId) return null;
+    return map[userId] ?? null;
+  };
+
+Подключить OnlineProvider в App.tsx (внутри EchoAuthProvider, снаружи AppRouter).
+
+При открытии чата → GET /api/users/online?ids={otherUserId} → заполнить начальное состояние.
+
+=== КОНТАКТЫ (/contacts) ===
+
 Файл: artifacts/echo-messenger/src/pages/contacts/contacts.tsx
 
-ПОЛНАЯ ЗАМЕНА:
-1. Удалить const mockContacts = [...] полностью
-2. Использовать const { data: contacts, refetch } = useGetContacts()
-   (хук сгенерирован на этапе 4)
-3. При поиске > 2 символов — показывать результат useGetUserByUsername(search)
-4. Кнопка "Добавить контакт" (+):
-   - Открывать sheet/диалог с полем поиска
-   - Результат поиска → кнопка "Добавить"
-   - useAddContact().mutate({ data: { contactId: user.id } })
-5. Свайп или long-press на контакте → меню: "Написать", "Удалить из контактов"
-6. Удаление: useDeleteContact().mutate({ contactId })
-7. Открытие чата: создаёт DM если не существует (useCreateChat), затем navigate
-8. Показывать online-статус рядом с аватаром (зелёная точка если isOnline)
-9. Последняя активность: если !isOnline → "был(а) {lastOnline}"
-   Формат: если сегодня → "сегодня в HH:MM", иначе → "DD MMM в HH:MM"
+Полностью заменить на реальный API.
+
+Хедер:
+  "Контакты" + кнопка "+" (добавить)
+
+Поиск:
+  Input "Поиск контактов" → фильтр по nickname или username
+
+Список (A-Z сортировка):
+  Группировать по первой букве имени (алфавитные разделители)
+  
+  Каждый контакт (68px):
+    [Аватар 52×52 + онлайн-точка] [Имя/nickname] [время активности]
+    Тап → navigate к DM-чату (создать если нет) или к профилю
+
+  Жест свайп влево: "Написать" (синий) | "Удалить" (красный)
+  Long press → ActionSheet: Написать / Позвонить / Редактировать nickname / Удалить
+
+Кнопка "+" → Диалог добавления:
+  Поле поиска username
+  GET /api/users/:username → показать карточку
+  Поле "Никнейм (опционально)"
+  Кнопка "Добавить контакт" → POST /api/contacts
+
+Хедер "А-Я" index (правая колонка) как в телефонной книге.
+
+=== ЗАБЛОКИРОВАННЫЕ ПОЛЬЗОВАТЕЛИ ===
+
+Страница: /settings/blocked-users (создать)
+Список из GET /api/users/blocked
+Для каждого: аватар + username + кнопка "Разблокировать"
 
 ================================================================================
-ЭТАП 6: ПРИКРЕПЛЕНИЕ ФАЙЛОВ И МЕДИА В ЧАТЕ
+             STAGE 10 — ВЛОЖЕНИЯ В ЧАТЕ: ФАЙЛЫ, ФОТО, ВИДЕО, ГЕОЛОКАЦИЯ
 ================================================================================
-Цель: Реальная загрузка и отображение файлов/изображений.
-Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
 
-РЕАЛИЗАЦИЯ handleFileSelect:
-1. Читать файл как ArrayBuffer → конвертировать в base64:
-   const reader = new FileReader();
-   reader.readAsDataURL(file);
-   reader.onload = async () => {
-     const base64 = (reader.result as string).split(",")[1];
-     // Показать toast "Загрузка..."
-     try {
-       const uploaded = await uploadFileMutation.mutateAsync({
-         data: { data: base64, mimeType: file.type, encryptedKey: null }
-       });
-       // Отправить сообщение с mediaFileId
-       sendMutation.mutate({
-         data: {
-           chatId,
-           chatType: chat?.type ?? 1,
-           encryptedContent: file.name, // для файлов — имя файла
-           mediaFileId: uploaded.fileId,
-         }
-       });
-     } catch {
-       toast({ title: "Ошибка загрузки", variant: "destructive" });
-     }
-   };
+=== ФОТО И ВИДЕО ===
 
-2. Добавить хук: const uploadFileMutation = useUploadFile()
+Picker: input accept="image/*,video/*", multiple
+Если выбрано > 1 файла → создать media group:
+  Генерировать mediaGroupId = crypto.randomUUID()
+  Загрузить каждый файл через POST /api/files/upload
+  Отправить каждый как отдельное сообщение с одинаковым mediaGroupId
 
-3. ОТОБРАЖЕНИЕ медиа в пузыре сообщения:
-   Если msg.mediaFileId существует:
-   - Определить тип по encryptedContent (имя файла) или хранить mimeType
-   - Если image/* → <img src="/api/files/{mediaFileId}/download" className="max-w-[240px] rounded-xl" />
-   - Если video/* → <video controls src="/api/files/{mediaFileId}/download" className="max-w-[240px] rounded-xl" />
-   - Если audio/* → компонент голосового сообщения (см. этап 7)
-   - Иначе → карточка файла: иконка + имя + размер
+Thumbnail для видео:
+  Создать <video>, seek к 0.1s, захватить через canvas.getContext("2d").drawImage()
+  Получить base64 thumbnail → загрузить как отдельный файл → mediaThumbFileId
 
-4. Добавить прогресс загрузки: uploadFileMutation.isPending → прогресс-бар в input area
+Отображение альбома (media group):
+  Сообщения с одинаковым mediaGroupId → объединить в grid
+  2 фото: side-by-side 50/50
+  3 фото: одно большое + два маленьких (Telegram-стиль)
+  4 фото: 2x2 grid
+  5+ фото: 2x2 + "+N" overlay на последнем
 
-5. Лимит файла: проверять file.size < 50 * 1024 * 1024 (50MB)
-   Если больше — toast с предупреждением
+=== ФАЙЛЫ ===
+
+Picker: input accept="*" (любой файл)
+Проверить: file.size <= 100 * 1024 * 1024 (100MB)
+Если > 100MB → toast "Файл слишком большой (макс 100MB)"
+Загрузить: POST /api/files/upload { data: base64, mimeType, fileName, fileSize }
+Отправить: sendMessage с mediaType="document", fileName, fileSize
+
+Иконки по типу:
+  PDF → красная, DOCX → синяя, XLSX → зелёная, ZIP → жёлтая, остальные → серая
+
+=== ГЕОЛОКАЦИЯ ===
+
+Кнопка "📍 Геолокация" в панели вложений:
+  Запросить navigator.geolocation.getCurrentPosition()
+  Показать mini-карту (iframe OpenStreetMap или статичный preview)
+  Кнопки: "Отправить обычную" / "Отправить живую (на 15 мин)"
+  Живая: отправлять обновления координат каждые 5 сек через WS:
+    { type: "location_update", chatId, lat, lng, expiresAt }
+
+Отображение карты в сообщении:
+  Iframe: https://www.openstreetmap.org/export/embed.html?bbox={lng-0.01},{lat-0.01},{lng+0.01},{lat+0.01}&layer=mapnik&marker={lat},{lng}
+  Ширина: 240px, высота: 150px, border-radius: 12px
+
+=== ОПРОС ===
+
+Кнопка "📊 Опрос" → диалог создания:
+  Input: "Вопрос" (макс 255 символов)
+  Опции: до 10 вариантов (add/remove)
+  Переключатели: Анонимный / Множественный выбор / Викторина
+  Если Викторина → выбрать правильный ответ + поле объяснения
+
+Отправить → POST /api/polls → получить pollId → sendMessage с pollId
+
+=== КОНТАКТ ===
+
+Кнопка "👤 Контакт" → список своих контактов для пересылки
+Выбрать → sendMessage с mediaType="contact", contactUserId
 
 ================================================================================
-ЭТАП 7: ГОЛОСОВЫЕ СООБЩЕНИЯ
+          STAGE 11 — ГОЛОСОВЫЕ СООБЩЕНИЯ И ВИДЕО-КРУЖКИ
 ================================================================================
-Цель: Запись и воспроизведение голосовых сообщений через MediaRecorder API.
-Файлы:
-  - artifacts/echo-messenger/src/hooks/use-voice-recorder.ts (создать)
-  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx (дополнить)
-  - artifacts/echo-messenger/src/components/chat/voice-message-player.tsx (создать)
 
-ХУК use-voice-recorder.ts:
-  import { useState, useRef, useCallback } from "react";
+=== ГОЛОСОВЫЕ СООБЩЕНИЯ ===
+
+Файл: artifacts/echo-messenger/src/hooks/use-voice-recorder.ts (создать)
+
   export function useVoiceRecorder() {
     const [isRecording, setIsRecording] = useState(false);
     const [duration, setDuration] = useState(0);
+    const [waveform, setWaveform] = useState<number[]>([]);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<number | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
+    const animFrameRef = useRef<number | null>(null);
 
-    const startRecording = useCallback(async () => {
+    const startRecording = async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Waveform analyser
+      const audioCtx = new AudioContext();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      
       const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
       chunksRef.current = [];
       recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
@@ -616,684 +1750,1329 @@ GET /api/files/:fileId/download
       setIsRecording(true);
       setDuration(0);
       timerRef.current = window.setInterval(() => setDuration(d => d + 1), 1000);
-    }, []);
+      
+      // Update waveform
+      const updateWave = () => {
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(data);
+        setWaveform(Array.from(data.slice(0, 30)).map(v => v / 255));
+        animFrameRef.current = requestAnimationFrame(updateWave);
+      };
+      animFrameRef.current = requestAnimationFrame(updateWave);
+    };
 
-    const stopRecording = useCallback((): Promise<Blob> => {
-      return new Promise(resolve => {
-        if (!mediaRecorderRef.current) return;
-        mediaRecorderRef.current.onstop = () => {
-          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-          resolve(blob);
-        };
-        mediaRecorderRef.current.stop();
-        mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
-        if (timerRef.current) clearInterval(timerRef.current);
-        setIsRecording(false);
-        setDuration(0);
-      });
-    }, []);
+    const stopRecording = (): Promise<Blob> => new Promise(resolve => {
+      if (!mediaRecorderRef.current) return;
+      mediaRecorderRef.current.onstop = () => {
+        resolve(new Blob(chunksRef.current, { type: "audio/webm" }));
+      };
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      setIsRecording(false);
+      setDuration(0);
+      setWaveform([]);
+    });
 
-    const cancelRecording = useCallback(() => {
+    const cancelRecording = () => {
       if (!mediaRecorderRef.current) return;
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
       if (timerRef.current) clearInterval(timerRef.current);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       setIsRecording(false);
       setDuration(0);
-    }, []);
+      setWaveform([]);
+    };
 
-    return { isRecording, duration, startRecording, stopRecording, cancelRecording };
+    return { isRecording, duration, waveform, startRecording, stopRecording, cancelRecording };
   }
 
-В CHAT WINDOW:
-  1. Импортировать useVoiceRecorder
-  2. Кнопка микрофона (Mic icon):
-     - onMouseDown / onTouchStart → startRecording()
-     - onMouseUp / onTouchEnd → blob = await stopRecording() → upload → send с isVoice: true
-  3. Во время записи показывать:
-     - Красная анимированная точка + таймер "0:05"
-     - Кнопка отмены (свайп влево или кнопка X)
+В ChatWindow:
+  onPointerDown на 🎤 → startRecording()
+  onPointerUp → stopRecording() → blob → base64 → POST /api/files/upload → sendMessage { isVoice: true, mediaType: "voice", mediaDuration }
+  onPointerMove со свайпом влево > 80px → cancelRecording()
 
-КОМПОНЕНТ voice-message-player.tsx:
-  Получает fileId (UUID) → src = "/api/files/{fileId}/download"
-  Элементы: кнопка Play/Pause + прогресс-бар + длительность
-  const audio = useRef(new Audio(src));
-  const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [totalDuration, setTotalDuration] = useState(0);
+=== КОМПОНЕНТ VoiceMessagePlayer ===
+
+Файл: artifacts/echo-messenger/src/components/chat/voice-message-player.tsx
+
+  src = "/api/files/{mediaFileId}/download"
+  
+  States: isPlaying, currentTime, totalDuration, speed (1|1.5|2)
+  
+  const audio = useRef(new Audio());
+  useEffect(() => { audio.current.src = src; }, [src]);
+  
   audio.onloadedmetadata → setTotalDuration(audio.duration)
-  audio.ontimeupdate → setProgress(audio.currentTime / audio.duration)
-  toggle: playing ? audio.pause() : audio.play()
-  Отображение: иконка волны + время прошедшее / общее
-
-================================================================================
-ЭТАП 8: ОНЛАЙН-СТАТУС ПОЛЬЗОВАТЕЛЕЙ
-================================================================================
-Цель: Показывать реальный online/offline статус в чатах и профилях.
-Файлы:
-  - artifacts/echo-messenger/src/hooks/use-ws.ts (добавить handler)
-  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx
-  - artifacts/echo-messenger/src/pages/chat/chat-list.tsx
-  - artifacts/echo-messenger/src/lib/online-store.ts (создать)
-
-ГЛОБАЛЬНОЕ ХРАНИЛИЩЕ ОНЛАЙН-СТАТУСОВ:
-  Файл: artifacts/echo-messenger/src/lib/online-store.ts
-  import { create } from "zustand"; // zustand уже в зависимостях или использовать useState+context
+  audio.ontimeupdate → setCurrentTime(audio.currentTime)
+  audio.onended → setIsPlaying(false)
   
-  Альтернатива без zustand (проще):
-  Создать React Context:
-  type OnlineState = { [userId: number]: { isOnline: boolean; lastOnline: string | null } };
-  const OnlineContext = createContext<OnlineState>({});
-  export function OnlineProvider({ children }) {
-    const [online, setOnline] = useState<OnlineState>({});
-    useWsEvent((event) => {
-      if (event.type === "status") {
-        setOnline(prev => ({
-          ...prev,
-          [event.userId]: { isOnline: event.online, lastOnline: event.lastOnline ?? null }
-        }));
-      }
-    });
-    return <OnlineContext.Provider value={online}>{children}</OnlineContext.Provider>;
-  }
-  export const useOnlineStatus = (userId: number) => useContext(OnlineContext)[userId];
-
-  Подключить OnlineProvider в App.tsx внутри EchoAuthProvider.
-
-В CHAT LIST:
-  - Для DM чатов определять userId собеседника (не текущего пользователя)
-  - Показывать зелёную точку только если useOnlineStatus(otherUserId)?.isOnline
-  - НЕ показывать хардкод "в сети" для всех
-
-В CHAT WINDOW header:
-  - Заменить хардкод statusLine = "в сети"
-  - Для DM: получить otherUserId из членов чата
-  - status = useOnlineStatus(otherUserId)
-  - Если isOnline → "в сети" (зелёный)
-  - Если !isOnline && lastOnline → "был(а) {formatRelative(lastOnline)}"
-  - Для групп: "{memberCount} участников"
-
-================================================================================
-ЭТАП 9: СПИСОК ЗВОНКОВ (РЕАЛЬНЫЕ ДАННЫЕ)
-================================================================================
-Цель: Заменить фейковые данные в Calls на реальные из API.
-Файл: artifacts/echo-messenger/src/pages/calls/calls.tsx
-
-ПОЛНАЯ ЗАМЕНА:
-1. Удалить const allCalls = [...] полностью
-2. Использовать const { data: calls, isLoading } = useGetCalls()
-   (хук из этапа 4 codegen)
-3. Тип CallLog: { id, type, status, callerId, callerUsername, calleeId, calleeUsername, durationSeconds, createdAt }
-4. Определить "direction" (outgoing/incoming): callerId === currentUserId → outgoing
-5. Определить "missed": status === "missed" И callee === currentUser
-6. Отображение:
-   - outgoing → иконка PhoneOutgoing (синяя)
-   - incoming && completed → иконка PhoneIncoming (зелёная)  
-   - missed → иконка PhoneMissed (красная)
-   - Имя: если outgoing → calleeUsername, если incoming → callerUsername
-   - Дата: форматировать createdAt
-   - Длительность: если completed → durationSeconds → "М:СС"
-7. Кнопка "Новый звонок" → navigate("/chat/new") (выбрать собеседника)
-8. При клике на запись → navigate("/chat/{chatId}/voice") если chatId существует
-
-================================================================================
-ЭТАП 10: ПОИСК ПО ЧАТУ И ГЛОБАЛЬНЫЙ ПОИСК
-================================================================================
-Цель: Реальный поиск сообщений внутри чата + глобальный поиск.
-
-ПОИСК ПО ЧАТУ:
-Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
-  - Кнопка Search в хедере открывает панель поиска (AnimatePresence + motion.div)
-  - Панель содержит: input + кнопки "предыдущий" / "следующий" + "X закрыть"
-  - Использует хук useSearchMessages({ chatId, query: searchQuery })
-    (хук из codegen, endpoint GET /api/messages/search)
-  - При вводе > 2 символов → debounce 300мс → запрос
-  - Результаты: подсветить совпадение в encryptedContent (<mark>)
-  - Кнопки nav → прокрутка к нужному сообщению через refs
-
-ГЛОБАЛЬНЫЙ ПОИСК:
-Файл: artifacts/echo-messenger/src/pages/search/search.tsx
-  Текущее состояние: нужно проверить, но likely есть "Recent searches" захардкоженные.
-  ЗАМЕНА:
-  1. Убрать захардкоженные "недавние поиски"
-  2. Хранить историю поиска в localStorage (ключ "echo_search_history", массив строк)
-  3. При вводе → параллельные запросы:
-     - useGetUserByUsername(q) → секция "Пользователи"
-     - useGetChats() → фильтровать локально по title.includes(q) → секция "Чаты"
-     - (опционально) useSearchMessages({ query: q }) → секция "Сообщения"
-  4. При выборе результата → добавить в историю localStorage
-  5. Секция "Недавние" → читать из localStorage
-  6. Кнопка X рядом с недавним → удалить из localStorage
-
-================================================================================
-ЭТАП 11: ЗАКРЕПЛЕНИЕ СООБЩЕНИЙ И ЧАТОВ
-================================================================================
-Цель: Реальное закрепление — сохраняется в БД.
-
-ЗАКРЕПЛЕНИЕ СООБЩЕНИЯ:
-Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
-  - В context menu кнопка "Закрепить":
-    usePinMessage().mutate({ id: chatId, data: { messageId: selectedMsg!.id } })
-  - Показывать "закреплённое сообщение" баннер под хедером чата:
-    const { data: pinned } = useGetPinnedMessages(chatId)
-    if pinned.length > 0 → показывать sticky-баннер: "📌 {pinned[0].message.encryptedContent.slice(0, 50)}..."
-    Клик на баннер → scrollToMessage(pinned[0].messageId)
-  - WS-событие message_pinned → invalidate pinned-messages query
-
-ЗАКРЕПЛЕНИЕ ЧАТА:
-Файл: artifacts/echo-messenger/src/pages/chat/chat-list.tsx
-  - Свайп вправо или long-press → контекстное меню: "Закрепить", "Замутить", "Удалить"
-  - "Закрепить" → usePinChat().mutate({ id: chatId })
-  - Закреплённые чаты показывать вверху списка (сортировать: isPinned first)
-  - GET /api/chats должен возвращать isPinned (из chatMembersTable)
-  - Обновить backend: в GET /api/chats добавить isPinned из chatMembersTable
-
-МУТ ЧАТА:
-  - "Замутить" → модальное окно: "1 час", "8 часов", "Навсегда"
-  - useMuteChat().mutate({ id: chatId, data: { until: ISO_or_null } })
-  - Замутированные чаты: иконка 🔕 рядом с временем вместо счётчика
-
-================================================================================
-ЭТАП 12: РЕДАКТИРОВАНИЕ ПРОФИЛЯ
-================================================================================
-Цель: Работающее редактирование имени, bio, аватара.
-Файл: artifacts/echo-messenger/src/pages/profile/my-profile.tsx
-
-1. Кнопка "Изм." (правый верхний угол) → переключить в режим редактирования
-2. В режиме редактирования:
-   - Input для bio (текстовое поле, макс 255 символов)
-   - Кнопка "Изменить" рядом с username → diалог смены username
-     (проверять /api/check-username перед сохранением)
-   - Кнопка камеры на аватаре → открыть file input (только images/*)
-     → прочитать как base64 → POST /api/files/upload → получить fileId
-     → PATCH /api/users/me с { avatarFileId: fileId }
-3. Кнопка "Сохранить":
-   - useUpdateMe().mutate({ data: { bio, username } })
-   - onSuccess → invalidate useGetMe() → выйти из режима редактирования
-
-4. Аватар в чате и списке чатов:
-   Если avatarFileId существует → <img src="/api/files/{avatarFileId}/download" />
-   (через AvatarImage компонент)
-   Иначе → буква + цвет (как сейчас)
-
-================================================================================
-ЭТАП 13: СЕКРЕТНЫЕ ЧАТЫ (ПОЛНАЯ РЕАЛИЗАЦИЯ)
-================================================================================
-Цель: Отделить секретные чаты от обычных, реализовать auto-delete.
-Файлы:
-  - artifacts/echo-messenger/src/pages/chat/secret-chat-list.tsx
-  - artifacts/api-server/src/routes/chats.ts
-  - lib/db/src/schema/chats.ts
-
-РАЗДЕЛЕНИЕ:
-  - В БД: chatType = 1 (DM), 2 (group), 3 (channel), 4 (secret)
-  - Секретный чат создаётся через POST /api/chats с type: 4
-  - В GET /api/chats: добавить параметр ?type=4 для фильтрации
-  - В secret-chat-list.tsx: useGetChats({ params: { type: 4 } })
-  - Убрать mockSecretChats полностью
-  - Создание секретного чата: тот же NewChat, но с type: 4
-  - В интерфейсе пометка 🔒 остаётся (уже есть)
-
-AUTO-DELETE TIMER (deleteAfterSeconds):
-  - При создании секретного чата → диалог: "Сообщения исчезают через: 1ч / 1д / 1нед / Никогда"
-  - Сохранять в chats.settings.deleteAfterSeconds
-  - На backend: после сохранения сообщения в секретном чате →
-    если deleteAfterSeconds > 0 → setTimeout(async () => {
-      await db.update(messagesTable).set({ isDeleted: true }).where(eq(messagesTable.id, msg.id))
-      broadcastToChat(memberIds, { type: "delete_message", messageId: msg.id, chatId })
-    }, deleteAfterSeconds * 1000)
-  - ВАЖНО: setTimeout теряется при перезапуске сервера.
-    Более надёжно: хранить deleteAt в messages, фоновая job проверяет каждую минуту:
-    SELECT * FROM messages WHERE delete_after_seconds IS NOT NULL AND is_deleted = false
-    AND timestamp + (delete_after_seconds * interval '1 second') < NOW()
-    → UPDATE ... SET is_deleted = true
-
-================================================================================
-ЭТАП 14: ПАПКИ ЧАТОВ
-================================================================================
-Цель: Telegram-like папки для организации чатов.
-Файл: artifacts/echo-messenger/src/pages/chat/chat-list.tsx
-
-1. Под строкой поиска — горизонтальный скролл с папками:
-   "Все", "Личные", "Группы", "Каналы", + кастомные папки из useGetFolders()
-
-2. При выборе папки:
-   - "Все" → показывать все чаты (текущее поведение)
-   - "Личные" → filter chat.type === 1
-   - "Группы" → filter chat.type === 2
-   - "Каналы" → filter chat.type === 3
-   - Кастомная → filter chatIds.includes(chat.id)
-
-3. Кнопка "+" рядом с папками → диалог создания:
-   - Input название папки
-   - Input эмодзи (или пикер из стандартных)
-   - Список чатов с чекбоксами
-   - Кнопка "Создать" → useCreateFolder()
-
-4. Long-press на папке → "Редактировать", "Удалить"
-
-================================================================================
-ЭТАП 15: УВЕДОМЛЕНИЯ И НАСТРОЙКИ (РЕАЛЬНЫЕ)
-================================================================================
-Цель: Настройки сохраняются в БД, Web Push работает.
-
-НАСТРОЙКИ В БД:
-  - В users.settings (уже есть jsonb поле) хранить:
-    { theme: "dark" | "light", language: "ru" | "en",
-      notifications: { enabled: boolean, sound: boolean, vibration: boolean },
-      privacy: { lastSeen: "all" | "contacts" | "nobody",
-                 readReceipts: boolean } }
-
-APPEARANCE SETTINGS (appearance.tsx):
-  - Переключатель Dark/Light → next-themes setTheme() (уже есть ThemeProvider)
-  - Сохранять в users.settings через PATCH /api/users/me { settings: { theme } }
-  - При загрузке → useGetMe() → применить theme
-
-LANGUAGE SETTINGS (language.tsx):
-  - Радио-кнопки: Русский / English
-  - Сохранять в localStorage "echo_language" и users.settings
-  - В проекте использовать простой объект переводов (i18n без библиотеки):
-    const t = useTranslation() → t("send") → "Отправить" / "Send"
-
-NOTIFICATIONS SETTINGS (notifications.tsx):
-  - Toggle "Уведомления" → запросить permission: Notification.requestPermission()
-  - Если granted → регистрировать Service Worker Push
-  - Сохранять настройки в users.settings через PATCH /api/users/me
-
-WEB PUSH NOTIFICATIONS:
-  - Создать artifacts/echo-messenger/public/sw.js (Service Worker)
-  - Регистрировать sw в main.tsx: navigator.serviceWorker.register("/sw.js")
-  - На backend: при new_message → если получатель offline (нет WS-соединения) →
-    отправлять Web Push (использовать библиотеку "web-push")
-  - Push payload: { title: senderUsername, body: encryptedContent.slice(0,50) }
-  - ВАЖНО: web-push требует VAPID ключи. Генерировать при первом запуске:
-    node -e "const wp=require('web-push'); console.log(wp.generateVAPIDKeys())"
-    Хранить в environment variables: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
-
-PRIVACY SETTINGS (privacy.tsx):
-  - Радио для "Последний вход": Все / Контакты / Никто
-  - Радио для "Фото профиля": Все / Контакты / Никто
-  - Toggle "Подтверждение прочтения"
-  - Сохранять через PATCH /api/users/me { settings: { privacy: ... } }
-  - На backend: в GET /api/users/:username учитывать privacy.lastSeen:
-    если "nobody" → не возвращать lastOnline
-
-================================================================================
-ЭТАП 16: УПРАВЛЕНИЕ КАНАЛАМИ
-================================================================================
-Цель: Каналы работают как в Telegram — только admin пишет, подписчики читают.
-Файлы:
-  - artifacts/api-server/src/routes/messages.ts
-  - artifacts/echo-messenger/src/pages/chat/chat-window.tsx
-
-BACKEND:
-  - В POST /api/messages: если chat.type === 3 (channel):
-    Проверить что sender является owner/admin в chatMembersTable
-    if (member.role !== "owner" && member.role !== "admin") → 403 Forbidden
-  - В GET /api/chats/:id/members: возвращать role каждого участника
-
-FRONTEND:
-  - В ChatWindow: определять isChannel = chat.type === 3
-  - isChannel && текущий пользователь не admin → скрывать input area
-  - Показывать вместо инпута: "Вы подписчик. Только администраторы могут писать."
-  - Кнопка управления каналом (только для admin):
-    - "Добавить подписчика" → поиск пользователя → POST /api/chats/:id/members
-    - "Назначить администратора" → PATCH /api/chats/:id/members/:userId { role: "admin" }
-
-================================================================================
-ЭТАП 17: СТИКЕРЫ (РЕАЛЬНАЯ РЕАЛИЗАЦИЯ)
-================================================================================
-Цель: Стикеры хранятся в БД и отправляются в чат.
-Схема sticker_packs уже существует в lib/db/src/schema/sticker-packs.ts
-
-ПРОВЕРИТЬ СХЕМУ sticker-packs.ts:
-  Должна быть таблица sticker_packs и таблица связи user_sticker_packs (установленные).
-  Если нет таблицы user_sticker_packs — добавить:
-  export const userStickerPacksTable = pgTable("user_sticker_packs", {
-    userId: bigint("user_id", { mode: "number" }).notNull(),
-    packId: bigint("pack_id", { mode: "number" }).notNull(),
-    installedAt: timestamp("installed_at").defaultNow().notNull(),
-  });
-
-СТИКЕРЫ KAK ФАЙЛЫ (упрощённый подход):
-  Стикеры — это эмодзи. В БД хранить пак как массив эмодзи + название.
-  INSERT INTO sticker_packs (name, author, stickers_json, is_official)
-  Предзаполнить при первом запуске (seeds).
-
-BACKEND ENDPOINTS (добавить в openapi.yaml и routes):
-  GET /api/stickers/packs → все паки
-  GET /api/stickers/installed → установленные текущего пользователя
-  POST /api/stickers/install → { packId }
-  DELETE /api/stickers/install/:packId → удалить
-
-FRONTEND sticker-packs.tsx:
-  - Заменить OFFICIAL_PACKS + useState(OFFICIAL_PACKS) на:
-    const { data: allPacks } = useGetStickerPacks()
-    const { data: installed } = useGetInstalledStickerPacks()
-    const installMutation = useInstallStickerPack()
-    const uninstallMutation = useUninstallStickerPack()
-  - toggleInstall → installMutation.mutate или uninstallMutation.mutate
-  - Состояние установки определять: installed.some(p => p.packId === pack.id)
-
-СТИКЕРЫ В ЧАТЕ:
-  - Рядом с эмодзи-кнопкой добавить кнопку 🎭 "Стикеры"
-  - Открывается панель со списком установленных паков
-  - Выбор стикера → отправить сообщение с encryptedContent = "sticker:{emoji}"
-  - При отображении: если encryptedContent.startsWith("sticker:") → показывать крупный эмодзи (64px)
-
-================================================================================
-ЭТАП 18: ЖУРНАЛ АКТИВНОСТИ (РЕАЛЬНЫЙ)
-================================================================================
-Цель: Записывать реальные события, читать из БД.
-Файлы:
-  - Добавить таблицу activity_logs в lib/db/src/schema/activity-logs.ts
-  - artifacts/api-server/src/routes/auth.ts (добавить логирование)
-  - artifacts/echo-messenger/src/pages/settings/activity-log.tsx
-
-ТАБЛИЦА activity_logs:
-  CREATE TABLE activity_logs (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(32) NOT NULL, -- "login" | "logout" | "session_revoked" | "backup" | "profile_change"
-    description VARCHAR(255),
-    device VARCHAR(128),
-    ip_address VARCHAR(64),
-    risk VARCHAR(16) DEFAULT 'none', -- "none" | "low" | "medium" | "high"
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
-  );
-
-ЛОГИРОВАНИЕ СОБЫТИЙ в auth.ts:
-  - После успешного login → INSERT INTO activity_logs (user_id, type, description, device, ip_address)
-    type: "login", description: "Вход в систему", device: req.headers["user-agent"], ip: req.ip
-  - При terminate session → type: "session_revoked"
-  - При upload backup → type: "backup"
-  - При delete account → type: "account_delete"
-
-ENDPOINT (добавить в openapi.yaml + routes):
-  GET /api/activity-log
-    - requireAuth
-    - SELECT * FROM activity_logs WHERE user_id = userId ORDER BY created_at DESC LIMIT 100
-    - Возвращает: [{ id, type, description, device, risk, createdAt }]
-
-FRONTEND activity-log.tsx:
-  - Заменить useState(makeEntries()) на useGetActivityLog()
-  - Убрать функцию makeEntries() полностью
-  - Отображение остаётся тем же (иконки, цвета риска)
-  - "Риск" определяется на backend: если login с нового IP (не встречался ранее) → risk: "high"
-
-================================================================================
-ЭТАП 19: PWA + SERVICE WORKER
-================================================================================
-Цель: ECHO работает как приложение (Add to Home Screen) и получает push.
-Файлы:
-  - artifacts/echo-messenger/public/manifest.json (создать)
-  - artifacts/echo-messenger/public/sw.js (создать)
-  - artifacts/echo-messenger/index.html (добавить meta)
-  - artifacts/echo-messenger/src/main.tsx (регистрировать SW)
-
-manifest.json:
-  {
-    "name": "ECHO Messenger",
-    "short_name": "ECHO",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#0f0f0f",
-    "theme_color": "#0f0f0f",
-    "icons": [
-      { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-      { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
-    ]
-  }
-
-sw.js (Service Worker):
-  self.addEventListener("push", (event) => {
-    const data = event.data.json();
-    event.waitUntil(
-      self.registration.showNotification(data.title, {
-        body: data.body,
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
-        data: { chatId: data.chatId }
-      })
-    );
-  });
-  self.addEventListener("notificationclick", (event) => {
-    event.notification.close();
-    event.waitUntil(clients.openWindow(`/chat/${event.notification.data.chatId}`));
-  });
-
-В main.tsx добавить:
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").catch(console.error);
-  }
-
-В index.html добавить в <head>:
-  <link rel="manifest" href="/manifest.json" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-
-================================================================================
-ЭТАП 20: ЧЕРНОВИКИ И UX-УЛУЧШЕНИЯ
-================================================================================
-Цель: Мелкие но важные функции для нормального UX.
-
-ЧЕРНОВИКИ (drafts):
-  Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
-  - При смене маршрута (useEffect cleanup) → сохранить text в localStorage:
-    localStorage.setItem(`echo_draft_${chatId}`, text)
-  - При открытии чата → восстановить: setText(localStorage.getItem(`echo_draft_${chatId}`) || "")
-  - Если в chat-list у чата есть черновик → показывать "Черновик: {draft.slice(0,20)}..." вместо lastMessage
-
-ВЫБОР НЕСКОЛЬКИХ СООБЩЕНИЙ:
-  Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
-  - Long-press первого сообщения → входить в режим выбора (selectionMode = true)
-  - Checkbox рядом с каждым сообщением
-  - Нижняя панель: "Удалить выбранные" / "Переслать выбранные" / "Отмена"
-  - Массовое удаление: forEach(id => deleteMessageMutation.mutate({ id }))
-
-БЕСКОНЕЧНАЯ ПРОКРУТКА (старые сообщения):
-  Файл: artifacts/echo-messenger/src/pages/chat/chat-window.tsx
-  - При прокрутке вверх до 100px от верха → загружать следующую страницу:
-    GET /api/messages?chatId=X&before={firstMessageId}&limit=50
-  - Добавить загруженные сообщения ПЕРЕД существующими
-  - Показывать spinner вверху во время загрузки
-  - Кнопка "⬇️" для скролла вниз, если пользователь прокрутил далеко вверх
-
-ИНДИКАТОР НОВОГО СООБЩЕНИЯ:
-  - Если пришло WS new_message и пользователь прокрутил вверх (не у низа):
-    Показывать плавающую кнопку "⬇️ Новое сообщение" (badge с именем отправителя)
-    Клик → скролл вниз + invalidate messages
-
-================================================================================
-ЭТАП 21: WEBRTC ГОЛОСОВЫЕ/ВИДЕО ЗВОНКИ
-================================================================================
-Цель: Реальные P2P звонки через WebRTC с сигналингом через WebSocket.
-ВАЖНО: Это сложный этап, реализовать последним.
-
-Файлы:
-  - artifacts/echo-messenger/src/hooks/use-webrtc.ts (создать)
-  - artifacts/echo-messenger/src/pages/calls/call-screen.tsx (переделать)
-
-ХУК use-webrtc.ts:
-  const iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
+  Waveform: передаётся как prop из сообщения (если есть) или генерируется при загрузке
+  30 баров высотой 2–24px (случайная высота или из данных)
+  Прогресс: закрашивать синим пропорционально currentTime/totalDuration
+  Клик на бар → audio.currentTime = (barIndex/30) * totalDuration
   
+  Кнопка скорости: onClick → speed cycling 1→1.5→2→1, audio.playbackRate = speed
+
+=== ВИДЕО-КРУЖОК (Video Note) ===
+
+Кнопка в панели ввода (или держать 🎤 + выбрать в menu):
+  Запросить getUserMedia({ video: { facingMode: "user" }, audio: true })
+  Записать через MediaRecorder
+  Отрисовать на canvas с crop до квадрата → круглая маска
+  После записи → загрузить → sendMessage { mediaType: "video_note" }
+
+Воспроизведение: круглый <video> 200×200px с border-radius: 50%
+
+================================================================================
+                  STAGE 12 — ЗВОНКИ (WebRTC)
+================================================================================
+
+Файлы:
+  artifacts/echo-messenger/src/hooks/use-webrtc.ts (создать)
+  artifacts/echo-messenger/src/pages/calls/call-screen.tsx (переписать)
+  artifacts/echo-messenger/src/components/call/incoming-call-banner.tsx (создать)
+
+=== USE-WEBRTC HOOK ===
+
+  const ICE_SERVERS = [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" }
+  ];
+
   export function useWebRTC({ callId, targetUserId, isInitiator, callType }) {
     const pcRef = useRef<RTCPeerConnection | null>(null);
     const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
     const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+    const [callState, setCallState] = useState<"connecting"|"ringing"|"active"|"ended">("connecting");
+    const [isMuted, setIsMuted] = useState(false);
+    const [isVideoEnabled, setIsVideoEnabled] = useState(callType === "video");
     
-    const init = useCallback(async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: callType === "video"
-      });
+    const init = async () => {
+      const constraints = { audio: true, video: callType === "video" ? { facingMode: "user" } : false };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setLocalStream(stream);
       
-      const pc = new RTCPeerConnection({ iceServers });
+      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
       pcRef.current = pc;
       
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
       
-      pc.ontrack = (event) => setRemoteStream(event.streams[0]);
-      
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          echoWs.send(JSON.stringify({
-            type: "call_signal",
-            targetUserId,
-            signal: { type: "ice-candidate", candidate: event.candidate }
-          }));
+      pc.ontrack = e => { if (e.streams[0]) setRemoteStream(e.streams[0]); };
+      pc.onicecandidate = e => {
+        if (e.candidate) {
+          echoWs.send(JSON.stringify({ type: "call_signal", targetUserId, signal: { type: "ice-candidate", candidate: e.candidate } }));
         }
+      };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "connected") setCallState("active");
+        if (["disconnected","failed","closed"].includes(pc.connectionState)) setCallState("ended");
       };
       
       if (isInitiator) {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
-        echoWs.send(JSON.stringify({
-          type: "call_signal",
-          targetUserId,
-          signal: { type: "offer", sdp: offer.sdp }
-        }));
+        echoWs.send(JSON.stringify({ type: "call_signal", targetUserId, signal: { type: "offer", sdp: offer.sdp } }));
       }
-    }, [callType, isInitiator, targetUserId]);
+    };
     
-    const handleSignal = useCallback(async (signal) => {
+    const handleSignal = async (signal: Record<string,unknown>) => {
       const pc = pcRef.current;
       if (!pc) return;
       if (signal.type === "offer") {
-        await pc.setRemoteDescription({ type: "offer", sdp: signal.sdp });
+        await pc.setRemoteDescription({ type: "offer", sdp: signal.sdp as string });
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        echoWs.send(JSON.stringify({
-          type: "call_signal",
-          targetUserId,
-          signal: { type: "answer", sdp: answer.sdp }
-        }));
+        echoWs.send(JSON.stringify({ type: "call_signal", targetUserId, signal: { type: "answer", sdp: answer.sdp } }));
+        setCallState("active");
       } else if (signal.type === "answer") {
-        await pc.setRemoteDescription({ type: "answer", sdp: signal.sdp });
+        await pc.setRemoteDescription({ type: "answer", sdp: signal.sdp as string });
       } else if (signal.type === "ice-candidate") {
-        await pc.addIceCandidate(signal.candidate);
+        await pc.addIceCandidate(signal.candidate as RTCIceCandidateInit);
       }
-    }, [targetUserId]);
+    };
     
-    const hangup = useCallback(() => {
+    const toggleMute = () => {
+      localStream?.getAudioTracks().forEach(t => { t.enabled = !t.enabled; });
+      setIsMuted(v => !v);
+    };
+    
+    const toggleVideo = () => {
+      localStream?.getVideoTracks().forEach(t => { t.enabled = !t.enabled; });
+      setIsVideoEnabled(v => !v);
+    };
+    
+    const hangup = () => {
       localStream?.getTracks().forEach(t => t.stop());
       pcRef.current?.close();
       setLocalStream(null);
       setRemoteStream(null);
-    }, [localStream]);
+      setCallState("ended");
+    };
     
-    return { init, handleSignal, hangup, localStream, remoteStream };
+    return { init, handleSignal, hangup, toggleMute, toggleVideo,
+             localStream, remoteStream, callState, isMuted, isVideoEnabled };
   }
 
-CALL SCREEN (переделать):
-  1. При открытии /chat/:id/voice:
-     - Определить targetUserId (другой участник DM)
-     - Если initiator: вызвать POST /api/calls { calleeId, type }
-       → получить callId
-       → инициализировать WebRTC (isInitiator: true)
-     - Добавить localVideoRef и remoteVideoRef для видео
+=== ЭКРАН ЗВОНКА (/chat/:id/voice) ===
+
+Полноэкранный overlay (position: fixed, inset-0, z-50).
+
+Градиентный фон (цвет аватара → тёмный).
+
+Состояния:
+  "connecting" → ripple-анимация на аватаре + "Соединение..."
+  "ringing" → анимация звонка + "Вызов..."
+  "active" → аватар + зелёный таймер "0:05"
+  "ended" → fade out → navigate(-1)
+
+Для видеозвонка:
+  Камера собеседника: fullscreen <video> (remoteStream)
+  Своя камера: маленький pip-квадрат (localStream), перетаскиваемый
+
+Кнопки управления (нижняя панель):
+  [🔇/🎤 Мут] [📹/📵 Камера] [🔊 Динамик] [💬 В чат] [📵 Завершить (красный)]
+  Второй ряд (swipe up panel): [👥 Добавить участника] [↩️ Перевернуть камеру]
+
+При звонке пишет в БД:
+  isInitiator → POST /api/calls { calleeId, type } → получить callId
+  При ответе → PATCH /api/calls/:callId { status: "completed", durationSeconds }
+  При отказе → PATCH /api/calls/:callId { status: "declined" }
+
+Слушать WS-события:
+  "call_signal" → handleSignal(event.signal)
+  "call_ended" → hangup() + navigate(-1)
+
+=== ВХОДЯЩИЙ ЗВОНОК (IncomingCallBanner) ===
+
+Файл: artifacts/echo-messenger/src/components/call/incoming-call-banner.tsx
+
+Глобальный overlay (снизу экрана, поверх всего контента).
+Подключить в App.tsx как постоянный компонент (слушает WS incoming_call).
+
+Состав:
+  Размытый фон (blur-xl)
+  Аватар звонящего (60px) + имя
+  Тип: "Входящий голосовой звонок" / "Входящий видеозвонок"
+  Кнопки: [❌ Отклонить (красный)] [✅ Принять (зелёный)]
+
+  Принять → navigate(`/chat/${callerId}/voice`) с параметром isInitiator=false
+  Отклонить → PATCH /api/calls/:callId { status: "declined" } → скрыть баннер
+
+Хранить активный входящий звонок в useState.
+useWsEvent в компоненте:
+  "incoming_call" → setState({ callId, callerId, callerUsername, callType })
+  "call_ended" → если тот же callId → setState(null)
+
+=== СПИСОК ЗВОНКОВ (/calls) ===
+
+Файл: artifacts/echo-messenger/src/pages/calls/calls.tsx
+
+Удалить const allCalls = [...].
+Использовать useGetCalls().
+
+Хедер: "Звонки" + кнопка "+" (новый звонок)
+
+Список:
+  Для каждого звонка:
+    Аватар + имя (calleeUsername если outgoing, callerUsername если incoming)
+    Иконка типа: 📞↗ (исходящий синий) / 📞↙ (входящий зелёный) / 📞✖ (пропущенный красный)
+    Тип: "Голосовой" / "Видео"
+    Дата + время
+    Длительность (если completed)
+    Кнопка: 📞 (перезвонить) / 📹 (видеозвонок)
+
+  Тап → navigate `/chat/${chatId}/voice` или открыть новый звонок
+
+================================================================================
+              STAGE 13 — ПОИСК (Search) И ГЛОБАЛЬНЫЙ ПОИСК
+================================================================================
+
+Файл: artifacts/echo-messenger/src/pages/search/search.tsx
+
+Хедер: Input "Поиск" автофокус + кнопка "Отмена"
+
+Состояния:
+
+Пустой запрос (начальный экран):
+  "Недавние поиски": из localStorage (ключ "echo_search_history", массив строк)
+  Каждая: иконка 🕐 + текст + кнопка X (удалить)
+  Кнопка "Очистить всё"
   
-  2. Слушать WS-событие call_signal → handleSignal(signal)
+  "Люди рядом" (если есть) / "Часто переписываетесь"
+
+При вводе (debounce 300ms, минимум 2 символа):
+  Параллельные запросы:
+    useGetUserByUsername(query) → секция "Пользователи"
+    useGetChats() + фильтр by title → секция "Чаты"
+    useSearchMessages({ query }) → секция "Сообщения"
   
-  3. Слушать WS-событие incoming_call на стороне получателя:
-     - Показывать "Входящий звонок" overlay (compонент IncomingCallBanner)
-     - Кнопки: Принять (зелёная) / Отклонить (красная)
-     - Принять → navigate("/chat/{callerId}/voice") + init WebRTC (isInitiator: false)
-     - Отклонить → PATCH /api/calls/:callId { status: "declined" }
+  Секция "Пользователи":
+    Аватар + username + имя + online-точка
+    Тап → navigate к профилю или начать чат
   
-  4. При hangup → PATCH /api/calls/:callId { status: "completed", durationSeconds }
+  Секция "Чаты":
+    Аватар + название + последнее сообщение
+    Тап → navigate к чату
+  
+  Секция "Сообщения":
+    Аватар + название чата + превью сообщения (с подсветкой совпадения)
+    Тап → navigate к чату + прокрутить к сообщению
 
-INCOMING CALL BANNER:
-  Файл: artifacts/echo-messenger/src/components/call/incoming-call-banner.tsx
-  - Фиксированный overlay снизу (как в Telegram)
-  - Показывать имя звонящего + аватар
-  - Кнопки: красная (отклонить) и зелёная (принять)
-  - Добавить в App.tsx глобально (не только в чате)
+При выборе результата:
+  Добавить в localStorage историю поиска
 
-================================================================================
-                    ПРИОРИТЕТЫ И ПОРЯДОК ВЫПОЛНЕНИЯ
-================================================================================
-
-КРИТИЧЕСКИЕ (делать первыми, без них мессенджер не работает нормально):
-  Этап 1  — Исправить баги чата (имена, удаление, реакции)
-  Этап 2  — Новые таблицы в БД
-  Этап 3  — Backend API для новых функций
-  Этап 4  — Codegen после изменения openapi.yaml
-  Этап 5  — Реальные контакты
-  Этап 6  — Загрузка файлов и медиа
-  Этап 8  — Online-статус
-
-ВАЖНЫЕ (второй приоритет):
-  Этап 7  — Голосовые сообщения
-  Этап 9  — Список звонков (реальные данные)
-  Этап 10 — Поиск
-  Этап 11 — Закрепление
-  Этап 12 — Редактирование профиля
-  Этап 13 — Секретные чаты
-
-ПОЛЕЗНЫЕ (третий приоритет):
-  Этап 14 — Папки чатов
-  Этап 15 — Настройки и уведомления
-  Этап 16 — Управление каналами
-  Этап 17 — Стикеры
-  Этап 18 — Журнал активности
-  Этап 19 — PWA
-  Этап 20 — UX-улучшения
-
-СЛОЖНЫЕ (последними):
-  Этап 21 — WebRTC звонки
+Фильтры (вкладки):
+  "Все" | "Пользователи" | "Группы" | "Каналы" | "Сообщения"
 
 ================================================================================
-                    ПРАВИЛА ДЛЯ ИИ-РАЗРАБОТЧИКА
+                STAGE 14 — СЕКРЕТНЫЕ ЧАТЫ
 ================================================================================
 
-1. НИКОГДА не удалять рабочий код без причины. Только расширять и исправлять.
+=== СОЗДАНИЕ СЕКРЕТНОГО ЧАТА ===
 
-2. НИКОГДА не использовать захардкоженные массивы или моковые данные.
-   Если данных нет в API → сначала создать endpoint, потом подключить.
+Тип чата: type = 4
 
-3. ВСЕГДА после изменения openapi.yaml запускать codegen:
-   pnpm --filter @workspace/api-spec run codegen
+Создание через /chat/new с выбором "Секретный чат".
+При создании → диалог настроек самоуничтожения:
+  "Таймер самоуничтожения:": Off / 1 сек / 5 сек / 1 мин / 1 час / 1 день / 1 неделя
+  Сохранить в chats.settings.deleteAfterSeconds
 
-4. ВСЕГДА после изменения lib/db/src/schema/ запускать:
-   pnpm --filter @workspace/db run push
-   pnpm run typecheck:libs
+=== СПИСОК СЕКРЕТНЫХ ЧАТОВ (/secret-chats) ===
 
-5. НЕ создавать собственные fetch() вызовы. Использовать только хуки из
-   @workspace/api-client-react (они генерируются Orval).
+Файл: artifacts/echo-messenger/src/pages/chat/secret-chat-list.tsx
 
-6. ПРОВЕРЯТЬ типы: TypeScript strict mode включён. Все поля должны совпадать.
+Удалить mockSecretChats.
+const { data: chats } = useGetChats() → фильтровать: chats.filter(c => c.type === 4)
 
-7. Framer Motion уже установлен — использовать для анимаций transition.
+Каждый секретный чат в списке:
+  Иконка 🔒 поверх аватара (уже есть)
+  Таймер: "💣 1д" — если deleteAfterSeconds установлен
 
-8. tailwind-merge (cn() функция) уже есть в lib/utils.ts — использовать для
-   условных классов.
+=== ОКНО СЕКРЕТНОГО ЧАТА ===
 
-9. toast() для уведомлений об успехе/ошибке использовать из useToast() хука.
+ChatWindow для type=4:
+  Дополнительный баннер под хедером: "🔒 E2EE • Сообщения не сохраняются на сервере"
+  Если deleteAfterSeconds → показывать таймер: "💣 Удалятся через: {duration}"
+  При открытии фото → viewOnce контент: удалить после просмотра
+  Скриншоты: попытаться заблокировать через CSS (user-select: none + pointer-events)
+    При смене видимости вкладки (document.visibilitychange) → обновить статус
 
-10. WS-события слушать через useWsEvent() хук из @/hooks/use-ws.
-    Отправлять через echoWs.send() из @/lib/ws-client.
+=== САМОУНИЧТОЖЕНИЕ СООБЩЕНИЙ ===
 
-11. Аватары: если avatarFileId есть → src="/api/files/{avatarFileId}/download"
-    Иначе → AvatarFallback с буквой и цветом (функция getAvatarColor уже везде есть).
-
-12. Не писать комментарии в коде — только чистый, читаемый TypeScript/TSX.
-
-13. Все новые файлы routes на backend подключать в:
-    artifacts/api-server/src/routes/index.ts
-
-14. Все новые таблицы экспортировать из:
-    lib/db/src/schema/index.ts
-
-15. При добавлении новых хуков в openapi.yaml → обязательно проверить что
-    схема запроса/ответа корректна (Zod-валидация на backend должна совпадать).
+Backend (messages.ts route):
+  После отправки сообщения в secret chat (type=4):
+    Вычислить selfDestructAt = new Date(Date.now() + deleteAfterSeconds * 1000)
+    UPDATE messages SET self_destruct_at = selfDestructAt
+  
+  Фоновая задача (setInterval каждые 10 сек):
+    SELECT id FROM messages WHERE self_destruct_at <= NOW() AND is_deleted = false
+    UPDATE messages SET is_deleted = true WHERE id IN [ids]
+    Broadcast WS: { type: "delete_message", messageId, chatId } для каждого
 
 ================================================================================
-                    КОНЕЦ ТЕХНИЧЕСКОГО ПРОЕКТА
+                  STAGE 15 — ПАПКИ ЧАТОВ
 ================================================================================
-Версия документа: 1.0
+
+=== SIDEBAR ПАПОК ===
+
+Файл: artifacts/echo-messenger/src/pages/chat/chat-list.tsx (дополнить)
+
+Под строкой поиска — горизонтальный скролл таблеток:
+  Стандартные: "Все" / "Непрочитанные" / "Личные" / "Группы" / "Каналы"
+  Кастомные: из useGetFolders() — с emoji + name
+
+При выборе папки:
+  "Все" → все chats
+  "Непрочитанные" → filter unreadCount > 0
+  "Личные" → filter type === 1
+  "Группы" → filter type === 2
+  "Каналы" → filter type === 3
+  Кастомная → filter chatIds.includes(chat.id)
+    Также применять filters: { includeDMs, includeGroups, includeChannels }
+
+=== СОЗДАНИЕ И РЕДАКТИРОВАНИЕ ПАПКИ ===
+
+Страница: /settings/folders (создать)
+
+Список папок с drag-and-drop (order by position).
+Кнопка "Создать папку" →
+
+Форма создания:
+  Input: название (макс 64 символа)
+  Picker: эмодзи иконка
+  "Фильтры" секция:
+    Toggle: Личные сообщения / Группы / Каналы / Непрочитанные
+  "Включённые чаты" секция:
+    Список всех чатов с чекбоксами → добавить в chatIds
+
+Сохранить → POST /api/folders
+Редактировать → PATCH /api/folders/:id
+Удалить → DELETE /api/folders/:id
+
+Кнопка "+ Управление папками" в chat-list.tsx → navigate "/settings/folders"
+
+================================================================================
+                   STAGE 16 — АРХИВ ЧАТОВ
+================================================================================
+
+Архив: чаты с isArchived = true.
+
+В ChatList:
+  Вверху (если есть архивированные): строка "📦 Архив ({N})" → navigate "/chats/archived"
+  Архивированные чаты НЕ отображаются в основном списке
+
+Страница /chats/archived:
+  Хедер: "← Назад" | "Архив"
+  Список архивированных чатов (тот же ChatList component)
+  Жест свайп → "Разархивировать" (blue)
+
+Long press в ChatList:
+  "Архивировать" → POST /api/chats/:id/archive
+
+================================================================================
+                STAGE 17 — НАСТРОЙКИ (Settings) — ПОЛНАЯ РЕАЛИЗАЦИЯ
+================================================================================
+
+=== SETTINGS HUB (/settings) ===
+
+Файл: artifacts/echo-messenger/src/pages/settings/settings.tsx (дополнить)
+
+Структура идентична Telegram:
+
+Секция профиля (карточка вверху):
+  Большой аватар 62px + displayName/username + "Online" или "был(а) N мин назад"
+  Тап → /settings/my-profile
+  Если isPremium → золотой бейдж "⭐ Premium"
+
+Секция 1 (синяя тематика):
+  📌 Избранные сообщения → /messages/starred
+  📞 Недавние звонки → /calls
+  💾 Устройства → /settings/security (список сессий)
+
+Секция 2 (основные настройки):
+  🔔 Уведомления и звуки → /settings/notifications
+  🔒 Конфиденциальность → /settings/privacy
+  💾 Данные и хранилище → /settings/data
+  🎨 Оформление → /settings/appearance
+  🌍 Язык → /settings/language
+  😊 Стикеры и эмодзи → /sticker-packs
+  📁 Папки чатов → /settings/folders
+
+Секция 3 (дополнительно):
+  ⭐ ECHO Stars → /stars
+  👑 ECHO Premium → /premium
+  📋 Журнал активности → /settings/log
+  🤖 Управление контентом → /settings/content
+  ⭐ Оценить приложение → /settings/rate
+
+Секция 4 (опасная зона):
+  ❌ Выйти → logout()
+  🗑️ Уничтожить аккаунт → /settings/security
+
+=== УВЕДОМЛЕНИЯ И ЗВУКИ (/settings/notifications) ===
+
+Раздел "Сообщения":
+  Toggle "Уведомления о сообщениях"
+  Toggle "Предпросмотр в уведомлении"
+  Toggle "Звук уведомления"
+  Select "Звук": по умолчанию / звуки из списка (10 вариантов)
+  Toggle "Вибрация"
+  Toggle "Значок на иконке (бейдж)"
+
+Раздел "Группы":
+  Те же настройки для групповых уведомлений
+
+Раздел "Каналы":
+  Те же
+
+Раздел "Системные":
+  Toggle "Уведомления о входе"
+  Toggle "Уведомления безопасности"
+
+Сохранять в users.settings.notifications через PATCH /api/users/me.
+Применять в Service Worker при получении push.
+
+=== КОНФИДЕНЦИАЛЬНОСТЬ (/settings/privacy) ===
+
+Раздел "Кто может видеть мой...":
+  Последнюю активность: Все / Мои контакты / Никто
+  Фото профиля: Все / Мои контакты / Никто
+  Bio: Все / Мои контакты / Никто
+
+Раздел "Кто может...":
+  Писать мне: Все / Мои контакты (для DM)
+  Добавлять в группы: Все / Мои контакты / Никто
+
+Раздел "Звонки":
+  Принимать звонки от: Все / Мои контакты / Никто
+  Peer-to-peer: Всегда / Мои контакты / Никогда (через relay)
+
+Раздел "Сообщения":
+  Toggle "Подтверждение прочтения (✓✓ синие)"
+
+Раздел "Безопасность":
+  Toggle "Двухэтапный PIN-код" → /settings/security/pin
+  "Активные сессии" → /settings/security
+
+Раздел "Данные":
+  Toggle "Синхронизировать контакты" (нет смысла для ECHO, скрыть)
+  "Удалить аккаунт если не в сети: 1 месяц / 3 / 6 / 12"
+
+Сохранять в users.settings.privacy через PATCH /api/users/me.
+
+=== ОФОРМЛЕНИЕ (/settings/appearance) ===
+
+Раздел "Тема":
+  Сегментированный контрол: Системная | Светлая | Тёмная
+  Применять через next-themes setTheme()
+
+Раздел "Цвет акцента":
+  Цветовые кружки: синий (по умолчанию) / зелёный / оранжевый / розовый / фиолетовый
+  Изменяет CSS-переменную --primary
+
+Раздел "Чат":
+  Слайдер размера шрифта: 12px – 20px (5 шагов)
+  Toggle "Compact mode" (меньше отступов)
+  Toggle "Анимированные стикеры" (Premium)
+  Toggle "Эффекты сообщений" (Premium)
+
+Раздел "Фоны чата":
+  Текущий фон (mini-preview)
+  Кнопка "Изменить обои" → список фонов
+  10 встроенных паттернов + "Своё фото" + "Однотонный цвет"
+
+Сохранять в users.settings.appearance через PATCH /api/users/me.
+Применять на старте: в App.tsx читать из useGetMe().settings.appearance.
+
+=== ЯЗЫК (/settings/language) ===
+
+Список языков (радио-кнопки):
+  🇷🇺 Русский (по умолчанию)
+  🇬🇧 English
+  🇩🇪 Deutsch
+  🇫🇷 Français
+  🇪🇸 Español
+  🇺🇦 Українська
+
+Сохранять в localStorage + users.settings.language.
+Реализовать простую i18n через объект translations:
+  const T = { ru: { send: "Отправить", ... }, en: { send: "Send", ... } }
+  const t = (key: keyof typeof T["ru"]) => T[lang][key]
+
+=== ДАННЫЕ И ХРАНИЛИЩЕ (/settings/data) ===
+
+Раздел "Автозагрузка":
+  WiFi: Фото / Видео / Документы (toggles)
+  Мобильный интернет: те же toggles
+
+Раздел "Кэш":
+  "Занимает: {N} MB" (localStorage + IndexedDB estimate)
+  Кнопка "Очистить кэш" → очистить localStorage кроме auth-токена
+
+Раздел "Экспорт данных":
+  Кнопка "Скачать данные" → POST /api/backup/upload → скачать JSON
+
+=== БЕЗОПАСНОСТЬ (/settings/security) ===
+
+Раздел "Двухэтапный PIN-код":
+  Toggle "Включить PIN-код блокировки"
+  Если включён → при открытии приложения запрашивать PIN
+  При включении → ввести PIN (4-6 цифр) → подтвердить → сохранить хэш в localStorage
+
+  Реализация PIN:
+    Хранить hash = await crypto.subtle.digest("SHA-256", textEncoder.encode(pin))
+    При проверке: hash входного PIN должен совпасть
+    Показывать экран ввода PIN поверх всего (в App.tsx, if isLocked)
+
+Раздел "Автоблокировка":
+  Select: Немедленно / 1 мин / 5 мин / 1 час / Никогда
+
+Раздел "Активные сессии":
+  GET /api/sessions → список
+  Каждая: устройство + IP + время создания + статус "Текущая" / кнопка "Завершить"
+  Кнопка "Завершить все другие" → DELETE /api/sessions/all
+
+Раздел "Сид-фраза":
+  "Ваша сид-фраза — единственный способ восстановить аккаунт"
+  Кнопка "Показать сид-фразу" → PIN confirmation → показать 12 слов
+  Кнопка "Скопировать"
+
+Раздел "Уничтожить аккаунт":
+  Красная кнопка → диалог подтверждения
+  Ввод сид-фразы → POST /api/delete-account
+
+=== СТИКЕРЫ И ЭМОДЗИ (/sticker-packs) ===
+
+Файл: artifacts/echo-messenger/src/pages/stickers/sticker-packs.tsx (переделать)
+
+Вкладки: "Мои паки" | "Популярные" | "Премиум"
+
+Мои паки:
+  useGetInstalledPacks() → список с кнопкой "Удалить"
+  Drag-to-reorder
+  Тап на пак → показать все стикеры
+
+Популярные / Тренды:
+  useGetStickerPacks() → список с кнопкой "Установить"
+  Preview стикеров (первые 6)
+  Кнопка "Установить" → POST /api/stickers/install
+  Если isPremium: иконка 👑 на паке
+
+Переопределить типы стикеров:
+  Обычные: эмодзи-строки (уже работает)
+  Анимированные: Lottie JSON-файлы (Premium feature)
+  Кастомные эмодзи: emoji-like стикеры для использования в тексте (Premium)
+
+=== ЖУРНАЛ АКТИВНОСТИ (/settings/log) ===
+
+Файл: artifacts/echo-messenger/src/pages/settings/activity-log.tsx
+
+Заменить makeEntries() на useGetActivityLog() (hooks из codegen).
+Удалить захардкоженный массив полностью.
+
+Типы событий с иконками:
+  login → 🔑 LogIn (синий)
+  logout → 🔓 LogOut (серый)
+  session_revoked → 🔒 Lock (оранжевый)
+  backup → 🛡️ Shield (зелёный)
+  profile_change → 👤 User (синий)
+  message_deleted → 🗑️ Trash2 (серый)
+  password_change → 🔑 Key (жёлтый)
+  account_delete_attempt → ⚠️ AlertTriangle (красный)
+
+Risk-цвет: none=серый, low=жёлтый, medium=оранжевый, high=красный
+
+Предупреждение при risk="high":
+  Красный баннер вверху: "⚠️ Подозрительная активность"
+
+================================================================================
+            STAGE 18 — STARS СИСТЕМА (как Telegram Stars)
+================================================================================
+
+=== STARS — ЧТО ЭТО ===
+
+Stars — внутренняя валюта ECHO.
+Используется для: Premium подписки, чаевых (Tips), платных реакций,
+разблокировки Premium-стикеров, поддержки каналов.
+
+Стартовый баланс: 0 Stars для всех.
+Начисление: покупка (в демо — бесплатно по кнопке), получение в подарок, чаевые от читателей.
+
+=== СТРАНИЦА STARS (/stars) ===
+
+Файл: artifacts/echo-messenger/src/pages/stars/stars.tsx (создать)
+
+Хедер: "⭐ ECHO Stars" + баланс крупно
+
+Секция "Мой баланс":
+  Большое число: "{N} ⭐"
+  Анимация счётчика при изменении (spring animation)
+
+Секция "Пополнить":
+  6 пакетов (Telegram-стиль):
+    ⭐ 100 Stars  — Бесплатно (демо) / или цена в будущем
+    ⭐ 250 Stars
+    ⭐ 500 Stars
+    ⭐ 1000 Stars
+    ⭐ 2500 Stars
+    ⭐ 5000 Stars
+  Каждый пакет: [иконка звезды] [количество] [цена/кнопка]
+  Тап → POST /api/stars/purchase → обновить баланс (оптимистичный update)
+  Анимация: золотые звёзды сыплются после покупки (Framer Motion)
+
+Секция "История транзакций":
+  useGetStarsTransactions()
+  Каждая транзакция:
+    Иконка типа + описание + сумма (+N ⭐ зелёным или -N ⭐ красным) + дата
+  Типы: Пополнение / Подарок получен / Подарок отправлен / Чаевые / Premium / Платная реакция
+
+Кнопка "Подарить Stars":
+  → Открыть контакты, выбрать получателя
+  → Ввести количество (1–9999)
+  → Подтверждение: "Подарить {N} Stars @username?"
+  → POST /api/stars/gift
+
+=== TIPS (ЧАЕВЫЕ В КАНАЛЕ) ===
+
+В Chat window для каналов:
+  Под каждым сообщением (от admin/owner) — кнопка "⭐ Поддержать"
+  Тап → BottomSheet с суммами: 1 / 5 / 50 / 100 / 500 Stars
+  Подтвердить → POST /api/stars/tip { messageId, amount }
+  Отобразить над сообщением: "⭐ {totalStars}" (золотой счётчик)
+
+=== PAID REACTIONS (ПЛАТНЫЕ РЕАКЦИИ) ===
+
+Только для каналов (type=3).
+Над полем ввода (только для не-admin) → кнопка "⭐ Реакция"
+Или в quick emoji strip при long press — последняя иконка "⭐"
+
+Выбор суммы: 1 / 5 / 50 / 100 / 500 Stars
+Анимация: звёздный взрыв (gold particle effect) при отправке
+Отображение: "⭐{N}" счётчик под сообщением
+
+================================================================================
+              STAGE 19 — PREMIUM ПОДПИСКА (как Telegram Premium)
+================================================================================
+
+=== СТРАНИЦА PREMIUM (/premium) ===
+
+Файл: artifacts/echo-messenger/src/pages/premium/premium.tsx (создать)
+
+Дизайн: тёмно-золотой градиент (от #1a1a2e до #16213e)
+Логотип ECHO с золотой короной 👑
+
+Список преимуществ Premium (анимированный carousel или список):
+  👑 Анимированные стикеры
+  ⚡ Увеличенный лимит файлов (100MB вместо 50MB)
+  🎨 Эксклюзивные фоны чатов
+  😎 Кастомные эмодзи в тексте
+  🏅 Значок Premium у имени (золотая звезда)
+  🔇 Отключение рекламы (если будет реклама)
+  ⚡ Приоритетная доставка сообщений
+  🤖 Голосовые расшифровки (Voice-to-Text)
+  📤 Загрузка файлов до 2GB (если реализовать чанкованную загрузку)
+  😊 Emoji реакции без ограничений (кастомные)
+  📌 Закреплённых чатов до 10 (вместо 5)
+  📁 Папок до 20 (вместо 5)
+  🌈 Уникальные цвета для имён в чате
+
+Цены (платёж Stars):
+  Ежемесячно: 280 Stars / месяц
+  Ежегодно:   2800 Stars / год (скидка ~16%)
+  
+  Красивые карточки: [Ежемесячно | Ежегодно]
+  Активная: золотая рамка
+  
+  Кнопка "Оформить подписку":
+    → Подтверждение: "Списать {N} Stars и оформить Premium?"
+    → POST /api/premium/subscribe { tier }
+    → Если успех: анимация конфетти + "Welcome to ECHO Premium! 🎉"
+    → UPDATE users.isPremium = true, premiumUntil = date
+    → Redirect → /settings
+
+Если уже Premium:
+  "Активна до {premiumUntil}"
+  "Отменить подписку" (серый текст)
+
+=== PREMIUM-ФИЧИ В ПРИЛОЖЕНИИ ===
+
+Badge у имени:
+  Во всех местах где показывается имя — если isPremium:
+  Рядом с именем маленькая золотая звезда ⭐ (10px)
+
+Анимированные стикеры (только Premium):
+  Обычные стикеры → Lottie JSON → lottie-react
+  Для non-premium: стикеры отображаются статично (PNG frame)
+  При попытке установить Premium-пак → предложить Premium
+
+Кастомные эмодзи в тексте:
+  Premium пользователь может использовать стикеры как inline-emoji
+  Синтаксис: [:sticker_id:] в тексте → рендерить inline Lottie
+
+Voice-to-Text расшифровка:
+  Кнопка "A" (transcript) на голосовом сообщении (только Premium)
+  POST /api/messages/:id/transcribe → ответ { text: string }
+  Backend: использовать whisper.cpp или external API (OpenAI Whisper)
+  Показать текст под голосовым сообщением раскрывающимся блоком
+
+================================================================================
+             STAGE 20 — УПРАВЛЕНИЕ ГРУППАМИ И КАНАЛАМИ
+================================================================================
+
+=== СОЗДАНИЕ ГРУППЫ (/new-group) ===
+
+Файл: artifacts/echo-messenger/src/pages/group/create-group.tsx (переделать)
+
+Шаг 1: Выбор участников
+  Поиск + список контактов с чекбоксами
+  Selected bar внизу: аватары выбранных (удаляемые)
+  Кнопка "Далее →"
+
+Шаг 2: Настройка группы
+  Аватар: кнопка камеры + placeholder
+  Input: название группы
+  Input: описание (опционально)
+  Toggle: "Supergroup" (неограниченные участники)
+  Кнопка "Создать"
+  
+  POST /api/chats { type: 2, title, description }
+  POST /api/chats/:id/members для каждого выбранного пользователя
+  navigate("/chat/{newChatId}")
+
+=== СОЗДАНИЕ КАНАЛА (/new-channel) ===
+
+Шаг 1: Настройка
+  Аватар + название + описание
+  Toggle: "Публичный канал" (виден в поиске) / "Приватный"
+  Если публичный: ввести @username канала
+
+Шаг 2: Пригласить подписчиков
+  Выбрать из контактов или пропустить
+
+POST /api/chats { type: 3, title, description, settings: { isPublic, username } }
+
+=== НАСТРОЙКИ ГРУППЫ (редактирование) ===
+
+Страница: /chat/:id/settings (создать)
+
+Открывается из Chat Info для admin/owner.
+
+Секции:
+  "Информация":
+    Аватар + кнопка смены
+    Input: название
+    Textarea: описание
+  
+  "Участники":
+    Список участников с ролями
+    Кнопка "Добавить участника"
+    Для каждого (swipe или long press): Назначить admin / Ограничить / Удалить
+  
+  "Права по умолчанию" (для участников):
+    Toggle: Отправлять сообщения
+    Toggle: Отправлять медиа
+    Toggle: Отправлять стикеры и GIF
+    Toggle: Отправлять опросы
+    Toggle: Встраивать ссылки
+    Toggle: Добавлять участников
+    Toggle: Закреплять сообщения
+    Toggle: Менять информацию группы
+  
+  "Дополнительно":
+    Ссылка для вступления (показать/сгенерировать/сбросить)
+    Toggle: "Одобрять заявки на вступление"
+    Toggle: "Защита контента" (нельзя пересылать)
+    Toggle: "Режим форума" (Topics)
+    Слайдер "Slow mode": Off / 10сек / 30сек / 1мин / 5мин / 15мин / 1ч
+  
+  "Опасная зона":
+    Кнопка "Удалить группу" (только owner, красный)
+
+POST /api/chats/:id (PATCH) для сохранения изменений.
+
+=== УПРАВЛЕНИЕ КАНАЛОМ ===
+
+Страница: /channel/:id/settings (создать, аналог группы)
+
+Дополнительно:
+  Toggle: "Комментарии" → выбрать связанную группу
+  "Статистика канала" → отдельная страница с графиками
+  "Рекламные посты" (если платная реклама будет)
+
+=== СТРАНИЦА СТАТИСТИКИ КАНАЛА (/channel/:id/stats) ===
+
+Только для admin/owner.
+
+Графики (Chart.js или recharts):
+  Рост подписчиков (по дням, 30 дней)
+  Охват сообщений (views per post)
+  Вовлечённость (реакции / просмотры %)
+
+Карточки:
+  Всего подписчиков: {N}
+  Новых за неделю: +{N}
+  Среднее просмотров: {N}
+
+================================================================================
+                STAGE 21 — TOPICS (ФОРУМ-РЕЖИМ)
+================================================================================
+
+Только для групп с isForum = true.
+
+=== СПИСОК TOPICS (/chat/:id/topics) ===
+
+Хедер: название группы
+Список топиков (из GET /api/topics/:chatId):
+  [Иконка/эмодзи] [Название] [N сообщений] [Последнее сообщение]
+  Закреплённые — вверху с иконкой 📌
+  Закрытые — серые
+
+Кнопка "+" (FAB) → создать новый топик
+
+=== СОЗДАНИЕ ТОПИКА ===
+
+Диалог:
+  Input: название (до 64 символов)
+  Picker: эмодзи иконки (30 вариантов) или цвет
+  Кнопка "Создать" → POST /api/topics { chatId, title, emoji }
+
+=== СООБЩЕНИЯ В ТОПИКЕ ===
+
+navigate("/topic/:topicId") → ChatWindow с фильтром по topicId
+Хедер: "← {groupName}" | "📌 {topicTitle}"
+
+В Messages: добавить поле topicId в запрос GET /api/messages?chatId=X&topicId=Y
+
+================================================================================
+               STAGE 22 — ИЗБРАННЫЕ СООБЩЕНИЯ
+================================================================================
+
+=== ИЗБРАННЫЕ СООБЩЕНИЯ (/messages/starred или /chat/favorites) ===
+
+Файл: artifacts/echo-messenger/src/pages/favorites/starred-messages.tsx (создать)
+
+Сейчас: пустая страница-заглушка с иконкой ⭐.
+Переделать:
+
+Хедер: "Избранные сообщения" + кнопка 🔍 поиск
+
+Список из GET /api/messages/starred:
+  Группировать по чату
+  Для каждого сообщения: аватар чата + название чата + время + контент
+
+Тап на сообщение → navigate к чату и прокрутить к этому сообщению
+Свайп влево → "Удалить из избранного" (DELETE /api/messages/:id/star)
+
+=== ДОБАВЛЕНИЕ В ИЗБРАННЫЕ ===
+
+В контекстном меню сообщения: "Добавить в избранные ★"
+Тап → POST /api/messages/:id/star → toast "Добавлено в избранное"
+Иконка ★ появляется у сообщения (если isSelf или можно)
+
+================================================================================
+               STAGE 23 — НАПОМИНАНИЯ О СООБЩЕНИЯХ
+================================================================================
+
+В контекстном меню сообщения: "Напомнить ⏰"
+→ Picker времени:
+  "Через 1 час"
+  "Через 3 часа"
+  "Завтра в 9:00"
+  "Выбрать дату и время" → DateTimePicker
+
+POST /api/messages/:id/remind { remindAt }
+
+Backend: фоновая задача (проверять каждую минуту):
+  SELECT * FROM message_reminders WHERE remind_at <= NOW() AND is_done = false
+  Для каждого → отправить WS: { type: "reminder", messageId, chatId, remindAt }
+  UPDATE is_done = true
+
+Frontend (глобальный):
+  useWsEvent: при "reminder" → показать toast с текстом сообщения и ссылкой
+
+================================================================================
+                  STAGE 24 — PWA + SERVICE WORKER + PUSH
+================================================================================
+
+Файлы:
+  artifacts/echo-messenger/public/manifest.json
+  artifacts/echo-messenger/public/sw.js
+  artifacts/echo-messenger/index.html
+
+manifest.json:
+  {
+    "name": "ECHO Messenger",
+    "short_name": "ECHO",
+    "description": "Анонимный E2EE мессенджер",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#0f0f0f",
+    "theme_color": "#007AFF",
+    "icons": [
+      { "src": "/icons/icon-72.png", "sizes": "72x72", "type": "image/png" },
+      { "src": "/icons/icon-96.png", "sizes": "96x96", "type": "image/png" },
+      { "src": "/icons/icon-128.png", "sizes": "128x128", "type": "image/png" },
+      { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+      { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    ],
+    "shortcuts": [
+      { "name": "Новый чат", "url": "/chat/new", "icons": [{"src": "/icons/icon-96.png", "sizes": "96x96"}] }
+    ]
+  }
+
+sw.js:
+  const CACHE_NAME = "echo-v1";
+  const STATIC_ASSETS = ["/", "/index.html", "/manifest.json"];
+
+  self.addEventListener("install", e => {
+    e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(STATIC_ASSETS)));
+    self.skipWaiting();
+  });
+
+  self.addEventListener("activate", e => {
+    e.waitUntil(caches.keys().then(keys => Promise.all(
+      keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+    )));
+    self.clients.claim();
+  });
+
+  self.addEventListener("fetch", e => {
+    if (e.request.method !== "GET") return;
+    if (e.request.url.includes("/api/")) return; // не кэшировать API
+    e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  });
+
+  self.addEventListener("push", e => {
+    const data = e.data?.json() ?? {};
+    e.waitUntil(self.registration.showNotification(data.title ?? "ECHO", {
+      body: data.body ?? "Новое сообщение",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/badge-72.png",
+      vibrate: [200, 100, 200],
+      data: { url: data.chatUrl ?? "/" },
+      actions: [
+        { action: "open", title: "Открыть" },
+        { action: "dismiss", title: "Закрыть" }
+      ]
+    }));
+  });
+
+  self.addEventListener("notificationclick", e => {
+    e.notification.close();
+    if (e.action === "dismiss") return;
+    e.waitUntil(clients.openWindow(e.notification.data?.url ?? "/"));
+  });
+
+index.html — добавить в <head>:
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ECHO" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <meta name="theme-color" content="#007AFF" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
+main.tsx — регистрация SW:
+  if ("serviceWorker" in navigator && import.meta.env.PROD) {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" })
+      .then(reg => console.log("SW registered", reg.scope))
+      .catch(err => console.warn("SW failed", err));
+  }
+
+Web Push Backend (artifacts/api-server):
+  Установить: pnpm --filter @workspace/api-server add web-push
+  Сгенерировать VAPID ключи: node -e "const wp=require('web-push'); console.log(JSON.stringify(wp.generateVAPIDKeys()))"
+  Сохранить в env: VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
+
+  Endpoint: POST /api/push/subscribe
+    Body: { subscription: PushSubscription }
+    Сохранить в users.settings.pushSubscription
+  
+  При new_message (в broadcast):
+    Если получатель offline (нет WS-соединения):
+      const sub = receiver.settings.pushSubscription
+      if (sub) webpush.sendNotification(sub, JSON.stringify({ title: senderUsername, body: preview, chatUrl: `/chat/${chatId}` }))
+
+================================================================================
+                STAGE 25 — REALTIME UX — БЕСКОНЕЧНЫЙ СКРОЛЛ
+================================================================================
+
+=== БЕСКОНЕЧНАЯ ПРОКРУТКА ===
+
+Файл: chat-window.tsx
+
+Изменить GET /api/messages на поддержку cursor pagination:
+  GET /api/messages?chatId=X&before={messageId}&limit=50
+  Возвращает: { messages: [...], hasMore: boolean }
+
+При первом открытии → загрузить последние 50 сообщений.
+
+IntersectionObserver на первом (самом верхнем) сообщении в списке:
+  Если попало в viewport → загрузить следующие 50 (before=firstMessageId)
+  Добавить в НАЧАЛО списка
+  Показывать spinner "↑ Загрузка..." вверху
+
+Кнопка "scroll to bottom" (FAB):
+  Появляется когда пользователь прокрутил > 300px вверх от низа
+  Показывать бейдж с кол-вом новых сообщений
+  Тап → scrollToBottom() + сбросить счётчик
+
+=== ЧЕРНОВИКИ ===
+
+При изменении text в TextArea:
+  debouncedDraftSave(text) → PATCH /api/chats/:id/draft { text } (debounce 1500ms)
+
+При открытии чата:
+  const draft = chat?.draftText или chatMember?.draftText
+  if (draft) setText(draft) → показать текст в Input
+
+В ChatList:
+  Если draftText → показывать "Черновик: {draftText.slice(0,30)}" красным
+
+=== ОПТИМИСТИЧНЫЕ ОБНОВЛЕНИЯ ===
+
+При sendMessage():
+  Немедленно добавить сообщение в список (optimistic update):
+    const tempMsg = { id: -Date.now(), encryptedContent: trimmed, senderId: userId, isSelf: true, timestamp: new Date().toISOString() }
+    queryClient.setQueryData(messagesQueryKey, (old) => [...(old ?? []), tempMsg])
+  После успеха → replace tempMsg на реальный msg из ответа сервера
+
+При deleteMessage():
+  Немедленно убрать из списка (optimistic):
+    queryClient.setQueryData(messagesQueryKey, (old) => old.filter(m => m.id !== selectedMsg.id))
+  При ошибке → rollback
+
+================================================================================
+              STAGE 26 — MEDIA VIEWER (FULLSCREEN)
+================================================================================
+
+Файл: artifacts/echo-messenger/src/components/media/media-viewer.tsx (создать)
+
+Полноэкранный viewer (z-50, position fixed, inset-0, background: rgba(0,0,0,0.95)).
+
+Для ФОТО:
+  Зум: pinch-to-zoom (двойной тап → 2x zoom)
+  Свайп влево/вправо → следующее/предыдущее фото в группе
+  Свайп вниз → закрыть (с анимацией)
+  Хедер: имя отправителя + дата + [↗ Поделиться] [⬇️ Скачать] [✕ Закрыть]
+  Счётчик: "3 / 7" если в альбоме
+  Thumbnails strip внизу (если альбом)
+
+Для ВИДЕО:
+  HTML5 <video controls autoPlay>
+  Кнопки: ⏮ 10сек назад / ▶/⏸ / ⏭ 10сек вперёд
+  Полноэкранный режим: requestFullscreen()
+  Picture-in-Picture: requestPictureInPicture()
+  Скачать: создать <a download href={blobUrl}>.click()
+
+Открывать при тапе на любое медиа в чате.
+Передавать mediaGroupId → загрузить все сообщения с тем же mediaGroupId для навигации.
+
+================================================================================
+                STAGE 27 — ДОПОЛНИТЕЛЬНЫЙ BACKEND
+================================================================================
+
+=== SEEDS (начальные данные) ===
+
+Файл: artifacts/api-server/src/db-seed.ts (создать)
+
+При первом запуске (если sticker_packs пуст) → заполнить:
+  INSERT INTO sticker_packs (name, author, emoji, stickers, is_official) VALUES
+    ('Классика', 'ECHO Team', '😀', ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🥸','🤩','🥳'], true),
+    ('Животные', 'ECHO Team', '🐶', ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧'], true),
+    ('Природа', 'ECHO Team', '🌿', ['🌱','🌿','🍀','🍁','🍂','🍃','🌺','🌸','🌹','🌷','🌻','🌼','🌞','🌝','🌛','🌜','⭐','🌟','💫','✨'], true),
+    ('Жесты', 'ECHO Team', '👋', ['👋','🤚','✋','🖖','🤙','💪','🦾','🖐️','☝️','👆','👇','👈','👉','👍','👎','✊','👊','🤛','🤜','🤞','🤟','🤘','🤙','🖖','👌','🤌','🤏'], true);
+
+=== ФОНОВЫЕ ЗАДАЧИ ===
+
+Файл: artifacts/api-server/src/jobs.ts (создать)
+Запускать при старте сервера.
+
+export function startBackgroundJobs() {
+  // Самоуничтожение сообщений (каждые 10 сек)
+  setInterval(async () => {
+    const expired = await db.select({ id: messagesTable.id, chatId: messagesTable.chatId })
+      .from(messagesTable)
+      .where(and(
+        lte(messagesTable.selfDestructAt, new Date()),
+        eq(messagesTable.isDeleted, false),
+        isNotNull(messagesTable.selfDestructAt)
+      ));
+    
+    for (const msg of expired) {
+      await db.update(messagesTable).set({ isDeleted: true }).where(eq(messagesTable.id, msg.id));
+      broadcastToChat([/* member ids */], { type: "delete_message", messageId: msg.id, chatId: msg.chatId });
+    }
+  }, 10_000);
+
+  // Напоминания (каждые 30 сек)
+  setInterval(async () => {
+    const due = await db.select().from(messageRemindersTable)
+      .where(and(lte(messageRemindersTable.remindAt, new Date()), eq(messageRemindersTable.isDone, false)));
+    
+    for (const reminder of due) {
+      sendToUser(reminder.userId, { type: "reminder", messageId: reminder.messageId });
+      await db.update(messageRemindersTable).set({ isDone: true }).where(eq(messageRemindersTable.id, reminder.id));
+    }
+  }, 30_000);
+
+  // Истечение Premium подписок (каждый час)
+  setInterval(async () => {
+    const expired = await db.select({ userId: premiumSubscriptionsTable.userId })
+      .from(premiumSubscriptionsTable)
+      .where(and(lte(premiumSubscriptionsTable.expiresAt, new Date()), eq(premiumSubscriptionsTable.isActive, true)));
+    
+    for (const { userId } of expired) {
+      await db.update(usersTable).set({ isPremium: false, premiumUntil: null }).where(eq(usersTable.id, userId));
+      await db.update(premiumSubscriptionsTable).set({ isActive: false }).where(eq(premiumSubscriptionsTable.userId, userId));
+    }
+  }, 3_600_000);
+}
+
+Вызвать startBackgroundJobs() в artifacts/api-server/src/index.ts после запуска Express.
+
+=== GEOIP (для журнала активности) ===
+
+Установить: pnpm --filter @workspace/api-server add geoip-lite
+В auth.ts при логине:
+  import geoip from "geoip-lite";
+  const geo = geoip.lookup(req.ip);
+  const country = geo?.country || "Unknown";
+  INSERT INTO activity_logs (... country ...)
+
+================================================================================
+             STAGE 28 — INLINE ПОИСК И КОМАНДЫ БОТОВ (ПОДГОТОВКА)
+================================================================================
+
+=== INLINE-ССЫЛКИ В ТЕКСТЕ ===
+
+При отображении текста сообщения:
+  Парсить URL-паттерны: https?://... → <a href={url} target="_blank">
+  Парсить @username → тап → /profile/:username
+  Парсить #хэштег → тап → поиск по хэштегу
+  Парсить /команду → если бот → отправить команду
+
+=== BOT-АККАУНТЫ (структура) ===
+
+В usersTable добавить: isBot BOOLEAN DEFAULT false
+Боты — особые пользователи без seed (createdBy другим пользователем через API).
+
+Страница: /bots (заглушка для будущего)
+
+В ChatWindow при isBot:
+  "Описание бота: {bio}"
+  Кнопки: {buttons из settings.botCommands} (inline keyboard)
+  При нажатии → sendMessage с текстом команды
+
+================================================================================
+                    STAGE 29 — ФИНАЛЬНЫЕ UX-УЛУЧШЕНИЯ
+================================================================================
+
+=== SOUND EFFECTS ===
+
+Звуки (опционально, если разрешены в настройках):
+  Отправка сообщения: короткий "whoosh" (Web Audio API, синтетический)
+  Получение: short "ding"
+  Ошибка: "buzz"
+  Звонок: кастомный рингтон
+
+Реализация (без файлов, pure Web Audio):
+  const ctx = new AudioContext();
+  // Tone для отправки:
+  const osc = ctx.createOscillator();
+  osc.frequency.setValueAtTime(440, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.1, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + 0.15);
+
+=== EMOJI PICKER УЛУЧШЕННЫЙ ===
+
+Файл: artifacts/echo-messenger/src/components/emoji-picker.tsx (создать)
+
+Вкладки: 😀 ⚽ 🌿 🍕 🚗 💡 🔣 🏳️
+Сетка 8×8 эмодзи
+Поиск: input → фильтр по emojilib или захардкоженным группам
+Недавно использованные (хранить в localStorage "echo_recent_emoji")
+Скины (6 оттенков кожи) для эмодзи, поддерживающих это
+
+=== HAPTIC FEEDBACK ===
+
+navigator.vibrate([10]) при long press (Android)
+navigator.vibrate([10, 50, 10]) при ошибке
+
+=== DEEP LINKS ===
+
+При открытии /invite/:link → POST /api/chats/join/:link → navigate к чату
+
+=== KEYBOARD SHORTCUTS (Desktop) ===
+
+Ctrl/Cmd + K → открыть глобальный поиск
+Escape → закрыть модалки / вернуться назад
+Ctrl+Enter → отправить сообщение (если Shift+Enter = новая строка)
+Alt+←/→ → назад/вперёд между чатами
+
+=== ТИПИЗАЦИЯ В UI ===
+
+Индикатор typing (входящий):
+  Три анимированных точки (stagger, bounce): ●●●
+  Показывать имя если группа: "Вася печатает..."
+  Убирать если isTyping=false или через 5 сек после последнего события
+
+Прочитано (✓✓):
+  Серые ✓✓ = доставлено (deliveredAt не null)
+  Синие ✓✓ = прочитано (readAt не null)
+  Одна ✓ серая = отправлено (только в БД)
+
+=== SHARE (ПОДЕЛИТЬСЯ) ===
+
+Кнопка "Поделиться ссылкой" в профиле / канале / группе:
+  if (navigator.share) { navigator.share({ title, url }) }
+  else { copyToClipboard(url); toast("Ссылка скопирована") }
+
+================================================================================
+                    ПОРЯДОК РЕАЛИЗАЦИИ ДЛЯ ИИ-РАЗРАБОТЧИКА
+================================================================================
+
+ПРИОРИТЕТ 1 — КРИТИЧНО (без этого мессенджер не работает):
+  Stage 1  — Исправить баги чата (удаление, реакции, typing, файлы)
+  Stage 2  — Новые поля в существующих таблицах
+  Stage 3  — Новые таблицы в БД (contacts, calls, polls, stars, premium)
+  Stage 4  — Все backend endpoints (openapi.yaml → codegen → routes)
+  Stage 5  — Codegen после изменения openapi.yaml
+  Stage 6  — ChatList с папками, online-точкой, drag-to-archive
+  Stage 7  — ChatWindow полная реализация (все типы сообщений, меню, поиск)
+
+ПРИОРИТЕТ 2 — ВАЖНО:
+  Stage 8  — Профили (мой + чужой), редактирование
+  Stage 9  — Online-статус + Контакты (реальные данные)
+  Stage 10 — Вложения: фото, видео, файлы, геолокация, опросы
+  Stage 11 — Голосовые сообщения + видео-кружки
+  Stage 12 — WebRTC звонки + входящий звонок
+  Stage 13 — Поиск глобальный + поиск по чату
+
+ПРИОРИТЕТ 3 — ФУНКЦИОНАЛЬНЫЕ:
+  Stage 14 — Секретные чаты + самоуничтожение
+  Stage 15 — Папки чатов
+  Stage 16 — Архив
+  Stage 17 — Настройки (все страницы с реальной логикой)
+  Stage 18 — Stars система
+  Stage 19 — Premium подписка
+  Stage 20 — Управление группами и каналами
+
+ПРИОРИТЕТ 4 — РАСШИРЕННЫЕ:
+  Stage 21 — Forum Topics
+  Stage 22 — Избранные сообщения (★)
+  Stage 23 — Напоминания
+  Stage 24 — PWA + Push уведомления
+  Stage 25 — Бесконечный скролл + черновики
+  Stage 26 — MediaViewer fullscreen
+  Stage 27 — Background jobs + seeds
+  Stage 28 — Inline ссылки + подготовка ботов
+  Stage 29 — UX: звуки, shortcuts, haptic, share
+
+================================================================================
+                    ЧЕКЛИСТ ГОТОВНОСТИ (DEFINITION OF DONE)
+================================================================================
+
+[ ] Регистрация/вход работают без ошибок
+[ ] Чат: отправка, получение, реактайм через WS
+[ ] Все типы медиа: фото, видео, аудио, документ, голосовое, стикер
+[ ] Удаление сообщений реально удаляет через API
+[ ] Реакции реально сохраняются через API
+[ ] Имена участников в группах — реальные (не "User 123")
+[ ] Online-статус обновляется в реальном времени
+[ ] Контакты из БД (не мок)
+[ ] Звонки из БД (не мок)
+[ ] Журнал активности из БД (не мок)
+[ ] Поиск работает (чаты + пользователи + сообщения)
+[ ] Редактирование профиля (bio, аватар, имя) сохраняется
+[ ] Секретные чаты отделены от обычных
+[ ] Папки работают (создание, фильтрация)
+[ ] Настройки сохраняются в БД (не только localStorage)
+[ ] Stars: баланс, покупка, подарок, история транзакций
+[ ] Premium: подписка, badge, premium-фичи включаются
+[ ] WebRTC звонки работают P2P
+[ ] PWA: manifest, SW установлен, "Add to Home Screen" работает
+[ ] Push уведомления доставляются при offline
+[ ] TypeScript: pnpm run typecheck — 0 ошибок
+[ ] Нет console.error в продакшне (кроме WS reconnect)
+[ ] Тёмная/светлая тема переключается корректно
+[ ] Анимации работают плавно (60fps) на мобильных
+
+================================================================================
+                         КОНЕЦ ТЕХНИЧЕСКОГО ПРОЕКТА v2.0
+================================================================================
 Дата: 2026-07-03
-Проект: ECHO Messenger
-Разработчик: AI-агент по данному ТЗ
+Проект: ECHO Messenger — Полный аналог Telegram
+Статус: Готово к поэтапной реализации
+Количество этапов: 29
+Количество новых endpoints: 60+
+Количество новых таблиц: 14
 ================================================================================
