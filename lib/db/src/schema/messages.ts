@@ -1,4 +1,4 @@
-import { pgTable, bigserial, bigint, smallint, text, timestamp, boolean, integer, varchar } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, bigint, smallint, text, timestamp, boolean, integer, varchar, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { chatsTable } from "./chats";
 import { createInsertSchema } from "drizzle-zod";
@@ -20,8 +20,22 @@ export const messagesTable = pgTable("messages", {
   mediaFileId: varchar("media_file_id", { length: 36 }),
   replyToId: bigint("reply_to_id", { mode: "number" }),
   isDeleted: boolean("is_deleted").default(false).notNull(),
+  isEdited: boolean("is_edited").default(false).notNull(),
+  editedAt: timestamp("edited_at", { withTimezone: true }),
+  forwardedFromId: bigint("forwarded_from_id", { mode: "number" }),
+  selfDestructAt: timestamp("self_destruct_at", { withTimezone: true }),
+  reactions: jsonb("reactions").$type<Record<string, number[]>>(),
+});
+
+export const reactionsTable = pgTable("message_reactions", {
+  id: bigserial("id", { mode: "number" }).primaryKey(),
+  messageId: bigint("message_id", { mode: "number" }).notNull().references(() => messagesTable.id, { onDelete: "cascade" }),
+  userId: bigint("user_id", { mode: "number" }).notNull().references(() => usersTable.id, { onDelete: "cascade" }),
+  emoji: varchar("emoji", { length: 16 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const insertMessageSchema = createInsertSchema(messagesTable).omit({ id: true, timestamp: true });
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messagesTable.$inferSelect;
+export type Reaction = typeof reactionsTable.$inferSelect;

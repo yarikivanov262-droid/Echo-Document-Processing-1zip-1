@@ -1,1 +1,4 @@
 - [Orval query options typing](orval-query-options.md) — pass `{ refetchInterval: N } as never` to avoid missing queryKey TS error.
+- [Orval schemas conflict fix](orval-schemas-conflict.md) — remove `schemas` option from orval zod config to prevent duplicate name exports between Zod schemas and TS interfaces.
+- [api-zod index overwritten by orval](orval-schemas-conflict.md) — orval regenerates lib/api-zod/src/index.ts on every codegen run; only the orval config controls its content.
+- [WS event handler return type](ws-hook-return-type.md) — echoWs.on() returns () => boolean (Set.delete); wrap in void arrow for useEffect Destructor compatibility.

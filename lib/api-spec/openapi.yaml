@@ -519,6 +519,56 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /messages/{id}/edit:
+    patch:
+      operationId: editMessage
+      tags: [messages]
+      summary: Edit a sent message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditMessageBody"
+      responses:
+        "200":
+          description: Message edited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /messages/{id}/react:
+    post:
+      operationId: reactToMessage
+      tags: [messages]
+      summary: Add or remove a reaction on a message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReactBody"
+      responses:
+        "200":
+          description: Reaction toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
   /backup/upload:
     post:
       operationId: uploadBackup
@@ -746,6 +796,18 @@ components:
           type: ["string", "null"]
         replyToId:
           type: ["integer", "null"]
+        isEdited:
+          type: boolean
+        editedAt:
+          type: ["string", "null"]
+        reactions:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: integer
+        forwardedFromId:
+          type: ["integer", "null"]
       required: [id, senderId, chatId, chatType, encryptedContent, timestamp, deleteAfterRead, isVoice]
 
     MessageInput:
@@ -878,6 +940,20 @@ components:
         unreadTotal:
           type: integer
       required: [totalChats, totalMessages, totalContacts, secretChats, unreadTotal]
+
+    EditMessageBody:
+      type: object
+      properties:
+        encryptedContent:
+          type: string
+      required: [encryptedContent]
+
+    ReactBody:
+      type: object
+      properties:
+        emoji:
+          type: string
+      required: [emoji]
 
     FileUploadInput:
       type: object

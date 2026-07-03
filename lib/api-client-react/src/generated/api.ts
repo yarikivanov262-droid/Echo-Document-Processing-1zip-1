@@ -31,6 +31,7 @@ import type {
   ChatSummary,
   ChatUpdate,
   DeleteAccountInput,
+  EditMessageBody,
   FileInfo,
   FileUploadInput,
   FileUploadResult,
@@ -41,6 +42,7 @@ import type {
   MessageInput,
   PrekeysInput,
   PublicUser,
+  ReactBody,
   RegisterInput,
   RestoreInput,
   Session,
@@ -1977,6 +1979,148 @@ export const useTerminateSession = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getTerminateSessionMutationOptions(options));
+    }
+
+export const getEditMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/messages/${id}/edit`
+}
+
+/**
+ * @summary Edit a sent message
+ */
+export const editMessage = async (id: number,
+    editMessageBody: EditMessageBody, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getEditMessageUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(editMessageBody)
+  }
+);}
+
+
+
+
+export const getEditMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof editMessage>>, TError,{id: number;data: BodyType<EditMessageBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof editMessage>>, TError,{id: number;data: BodyType<EditMessageBody>}, TContext> => {
+
+const mutationKey = ['editMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof editMessage>>, {id: number;data: BodyType<EditMessageBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  editMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type EditMessageMutationResult = NonNullable<Awaited<ReturnType<typeof editMessage>>>
+    export type EditMessageMutationBody = BodyType<EditMessageBody>
+    export type EditMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Edit a sent message
+ */
+export const useEditMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof editMessage>>, TError,{id: number;data: BodyType<EditMessageBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof editMessage>>,
+        TError,
+        {id: number;data: BodyType<EditMessageBody>},
+        TContext
+      > => {
+      return useMutation(getEditMessageMutationOptions(options));
+    }
+
+export const getReactToMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/messages/${id}/react`
+}
+
+/**
+ * @summary Add or remove a reaction on a message
+ */
+export const reactToMessage = async (id: number,
+    reactBody: ReactBody, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getReactToMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(reactBody)
+  }
+);}
+
+
+
+
+export const getReactToMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reactToMessage>>, TError,{id: number;data: BodyType<ReactBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reactToMessage>>, TError,{id: number;data: BodyType<ReactBody>}, TContext> => {
+
+const mutationKey = ['reactToMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reactToMessage>>, {id: number;data: BodyType<ReactBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  reactToMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReactToMessageMutationResult = NonNullable<Awaited<ReturnType<typeof reactToMessage>>>
+    export type ReactToMessageMutationBody = BodyType<ReactBody>
+    export type ReactToMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add or remove a reaction on a message
+ */
+export const useReactToMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reactToMessage>>, TError,{id: number;data: BodyType<ReactBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof reactToMessage>>,
+        TError,
+        {id: number;data: BodyType<ReactBody>},
+        TContext
+      > => {
+      return useMutation(getReactToMessageMutationOptions(options));
     }
 
 export const getUploadBackupUrl = () => {

@@ -4,13 +4,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Paperclip, Mic, ArrowLeft, MoreVertical, Phone,
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
-  Smile, X, Search, Pin, BellOff, UserPlus, Image
+  Smile, X, Search, Pin, BellOff, UserPlus
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { useWsEvent } from "@/hooks/use-ws";
 import { cn } from "@/lib/utils";
+import { useQueryClient } from "@tanstack/react-query";
 
 function getAvatarColor(name: string) {
   const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
@@ -46,6 +48,8 @@ type MsgItem = {
   timestamp: string;
   readAt?: string | null;
   isSelf?: boolean;
+  reactions?: Record<string, number[]>;
+  isEdited?: boolean;
 };
 
 export function ChatWindow() {
@@ -53,12 +57,13 @@ export function ChatWindow() {
   const [, navigate] = useLocation();
   const { userId } = useEchoAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const chatId = parseInt(id || "0", 10);
 
   const { data: chat } = useGetChat(chatId, { query: { enabled: !!chatId && chatId > 0 } as never });
   const { data: messages, isLoading } = useGetMessages(
     { chatId },
-    { query: { enabled: !!chatId && chatId > 0, refetchInterval: 2000 } as never }
+    { query: { enabled: !!chatId && chatId > 0 } as never }
   );
   const sendMutation = useSendMessage();
   const markReadMutation = useMarkMessageRead();
@@ -70,11 +75,44 @@ export function ChatWindow() {
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
   const [showEmoji, setShowEmoji] = useState(false);
   const [showChatInfo, setShowChatInfo] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Resolve messages query key for cache invalidation
+  const messagesQueryKey = ["/api/messages", { chatId }];
+
+  // WebSocket: real-time new messages → invalidate messages cache
+  useWsEvent((event) => {
+    if (event.type === "new_message" && event.chatId === chatId) {
+      void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    }
+    if (event.type === "delete_message" && event.chatId === chatId) {
+      void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    }
+    if (event.type === "edit_message" && event.chatId === chatId) {
+      void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    }
+    if (event.type === "reaction" && event.chatId === chatId) {
+      void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    }
+    if (event.type === "typing" && event.chatId === chatId && event.userId !== userId) {
+      setTypingUsers(prev => {
+        const next = new Set(prev);
+        if (event.isTyping) {
+          next.add(event.username);
+        } else {
+          next.delete(event.username);
+        }
+        return next;
+      });
+    }
+    if (event.type === "read_ack" && event.chatId === chatId) {
+      void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+    }
+  });
 
   // Enrich messages with isSelf
   const enriched: MsgItem[] = (messages ?? []).map(m => ({
@@ -115,12 +153,13 @@ export function ChatWindow() {
     }
   }, [messages?.length]);
 
-  // Typing simulation
+  // Typing indicator (local)
   const handleTextChange = (v: string) => {
     setText(v);
-    setIsTyping(true);
     if (typingTimer.current) clearTimeout(typingTimer.current);
-    typingTimer.current = setTimeout(() => setIsTyping(false), 2000);
+    typingTimer.current = setTimeout(() => {
+      // typing stopped
+    }, 2000);
   };
 
   const handleSend = (e?: React.FormEvent) => {
@@ -172,7 +211,7 @@ export function ChatWindow() {
   const memberCount = (chat as { memberCount?: number })?.memberCount;
   const statusLine = isGroup
     ? `${memberCount ?? "?"} участников`
-    : "в сети";
+    : typingUsers.size > 0 ? "печатает..." : "в сети";
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -294,54 +333,76 @@ export function ChatWindow() {
               }
               const { msg } = item;
               const isSelf = msg.isSelf ?? false;
+              const reactionEntries = msg.reactions ? Object.entries(msg.reactions) : [];
               return (
                 <motion.div
                   key={msg.id}
                   initial={{ opacity: 0, y: 6, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ duration: 0.12 }}
-                  className={cn("flex mb-1", isSelf ? "justify-end" : "justify-start")}
-                  onContextMenu={(e) => { e.preventDefault(); handleLongPress(msg, e); }}
+                  className={cn("flex flex-col mb-1", isSelf ? "items-end" : "items-start")}
                 >
-                  {/* Avatar for others in group chats */}
-                  {!isSelf && isGroup && (
-                    <Avatar className="h-6 w-6 mr-1.5 mt-1 self-end shrink-0">
-                      <AvatarFallback className={cn("text-white text-[10px]", getAvatarColor(msg.senderId.toString()))}>
-                        {String(msg.senderId).substring(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-
-                  <div
-                    className={cn("relative max-w-[75%] px-3 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm cursor-pointer select-text",
-                      isSelf
-                        ? "bg-primary text-white rounded-br-sm"
-                        : "bg-card text-foreground rounded-bl-sm"
-                    )}
-                    onClick={(e) => { e.stopPropagation(); handleLongPress(msg, e); }}
-                  >
-                    {/* Sender name in group */}
+                  <div className={cn("flex", isSelf ? "justify-end" : "justify-start", "w-full")}>
+                    {/* Avatar for others in group chats */}
                     {!isSelf && isGroup && (
-                      <div className="text-[12px] font-semibold text-primary mb-0.5">
-                        User {msg.senderId}
-                      </div>
+                      <Avatar className="h-6 w-6 mr-1.5 mt-1 self-end shrink-0">
+                        <AvatarFallback className={cn("text-white text-[10px]", getAvatarColor(msg.senderId.toString()))}>
+                          {String(msg.senderId).substring(0, 1)}
+                        </AvatarFallback>
+                      </Avatar>
                     )}
 
-                    <p className="break-words whitespace-pre-wrap pr-14">{msg.encryptedContent}</p>
-
-                    {/* Time + read receipt */}
-                    <div className={cn(
-                      "absolute bottom-1.5 right-2.5 flex items-center gap-0.5",
-                      isSelf ? "text-white/70" : "text-muted-foreground"
-                    )}>
-                      <span className="text-[11px]">{formatMsgTime(msg.timestamp)}</span>
-                      {isSelf && (
-                        msg.readAt
-                          ? <CheckCheck className="h-3.5 w-3.5 text-white/90" />
-                          : <Check className="h-3.5 w-3.5" />
+                    <div
+                      className={cn("relative max-w-[75%] px-3 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm cursor-pointer select-text",
+                        isSelf
+                          ? "bg-primary text-white rounded-br-sm"
+                          : "bg-card text-foreground rounded-bl-sm"
                       )}
+                      onContextMenu={(e) => { e.preventDefault(); handleLongPress(msg, e); }}
+                      onClick={(e) => { e.stopPropagation(); handleLongPress(msg, e); }}
+                    >
+                      {/* Sender name in group */}
+                      {!isSelf && isGroup && (
+                        <div className="text-[12px] font-semibold text-primary mb-0.5">
+                          User {msg.senderId}
+                        </div>
+                      )}
+
+                      <p className="break-words whitespace-pre-wrap pr-14">{msg.encryptedContent}</p>
+
+                      {/* Edited mark */}
+                      {msg.isEdited && (
+                        <span className={cn("text-[10px] mr-1", isSelf ? "text-white/60" : "text-muted-foreground/70")}>изм.</span>
+                      )}
+
+                      {/* Time + read receipt */}
+                      <div className={cn(
+                        "absolute bottom-1.5 right-2.5 flex items-center gap-0.5",
+                        isSelf ? "text-white/70" : "text-muted-foreground"
+                      )}>
+                        <span className="text-[11px]">{formatMsgTime(msg.timestamp)}</span>
+                        {isSelf && (
+                          msg.readAt
+                            ? <CheckCheck className="h-3.5 w-3.5 text-white/90" />
+                            : <Check className="h-3.5 w-3.5" />
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Reactions row */}
+                  {reactionEntries.length > 0 && (
+                    <div className={cn("flex flex-wrap gap-1 mt-0.5 px-1", isSelf ? "justify-end" : "justify-start")}>
+                      {reactionEntries.map(([emoji, users]) => (
+                        <span
+                          key={emoji}
+                          className="inline-flex items-center gap-0.5 bg-card border border-border rounded-full px-2 py-0.5 text-[12px] cursor-pointer hover:bg-muted"
+                        >
+                          {emoji} <span className="text-muted-foreground">{users.length}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               );
             })}
@@ -350,7 +411,7 @@ export function ChatWindow() {
 
         {/* Typing indicator */}
         <AnimatePresence>
-          {false && ( // would be "someone is typing" from WS
+          {typingUsers.size > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
               className="flex justify-start mb-1"

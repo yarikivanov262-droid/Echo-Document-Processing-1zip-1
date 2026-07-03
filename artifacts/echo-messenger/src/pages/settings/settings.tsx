@@ -1,7 +1,8 @@
 import { useLocation } from "wouter";
 import {
   ChevronRight, Bell, Lock, Archive, Palette, Globe, Smartphone,
-  Bookmark, Phone, LogOut, ShieldAlert, Star, UserCircle
+  Bookmark, Phone, LogOut, ShieldAlert, Star, UserCircle,
+  Smile, Users, Activity
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetMe } from "@workspace/api-client-react";
@@ -120,13 +121,16 @@ export function Settings() {
         <Row icon={<Lock className="h-[18px] w-[18px] text-white" />} bg="bg-[#8e8e93]" label="Конфиденциальность" href="/settings/privacy" />
         <Row icon={<Archive className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Данные и архив" href="/settings/backup" />
         <Row icon={<Palette className="h-[18px] w-[18px] text-white" />} bg="bg-[#007aff]" label="Оформление" href="/settings/appearance" />
-        <Row icon={<Globe className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Язык" href="/settings/language" value="Русский" last />
+        <Row icon={<Globe className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Язык" href="/settings/language" value="Русский" />
+        <Row icon={<Smile className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Стикерпаки" href="/sticker-packs" />
+        <Row icon={<Users className="h-[18px] w-[18px] text-white" />} bg="bg-[#a695e7]" label="Мои профили" href="/settings/profiles" last />
       </div>
 
       <div className="h-[6px] bg-muted/30" />
 
       {/* Group 3 — help */}
       <div>
+        <Row icon={<Activity className="h-[18px] w-[18px] text-white" />} bg="bg-[#5856d6]" label="Журнал активности" href="/settings/log" />
         <Row icon={<Star className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Оценить приложение" href="/settings/rate" />
         <Row icon={<ShieldAlert className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff3b30]" label="Центр безопасности" href="/settings/security" last />
       </div>

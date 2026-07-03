@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, messagesTable, usersTable } from "@workspace/db";
+import { db, messagesTable, usersTable, chatMembersTable } from "@workspace/db";
 import { eq, and, desc, lt } from "drizzle-orm";
 import {
   GetMessagesQueryParams,
@@ -11,9 +11,19 @@ import {
   MarkMessageReadParams,
   MarkMessageReadResponse,
 } from "@workspace/api-zod";
+import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { broadcastToChat } from "../lib/ws-hub";
 
 const router: IRouter = Router();
+
+async function getChatMemberIds(chatId: number): Promise<number[]> {
+  const members = await db
+    .select({ userId: chatMembersTable.userId })
+    .from(chatMembersTable)
+    .where(eq(chatMembersTable.chatId, chatId));
+  return members.map((m) => m.userId);
+}
 
 router.get("/messages", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const params = GetMessagesQueryParams.safeParse(req.query);
@@ -24,7 +34,7 @@ router.get("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pro
 
   const { chatId, before, limit = 50 } = params.data;
 
-  let query = db
+  const messages = await db
     .select({
       id: messagesTable.id,
       senderId: messagesTable.senderId,
@@ -41,22 +51,22 @@ router.get("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pro
       isVoice: messagesTable.isVoice,
       mediaFileId: messagesTable.mediaFileId,
       replyToId: messagesTable.replyToId,
+      isEdited: messagesTable.isEdited,
+      editedAt: messagesTable.editedAt,
+      reactions: messagesTable.reactions,
+      forwardedFromId: messagesTable.forwardedFromId,
     })
     .from(messagesTable)
     .innerJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
     .where(
       and(
-        chatId != null
-          ? eq(messagesTable.chatId, chatId)
-          : undefined,
+        chatId != null ? eq(messagesTable.chatId, chatId) : undefined,
         eq(messagesTable.isDeleted, false),
         before != null ? lt(messagesTable.id, before) : undefined
       )
     )
     .orderBy(desc(messagesTable.timestamp))
     .limit(limit);
-
-  const messages = await query;
 
   res.json(
     GetMessagesResponse.parse(
@@ -75,6 +85,10 @@ router.get("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pro
         isVoice: m.isVoice,
         mediaFileId: m.mediaFileId ?? null,
         replyToId: m.replyToId ?? null,
+        isEdited: m.isEdited,
+        editedAt: m.editedAt?.toISOString() ?? null,
+        reactions: (m.reactions as Record<string, number[]>) ?? {},
+        forwardedFromId: m.forwardedFromId ?? null,
       }))
     )
   );
@@ -87,7 +101,6 @@ router.post("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pr
     return;
   }
 
-  // Verify chat exists if chatId is provided
   if (parsed.data.chatId) {
     const { chatsTable } = await import("@workspace/db");
     const { eq: eqFn } = await import("drizzle-orm");
@@ -115,25 +128,39 @@ router.post("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pr
     .returning();
 
   const [sender] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+  const chatId = msg.chatId ?? 0;
 
-  res.status(201).json(
-    SendMessageResponse.parse({
-      id: msg.id,
-      senderId: msg.senderId,
-      senderUsername: sender.username,
-      chatId: msg.chatId ?? msg.receiverId ?? 0,
-      chatType: msg.chatType,
-      encryptedContent: msg.encryptedContent,
-      timestamp: msg.timestamp.toISOString(),
-      deliveredAt: null,
-      readAt: null,
-      deleteAfterRead: msg.deleteAfterRead,
-      deleteAfterSeconds: msg.deleteAfterSeconds ?? null,
-      isVoice: msg.isVoice,
-      mediaFileId: msg.mediaFileId ?? null,
-      replyToId: msg.replyToId ?? null,
-    })
-  );
+  const msgPayload = {
+    id: msg.id,
+    senderId: msg.senderId,
+    senderUsername: sender.username,
+    chatId,
+    chatType: msg.chatType,
+    encryptedContent: msg.encryptedContent,
+    timestamp: msg.timestamp.toISOString(),
+    deliveredAt: null,
+    readAt: null,
+    deleteAfterRead: msg.deleteAfterRead,
+    deleteAfterSeconds: msg.deleteAfterSeconds ?? null,
+    isVoice: msg.isVoice,
+    mediaFileId: msg.mediaFileId ?? null,
+    replyToId: msg.replyToId ?? null,
+    isEdited: false,
+    editedAt: null,
+    reactions: {},
+    forwardedFromId: null,
+  };
+
+  if (chatId) {
+    const memberIds = await getChatMemberIds(chatId);
+    broadcastToChat(memberIds, {
+      type: "new_message",
+      chatId,
+      message: msgPayload as Record<string, unknown>,
+    }, req.userId!);
+  }
+
+  res.status(201).json(SendMessageResponse.parse(msgPayload));
 });
 
 router.delete("/messages/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -154,10 +181,13 @@ router.delete("/messages/:id", requireAuth, async (req: AuthenticatedRequest, re
     return;
   }
 
-  await db
-    .update(messagesTable)
-    .set({ isDeleted: true })
-    .where(eq(messagesTable.id, params.data.id));
+  await db.update(messagesTable).set({ isDeleted: true }).where(eq(messagesTable.id, params.data.id));
+
+  const chatId = msg.chatId ?? 0;
+  if (chatId) {
+    const memberIds = await getChatMemberIds(chatId);
+    broadcastToChat(memberIds, { type: "delete_message", messageId: msg.id, chatId });
+  }
 
   res.json(DeleteMessageResponse.parse({ success: true }));
 });
@@ -170,12 +200,102 @@ router.post("/messages/:id/read", requireAuth, async (req: AuthenticatedRequest,
     return;
   }
 
-  await db
-    .update(messagesTable)
-    .set({ readAt: new Date() })
-    .where(eq(messagesTable.id, params.data.id));
+  await db.update(messagesTable).set({ readAt: new Date() }).where(eq(messagesTable.id, params.data.id));
+
+  const [msg] = await db.select().from(messagesTable).where(eq(messagesTable.id, params.data.id));
+  if (msg?.chatId) {
+    const memberIds = await getChatMemberIds(msg.chatId);
+    broadcastToChat(memberIds, { type: "read_ack", messageId: msg.id, chatId: msg.chatId, userId: req.userId! });
+  }
 
   res.json(MarkMessageReadResponse.parse({ success: true }));
+});
+
+const EditMessageBody = z.object({ encryptedContent: z.string() });
+const ReactBody = z.object({ emoji: z.string() });
+
+router.patch("/messages/:id/edit", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const msgId = parseInt(rawId, 10);
+  const body = EditMessageBody.safeParse(req.body);
+  if (!body.success || isNaN(msgId)) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+
+  const [msg] = await db
+    .select()
+    .from(messagesTable)
+    .where(and(eq(messagesTable.id, msgId), eq(messagesTable.senderId, req.userId!), eq(messagesTable.isDeleted, false)));
+
+  if (!msg) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  const editedAt = new Date();
+  await db.update(messagesTable).set({
+    encryptedContent: body.data.encryptedContent,
+    isEdited: true,
+    editedAt,
+  }).where(eq(messagesTable.id, msgId));
+
+  if (msg.chatId) {
+    const memberIds = await getChatMemberIds(msg.chatId);
+    broadcastToChat(memberIds, {
+      type: "edit_message",
+      messageId: msg.id,
+      chatId: msg.chatId,
+      encryptedContent: body.data.encryptedContent,
+      editedAt: editedAt.toISOString(),
+    });
+  }
+
+  res.json({ success: true });
+});
+
+router.post("/messages/:id/react", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const msgId = parseInt(rawId, 10);
+  const body = ReactBody.safeParse(req.body);
+  if (!body.success || isNaN(msgId)) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+
+  const [msg] = await db
+    .select({ id: messagesTable.id, chatId: messagesTable.chatId, reactions: messagesTable.reactions })
+    .from(messagesTable)
+    .where(and(eq(messagesTable.id, msgId), eq(messagesTable.isDeleted, false)));
+
+  if (!msg) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  const emoji = body.data.emoji;
+  const userId = req.userId!;
+  const reactions = (msg.reactions as Record<string, number[]>) ?? {};
+
+  const existing = reactions[emoji] ?? [];
+  let delta: number;
+  if (existing.includes(userId)) {
+    reactions[emoji] = existing.filter((id) => id !== userId);
+    if (reactions[emoji].length === 0) delete reactions[emoji];
+    delta = -1;
+  } else {
+    reactions[emoji] = [...existing, userId];
+    delta = 1;
+  }
+
+  await db.update(messagesTable).set({ reactions }).where(eq(messagesTable.id, msgId));
+
+  if (msg.chatId) {
+    const memberIds = await getChatMemberIds(msg.chatId);
+    broadcastToChat(memberIds, { type: "reaction", messageId: msg.id, chatId: msg.chatId, emoji, userId, delta });
+  }
+
+  res.json({ success: true });
 });
 
 export default router;

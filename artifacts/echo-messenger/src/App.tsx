@@ -6,11 +6,16 @@ import { ThemeProvider } from "next-themes";
 import { Router as WouterRouter } from "wouter";
 import { AppRouter } from "./app-router";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { useWsConnect } from "@/hooks/use-ws";
 
 const queryClient = new QueryClient();
 
-// Configure the api client to use our localStorage token
 setAuthTokenGetter(() => localStorage.getItem("echo_session_token"));
+
+function WsConnector() {
+  useWsConnect();
+  return null;
+}
 
 function App() {
   return (
@@ -19,6 +24,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <WsConnector />
               <AppRouter />
             </WouterRouter>
             <Toaster />

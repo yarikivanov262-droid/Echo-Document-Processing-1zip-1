@@ -203,7 +203,11 @@ export const GetMessagesResponseItem = zod.object({
   "deleteAfterSeconds": zod.number().nullish(),
   "isVoice": zod.boolean(),
   "mediaFileId": zod.string().nullish(),
-  "replyToId": zod.number().nullish()
+  "replyToId": zod.number().nullish(),
+  "isEdited": zod.boolean().optional(),
+  "editedAt": zod.string().nullish(),
+  "reactions": zod.record(zod.string(), zod.array(zod.number())).optional(),
+  "forwardedFromId": zod.number().nullish()
 })
 export const GetMessagesResponse = zod.array(GetMessagesResponseItem)
 
@@ -237,7 +241,11 @@ export const SendMessageResponse = zod.object({
   "deleteAfterSeconds": zod.number().nullish(),
   "isVoice": zod.boolean(),
   "mediaFileId": zod.string().nullish(),
-  "replyToId": zod.number().nullish()
+  "replyToId": zod.number().nullish(),
+  "isEdited": zod.boolean().optional(),
+  "editedAt": zod.string().nullish(),
+  "reactions": zod.record(zod.string(), zod.array(zod.number())).optional(),
+  "forwardedFromId": zod.number().nullish()
 })
 
 
@@ -472,6 +480,40 @@ export const TerminateSessionParams = zod.object({
 })
 
 export const TerminateSessionResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Edit a sent message
+ */
+export const EditMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const EditMessageBody = zod.object({
+  "encryptedContent": zod.string()
+})
+
+export const EditMessageResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Add or remove a reaction on a message
+ */
+export const ReactToMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ReactToMessageBody = zod.object({
+  "emoji": zod.string()
+})
+
+export const ReactToMessageResponse = zod.object({
   "success": zod.boolean(),
   "message": zod.string().optional()
 })

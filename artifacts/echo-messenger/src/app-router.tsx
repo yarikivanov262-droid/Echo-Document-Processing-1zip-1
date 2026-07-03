@@ -7,6 +7,7 @@ import { SecretChatList } from "@/pages/chat/secret-chat-list";
 import { NewChat } from "@/pages/chat/new-chat";
 import { Contacts } from "@/pages/contacts/contacts";
 import { Calls } from "@/pages/calls/calls";
+import { CallScreen } from "@/pages/calls/call-screen";
 import { Search } from "@/pages/search/search";
 import { Settings } from "@/pages/settings/settings";
 import { SecuritySettings } from "@/pages/settings/security";
@@ -15,9 +16,12 @@ import { NotificationsSettings } from "@/pages/settings/notifications";
 import { AppearanceSettings } from "@/pages/settings/appearance";
 import { PrivacySettings } from "@/pages/settings/privacy";
 import { LanguageSettings } from "@/pages/settings/language";
+import { ProfilesSettings } from "@/pages/settings/profiles";
+import { ActivityLog } from "@/pages/settings/activity-log";
 import { MyProfile } from "@/pages/profile/my-profile";
 import { UserProfile } from "@/pages/profile/user-profile";
 import { CreateGroup } from "@/pages/group/create-group";
+import { StickerPacks } from "@/pages/stickers/sticker-packs";
 import { useEchoAuth } from "@/lib/auth-context";
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -76,6 +80,11 @@ export function AppRouter() {
         </ProtectedLayout>
       </Route>
 
+      {/* Call screen — fullscreen, outside Layout */}
+      <Route path="/chat/:id/voice">
+        <CallScreen />
+      </Route>
+
       <Route path="/chat/:id">
         <ProtectedLayout>
           <ChatSplit right={<ChatWindow />} />
@@ -129,6 +138,11 @@ export function AppRouter() {
         <ProtectedLayout><CreateGroup type="channel" /></ProtectedLayout>
       </Route>
 
+      {/* Sticker packs */}
+      <Route path="/sticker-packs">
+        <ProtectedLayout><StickerPacks /></ProtectedLayout>
+      </Route>
+
       {/* Settings hub */}
       <Route path="/settings">
         <ProtectedLayout><Settings /></ProtectedLayout>
@@ -153,6 +167,12 @@ export function AppRouter() {
       </Route>
       <Route path="/settings/language">
         <ProtectedLayout><LanguageSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/profiles">
+        <ProtectedLayout><ProfilesSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/log">
+        <ProtectedLayout><ActivityLog /></ProtectedLayout>
       </Route>
       <Route path="/settings/rate">
         <ProtectedLayout>

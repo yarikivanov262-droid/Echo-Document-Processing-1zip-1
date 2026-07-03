@@ -97,6 +97,8 @@ export interface PrekeysInput {
   publicOneTimePrekeys: string[];
 }
 
+export type MessageReactions = {[key: string]: number[]};
+
 export interface Message {
   id: number;
   senderId: number;
@@ -117,6 +119,12 @@ export interface Message {
   mediaFileId?: string | null;
   /** @nullable */
   replyToId?: number | null;
+  isEdited?: boolean;
+  /** @nullable */
+  editedAt?: string | null;
+  reactions?: MessageReactions;
+  /** @nullable */
+  forwardedFromId?: number | null;
 }
 
 export interface MessageInput {
@@ -201,6 +209,14 @@ export interface ChatStats {
   totalContacts: number;
   secretChats: number;
   unreadTotal: number;
+}
+
+export interface EditMessageBody {
+  encryptedContent: string;
+}
+
+export interface ReactBody {
+  emoji: string;
 }
 
 export interface FileUploadInput {
