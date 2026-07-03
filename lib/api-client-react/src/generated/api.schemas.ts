@@ -258,6 +258,11 @@ export interface BackupInfo {
   createdAt: string;
 }
 
+export type ListUsersParams = {
+search?: string;
+limit?: number;
+};
+
 export type GetMessagesParams = {
 chatId: number;
 before?: number;

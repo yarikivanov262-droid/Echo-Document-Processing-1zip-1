@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, chatsTable, chatMembersTable, messagesTable, usersTable } from "@workspace/db";
-import { eq, and, desc, count, sql } from "drizzle-orm";
+import { eq, and, desc, count, isNull, ne } from "drizzle-orm";
 import {
   GetChatsResponse,
   CreateChatBody,
@@ -50,6 +50,18 @@ router.get("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promis
         .from(chatMembersTable)
         .where(eq(chatMembersTable.chatId, chat.id));
 
+      const [unreadData] = await db
+        .select({ count: count() })
+        .from(messagesTable)
+        .where(
+          and(
+            eq(messagesTable.chatId, chat.id),
+            eq(messagesTable.isDeleted, false),
+            isNull(messagesTable.readAt),
+            ne(messagesTable.senderId, req.userId!)
+          )
+        );
+
       return {
         id: chat.id,
         type: chat.type,
@@ -57,7 +69,7 @@ router.get("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promis
         avatarFileId: chat.avatarFileId ?? null,
         lastMessage: lastMsg?.encryptedContent ?? null,
         lastMessageAt: lastMsg?.timestamp?.toISOString() ?? null,
-        unreadCount: 0,
+        unreadCount: Number(unreadData?.count ?? 0),
         isPinned: false,
         memberCount: Number(memberCount?.count ?? 0),
         isSecret: false,

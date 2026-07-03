@@ -136,6 +136,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users except self
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicUser"
+
   /users/{username}:
     get:
       operationId: getUserByUsername

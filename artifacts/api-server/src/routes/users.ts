@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, ne, desc, sql } from "drizzle-orm";
 import {
   GetUserByUsernameParams,
   GetUserByUsernameResponse,
@@ -13,6 +13,41 @@ import {
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+router.get("/users", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const search = typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const limit = typeof req.query.limit === "string" ? Math.min(parseInt(req.query.limit, 10) || 50, 200) : 50;
+
+  const rows = await db
+    .select({
+      id: usersTable.id,
+      username: usersTable.username,
+      publicIdentityKey: usersTable.publicIdentityKey,
+      lastActive: usersTable.lastActive,
+      avatarFileId: usersTable.avatarFileId,
+    })
+    .from(usersTable)
+    .where(
+      and(
+        ne(usersTable.id, req.userId!),
+        eq(usersTable.isDeleted, false),
+        search.length > 0
+          ? sql`${usersTable.username} ILIKE ${"%" + search + "%"}`
+          : undefined
+      )
+    )
+    .orderBy(desc(usersTable.lastActive))
+    .limit(limit);
+
+  res.json(rows.map(u => ({
+    id: u.id,
+    username: u.username,
+    publicIdentityKey: u.publicIdentityKey,
+    lastActive: u.lastActive.toISOString(),
+    avatarFileId: u.avatarFileId ?? null,
+    oneTimePrekey: null,
+  })));
+});
 
 router.get("/users/me", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const [user] = await db

@@ -97,6 +97,26 @@ export const DeleteAccountResponse = zod.object({
 
 
 /**
+ * @summary List all users except self
+ */
+export const ListUsersQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const ListUsersResponseItem = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "publicIdentityKey": zod.string(),
+  "publicSignedPrekey": zod.string().optional(),
+  "oneTimePrekey": zod.string().nullish(),
+  "lastActive": zod.string().nullish(),
+  "avatarFileId": zod.string().nullish()
+})
+export const ListUsersResponse = zod.array(ListUsersResponseItem)
+
+
+/**
  * @summary Search user by username and get public key
  */
 export const GetUserByUsernameParams = zod.object({
