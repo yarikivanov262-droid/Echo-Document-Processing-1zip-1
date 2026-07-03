@@ -7,7 +7,7 @@ import {
   Smile, X, Search, Pin, BellOff, UserPlus
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage } from "@workspace/api-client-react";
+import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useWsEvent } from "@/hooks/use-ws";
@@ -71,6 +71,7 @@ export function ChatWindow() {
   const markReadMutation = useMarkMessageRead();
   const deleteMessageMutation = useDeleteMessage();
   const reactMutation = useReactToMessage();
+  const uploadMutation = useUploadFile();
 
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<MsgItem | null>(null);
@@ -241,7 +242,24 @@ export function ChatWindow() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    toast({ title: `Файл выбран: ${file.name}`, description: "Загрузка файлов скоро будет добавлена" });
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const b64 = (reader.result as string).split(",")[1];
+      try {
+        const res = await uploadMutation.mutateAsync({ data: { data: b64, mimeType: file.type } });
+        sendMutation.mutate(
+          { data: { chatId, chatType: chat?.type ?? 1, encryptedContent: file.name, mediaFileId: res.fileId } },
+          {
+            onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }),
+            onError: () => toast({ title: "Ошибка отправки файла", variant: "destructive" }),
+          }
+        );
+      } catch {
+        toast({ title: "Ошибка загрузки", variant: "destructive" });
+      }
+    };
+    reader.readAsDataURL(file);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   return (
@@ -274,7 +292,7 @@ export function ChatWindow() {
 
         <div className="flex items-center gap-0.5 shrink-0">
           <button
-            onClick={() => toast({ title: "Звонки скоро" })}
+            onClick={() => navigate(`/chat/${chatId}/voice`)}
             className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-primary"
           >
             <Phone className="h-5 w-5" />
