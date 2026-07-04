@@ -1,4 +1,4 @@
-import { pgTable, bigserial, bigint, varchar, integer, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, bigint, varchar, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -10,6 +10,7 @@ export const starsTransactionsTable = pgTable("stars_transactions", {
   type: varchar("type", { length: 32 }).notNull(),
   description: varchar("description", { length: 255 }),
   relatedId: bigint("related_id", { mode: "number" }),
+  isAnonymousSender: boolean("is_anonymous_sender").default(false).notNull(),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

@@ -17,6 +17,7 @@ import { echoWs } from "@/lib/ws-client";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { stripExif } from "@/lib/media/strip-exif";
+import { useE2EE, isE2EEPayload } from "@/lib/use-e2ee";
 
 function getAvatarColor(name: string) {
   const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
@@ -93,6 +94,8 @@ export function ChatWindow() {
   const [isChatPinned, setIsChatPinned] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+  const [decryptedMap, setDecryptedMap] = useState<Map<number, string>>(new Map());
+  const { encryptForChat, decryptForChat } = useE2EE();
   const scrollRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -174,6 +177,24 @@ export function ChatWindow() {
     }
   }, [messages?.length]);
 
+  // Decrypt incoming E2EE messages
+  useEffect(() => {
+    if (!messages?.length) return;
+    const run = async () => {
+      const updates = new Map<number, string>();
+      for (const msg of messages) {
+        if (msg.senderId !== userId && isE2EEPayload(msg.encryptedContent ?? "")) {
+          try {
+            const plain = await decryptForChat(chatId, msg.encryptedContent ?? "");
+            if (plain !== msg.encryptedContent) updates.set(msg.id, plain);
+          } catch { /* ignore decrypt errors for messages not yet in our chain */ }
+        }
+      }
+      if (updates.size > 0) setDecryptedMap(prev => new Map([...prev, ...updates]));
+    };
+    void run();
+  }, [messages?.length, chatId, userId]);
+
   // Typing indicator
   const handleTextChange = (v: string) => {
     setText(v);
@@ -195,18 +216,26 @@ export function ChatWindow() {
     const replyId = replyTo?.id;
     setReplyTo(null);
     setShowEmoji(false);
-    sendMutation.mutate({
-      data: {
-        chatId,
-        chatType: chat?.type ?? 1,
-        encryptedContent: trimmed,
-        ...(replyId ? { replyToId: replyId } : {}),
-      },
-    }, {
-      onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }),
-      onError: () => toast({ title: "Ошибка отправки", variant: "destructive" }),
-    });
-    setTimeout(() => inputRef.current?.focus(), 50);
+    const isDM = (chat as { type?: number })?.type === 1;
+    const partnerUsername = isDM ? (chat as { name?: string })?.name ?? "" : "";
+    const doSend = async () => {
+      const content = isDM && partnerUsername
+        ? await encryptForChat(chatId, partnerUsername, trimmed)
+        : trimmed;
+      sendMutation.mutate({
+        data: {
+          chatId,
+          chatType: chat?.type ?? 1,
+          encryptedContent: content,
+          ...(replyId ? { replyToId: replyId } : {}),
+        },
+      }, {
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }),
+        onError: () => toast({ title: "Ошибка отправки", variant: "destructive" }),
+      });
+      setTimeout(() => inputRef.current?.focus(), 50);
+    };
+    void doSend();
   };
 
   const findMsgById = (msgId?: number | null) => msgId ? enriched.find(m => m.id === msgId) : undefined;
@@ -584,7 +613,7 @@ export function ChatWindow() {
                         );
                       })()}
 
-                      <MessageText id={`msg-${msg.id}`} text={msg.encryptedContent ?? ""} isSelf={isSelf} />
+                      <MessageText id={`msg-${msg.id}`} text={decryptedMap.get(msg.id) ?? (isE2EEPayload(msg.encryptedContent ?? "") && isSelf ? "🔒 [зашифровано]" : (msg.encryptedContent ?? ""))} isSelf={isSelf} />
 
                       {/* Edited mark */}
                       {msg.isEdited && (

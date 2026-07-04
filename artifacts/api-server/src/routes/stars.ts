@@ -30,7 +30,8 @@ router.get("/stars", requireAuth, async (req: AuthenticatedRequest, res): Promis
       type: t.type,
       amount: t.amount,
       description: t.description ?? null,
-      relatedId: t.relatedId ?? null,
+      relatedId: t.isAnonymousSender ? null : (t.relatedId ?? null),
+      isAnonymous: t.isAnonymousSender,
       createdAt: t.createdAt.toISOString(),
     })),
   });
@@ -78,7 +79,7 @@ router.post("/stars/purchase", requireAuth, async (req: AuthenticatedRequest, re
 
 // POST /stars/gift — gift stars to another user — atomic, race-safe
 router.post("/stars/gift", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { recipientId, amount } = req.body as { recipientId?: number; amount?: number };
+  const { recipientId, amount, anonymous } = req.body as { recipientId?: number; amount?: number; anonymous?: boolean };
   if (!recipientId || !amount || amount < 1 || amount > 9999) {
     res.status(400).json({ error: "Invalid recipientId or amount" });
     return;
@@ -125,15 +126,16 @@ router.post("/stars/gift", requireAuth, async (req: AuthenticatedRequest, res): 
       userId: req.userId!,
       amount: -amount,
       type: "gift_sent",
-      description: `Подарок @${recipientRow.username}`,
+      description: `Подарок @${recipientRow.username}${anonymous ? " (анонимно)" : ""}`,
       relatedId: recipientId,
     },
     {
       userId: recipientId,
       amount,
       type: "gift_received",
-      description: `Подарок получен`,
-      relatedId: req.userId!,
+      description: anonymous ? "Анонимный подарок" : `Подарок получен`,
+      relatedId: anonymous ? null : req.userId!,
+      isAnonymousSender: anonymous === true,
     },
   ]);
 

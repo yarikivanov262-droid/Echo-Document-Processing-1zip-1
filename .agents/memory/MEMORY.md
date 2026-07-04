@@ -5,3 +5,4 @@
 - [ECHO tech spec document](echo-tech-spec.md) — full feature roadmap lives in ТЕХ ПРОЕКТ ECHO.txt as 41 numbered STAGEs; user tracks progress by stage number.
 - [activity_logs schema fields](activity-logs-schema.md) — activityLogsTable uses `action` (not `type`), no `description`/`riskLevel` columns; put extra info in `metadata` jsonb.
 - [contactsTable owner field](contacts-schema.md) — contactsTable uses `ownerId` (not `userId`) for the owning user FK; blockedUsersTable uses `userId`.
+- [WebCrypto Uint8Array TS casts](webcrypto-ts-casts.md) — spread-built Uint8Array has `.buffer: ArrayBufferLike`; cast `combined.buffer as ArrayBuffer` and `data as unknown as ArrayBuffer` for sign/encrypt calls.

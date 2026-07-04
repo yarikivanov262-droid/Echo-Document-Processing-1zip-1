@@ -207,4 +207,13 @@ router.post("/prekeys", requireAuth, async (req: AuthenticatedRequest, res): Pro
   res.json(UploadPrekeysResponse.parse({ success: true }));
 });
 
+router.patch("/me/keys", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const { identityKey, signedPrekey } = req.body as { identityKey?: string; signedPrekey?: string };
+  if (!identityKey) { res.status(400).json({ error: "identityKey required" }); return; }
+  const updates: Record<string, string> = { publicIdentityKey: identityKey };
+  if (signedPrekey) updates.publicSignedPrekey = signedPrekey;
+  await db.update(usersTable).set(updates).where(eq(usersTable.id, req.userId!));
+  res.json({ ok: true });
+});
+
 export default router;
