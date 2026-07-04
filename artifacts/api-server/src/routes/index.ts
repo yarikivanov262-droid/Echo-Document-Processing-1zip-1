@@ -14,17 +14,16 @@ import numbersRouter from "./numbers";
 import starsRouter from "./stars";
 import premiumRouter from "./premium";
 import anonInboxRouter from "./anon-inbox";
-import { authRateLimit, messageRateLimit, fileUploadRateLimit } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
-router.use(authRateLimit, authRouter);
+router.use(authRouter);
 router.use(numbersRouter);
 router.use(usersRouter);
-router.use(messageRateLimit, messagesRouter);
+router.use(messagesRouter);
 router.use(chatsRouter);
-router.use(fileUploadRateLimit, filesRouter);
+router.use(filesRouter);
 router.use(contactsRouter);
 router.use(activityLogRouter);
 router.use(stickersRouter);

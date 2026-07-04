@@ -21,8 +21,11 @@ import {
   GetLatestBackupResponse,
 } from "@workspace/api-zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { authRateLimit } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
+
+router.use(authRateLimit);
 
 router.post("/register", async (req, res): Promise<void> => {
   const parsed = RegisterBody.safeParse(req.body);

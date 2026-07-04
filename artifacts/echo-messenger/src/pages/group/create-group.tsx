@@ -4,6 +4,7 @@ import { ArrowLeft, Camera, Search } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useCreateChat, useGetUserByUsername } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 function getAvatarColor(name: string) {
   const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
@@ -47,6 +48,7 @@ export function CreateGroup({ type }: Props) {
       },
     }, {
       onSuccess: (chat) => navigate(`/chat/${chat.id}`),
+      onError: () => toast({ title: "Не удалось создать группу", variant: "destructive" }),
     });
   };
 

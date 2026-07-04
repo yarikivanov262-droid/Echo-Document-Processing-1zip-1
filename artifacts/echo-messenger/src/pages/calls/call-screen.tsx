@@ -54,6 +54,7 @@ export function CallScreen() {
     hangup,
     toggleMute,
     toggleVideo,
+    flipCamera,
     localVideoRef,
     remoteVideoRef,
     callState,
@@ -257,7 +258,7 @@ export function CallScreen() {
                 {
                   icon: <RotateCcw className="h-5 w-5" />,
                   label: "Перевернуть",
-                  fn: () => {},
+                  fn: () => { void flipCamera(); },
                   active: false,
                 },
               ].map(({ icon, label, fn, active }) => (

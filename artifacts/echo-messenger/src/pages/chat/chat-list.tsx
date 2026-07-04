@@ -182,6 +182,7 @@ export function ChatList() {
   const settingsMutation = useUpdateChatMemberSettings({
     mutation: {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/chats"] }),
+      onError: () => toast({ title: "Не удалось выполнить действие", variant: "destructive" }),
     },
   });
 

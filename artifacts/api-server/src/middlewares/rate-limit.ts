@@ -47,9 +47,9 @@ export const authRateLimit = createLimiter({
 
 export const anonInboxRateLimit = createLimiter({
   windowMs: 60_000,
-  max: 3,
+  max: 12,
   message: { error: "Слишком много анонимных сообщений. Подождите." },
-  keyFn: (req) => req.ip ?? "unknown",
+  keyFn: (req) => `${req.ip ?? "unknown"}:${req.params.slug ?? ""}`,
 });
 
 export const fileUploadRateLimit = createLimiter({

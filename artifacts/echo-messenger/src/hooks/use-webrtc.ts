@@ -26,6 +26,7 @@ export function useWebRTC({ callId, targetUserId, isInitiator, callType, onEnded
   const [callState, setCallState] = useState<CallState>(isInitiator ? "ringing" : "connecting");
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(callType === "video");
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
   const remoteDescSet = useRef(false);
 
@@ -141,6 +142,37 @@ export function useWebRTC({ callId, targetUserId, isInitiator, callType, onEnded
     setIsVideoEnabled((v) => !v);
   }, [localStream]);
 
+  const flipCamera = useCallback(async () => {
+    if (!localStream || callType !== "video") return;
+    const nextFacingMode = facingMode === "user" ? "environment" : "user";
+    try {
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: nextFacingMode },
+      });
+      const newTrack = newStream.getVideoTracks()[0];
+      if (!newTrack) return;
+
+      const sender = pcRef.current?.getSenders().find((s) => s.track?.kind === "video");
+      await sender?.replaceTrack(newTrack);
+
+      const oldTrack = localStream.getVideoTracks()[0];
+      if (oldTrack) {
+        localStream.removeTrack(oldTrack);
+        oldTrack.stop();
+      }
+      localStream.addTrack(newTrack);
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
+
+      setFacingMode(nextFacingMode);
+    } catch (err) {
+      console.error("Failed to flip camera:", err);
+    }
+  }, [localStream, callType, facingMode]);
+
   const hangup = useCallback(() => {
     localStream?.getTracks().forEach((t) => t.stop());
     pcRef.current?.close();
@@ -168,6 +200,7 @@ export function useWebRTC({ callId, targetUserId, isInitiator, callType, onEnded
     hangup,
     toggleMute,
     toggleVideo,
+    flipCamera,
     localStream,
     remoteStream,
     localVideoRef,

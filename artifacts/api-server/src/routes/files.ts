@@ -8,8 +8,11 @@ import {
   GetFileResponse,
 } from "@workspace/api-zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { fileUploadRateLimit } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
+
+router.use(fileUploadRateLimit);
 
 router.post("/files/upload", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = UploadFileBody.safeParse(req.body);

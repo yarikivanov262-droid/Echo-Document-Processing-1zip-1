@@ -14,8 +14,11 @@ import {
 import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { broadcastToChat } from "../lib/ws-hub";
+import { messageRateLimit } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
+
+router.use(messageRateLimit);
 
 async function getChatMemberIds(chatId: number): Promise<number[]> {
   const members = await db
