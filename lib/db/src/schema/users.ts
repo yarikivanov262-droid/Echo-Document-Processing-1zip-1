@@ -24,6 +24,7 @@ export const usersTable = pgTable("users", {
   displayName: varchar("display_name", { length: 64 }),
   pinnedChats: jsonb("pinned_chats").$type<number[]>(),
   publicUsername: boolean("public_username").default(true).notNull(),
+  echoNumber: varchar("echo_number", { length: 16 }).unique(),
 });
 
 export const insertUserSchema = createInsertSchema(usersTable).omit({ id: true, createdAt: true, lastActive: true });

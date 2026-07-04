@@ -166,6 +166,67 @@ paths:
                 items:
                   $ref: "#/components/schemas/PublicUser"
 
+  /numbers/check/{number}:
+    get:
+      operationId: checkEchoNumber
+      tags: [users]
+      summary: Check if an ECHO number is available
+      parameters:
+        - name: number
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EchoNumberAvailability"
+
+  /numbers/claim:
+    post:
+      operationId: claimEchoNumber
+      tags: [users]
+      summary: Claim an ECHO number for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClaimEchoNumberInput"
+      responses:
+        "200":
+          description: Number claimed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "409":
+          description: Number already taken
+
+  /users/by-number/{echoNumber}:
+    get:
+      operationId: getUserByEchoNumber
+      tags: [users]
+      summary: Find user by ECHO number (+999XXXXXXX)
+      parameters:
+        - name: echoNumber
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicUser"
+        "404":
+          description: User not found
+
   /users/{username}:
     get:
       operationId: getUserByUsername
@@ -1086,6 +1147,22 @@ components:
           type: boolean
       required: [available]
 
+    EchoNumberAvailability:
+      type: object
+      properties:
+        available:
+          type: boolean
+        number:
+          type: string
+      required: [available, number]
+
+    ClaimEchoNumberInput:
+      type: object
+      properties:
+        number:
+          type: string
+      required: [number]
+
     PublicUser:
       type: object
       properties:
@@ -1109,6 +1186,8 @@ components:
           type: ["string", "null"]
         isPremium:
           type: boolean
+        echoNumber:
+          type: ["string", "null"]
       required: [id, username, publicIdentityKey]
 
     UserProfile:
@@ -1136,6 +1215,8 @@ components:
           $ref: "#/components/schemas/UserSettings"
         createdAt:
           type: string
+        echoNumber:
+          type: ["string", "null"]
       required: [id, username, publicIdentityKey, lastActive, createdAt, isPremium, starsBalance]
 
     UpdateMeInput:

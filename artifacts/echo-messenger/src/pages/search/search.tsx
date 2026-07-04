@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { X } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useGetUserByUsername, useGetChats, useCreateChat } from "@workspace/api-client-react";
+import { useGetUserByUsername, useGetUserByEchoNumber, useGetChats, useCreateChat } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
 function getAvatarColor(name: string) {
@@ -12,19 +12,21 @@ function getAvatarColor(name: string) {
   return colors[Math.abs(h) % colors.length];
 }
 
-const recentSearches = [
-  { username: "ghost_protocol" },
-  { username: "cipher_ops" },
-  { username: "neon_shadow" },
-];
-
 export function Search() {
   const [, navigate] = useLocation();
   const [query, setQuery] = useState("");
 
-  const { data: foundUser, isLoading: userLoading } = useGetUserByUsername(query, {
-    query: { enabled: query.length > 1 } as never,
+  const isNumberSearch = /^\+999\d{0,7}$/.test(query.trim());
+  const isFullNumber = /^\+999\d{7}$/.test(query.trim());
+
+  const { data: foundUser, isLoading: userLoading } = useGetUserByUsername(query.trim(), {
+    query: { enabled: query.trim().length > 1 && !isNumberSearch } as never,
   });
+
+  const { data: foundByNumber, isLoading: numberLoading } = useGetUserByEchoNumber(query.trim(), {
+    query: { enabled: isFullNumber } as never,
+  });
+
   const { data: chats } = useGetChats();
   const createChatMutation = useCreateChat();
 
@@ -38,6 +40,9 @@ export function Search() {
     });
   };
 
+  const isLoading = userLoading || numberLoading;
+  const resultUser = isNumberSearch ? foundByNumber : foundUser;
+
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
       {/* Search bar */}
@@ -50,7 +55,7 @@ export function Search() {
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Поиск"
+            placeholder="Поиск по @username или +999..."
             className="flex-1 bg-transparent outline-none text-[15px] placeholder:text-muted-foreground"
           />
           {query && (
@@ -66,26 +71,20 @@ export function Search() {
 
       <div className="flex-1 overflow-y-auto">
         {!query && (
-          <>
-            {/* Recent searches as avatar row */}
-            <div className="flex gap-4 px-4 py-3 overflow-x-auto">
-              {recentSearches.map(r => (
-                <button key={r.username} onClick={() => setQuery(r.username)} className="flex flex-col items-center gap-1 shrink-0">
-                  <Avatar className="h-14 w-14">
-                    <AvatarFallback className={cn("text-white font-semibold text-xl", getAvatarColor(r.username))}>
-                      {r.username.substring(0, 1).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-[11px] text-muted-foreground max-w-[56px] truncate">{r.username}</span>
-                </button>
-              ))}
+          <div className="px-4 py-8 flex flex-col items-center text-center gap-3">
+            <div className="text-5xl">🔍</div>
+            <div className="text-[16px] font-semibold">Поиск пользователей</div>
+            <div className="text-[13px] text-muted-foreground max-w-[240px]">
+              Введите имя пользователя или ECHO номер в формате <span className="font-mono text-primary">+999XXXXXXX</span>
             </div>
+          </div>
+        )}
 
-            <div className="px-4 py-1 flex items-center justify-between">
-              <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Недавние</span>
-              <button className="text-primary text-[14px]">Очистить</button>
-            </div>
-          </>
+        {/* Hint for partial number */}
+        {isNumberSearch && !isFullNumber && (
+          <div className="px-4 py-3 text-[14px] text-muted-foreground">
+            Введите полный номер: +999 + 7 цифр
+          </div>
         )}
 
         {/* Chat results */}
@@ -114,39 +113,56 @@ export function Search() {
           </div>
         )}
 
-        {/* User search results */}
+        {/* Global search results */}
         {query.length > 1 && (
           <div>
-            {userLoading ? (
+            {isLoading ? (
               <div className="px-4 py-3 text-muted-foreground text-[14px]">Поиск...</div>
-            ) : foundUser ? (
+            ) : resultUser ? (
               <>
                 <div className="px-4 pt-2 pb-1">
-                  <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Глобальный поиск</span>
+                  <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">
+                    {isNumberSearch ? "По ECHO номеру" : "Глобальный поиск"}
+                  </span>
                 </div>
                 <button
-                  onClick={() => startChat(foundUser.id, foundUser.username)}
+                  onClick={() => startChat(resultUser.id, resultUser.username)}
                   disabled={createChatMutation.isPending}
                   className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/30 disabled:opacity-60"
                 >
                   <Avatar className="h-[54px] w-[54px] shrink-0">
-                    <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(foundUser.username))}>
-                      {foundUser.username.substring(0, 1).toUpperCase()}
+                    <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(resultUser.username))}>
+                      {resultUser.username.substring(0, 1).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 border-b border-border/50 py-3 text-left">
-                    <div className="text-[16px] font-semibold">{foundUser.username}</div>
-                    <div className="text-[13px] text-primary">@{foundUser.username}</div>
+                    <div className="text-[16px] font-semibold">
+                      {resultUser.displayName || resultUser.username}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] text-primary">@{resultUser.username}</span>
+                      {resultUser.echoNumber && (
+                        <span className="text-[12px] text-muted-foreground font-mono">{resultUser.echoNumber}</span>
+                      )}
+                    </div>
                   </div>
                 </button>
               </>
             ) : (
-              !filteredChats.length && (
+              !filteredChats.length && !isNumberSearch && (
                 <div className="px-4 py-8 text-center text-muted-foreground">
                   <div className="text-4xl mb-3">🔍</div>
                   <div className="text-[15px]">Ничего не найдено</div>
                 </div>
               )
+            )}
+
+            {/* No result for full number search */}
+            {isFullNumber && !numberLoading && !foundByNumber && (
+              <div className="px-4 py-8 text-center text-muted-foreground">
+                <div className="text-4xl mb-3">📵</div>
+                <div className="text-[15px]">Пользователь с номером {query} не найден</div>
+              </div>
             )}
           </div>
         )}

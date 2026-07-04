@@ -15,7 +15,7 @@ export function SecretChatList() {
   const [, navigate] = useLocation();
   const { data: chats, isLoading } = useGetChats({ query: { refetchInterval: 5000 } as never });
 
-  const displayChats = chats ?? [];
+  const displayChats = (chats ?? []).filter((c) => c.type === 4);
 
   return (
     <div className="flex flex-col h-full bg-background w-full md:w-80 lg:w-96 shrink-0 md:border-r md:border-border">

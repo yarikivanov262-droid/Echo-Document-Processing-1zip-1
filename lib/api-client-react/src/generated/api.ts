@@ -38,9 +38,11 @@ import type {
   ChatStats,
   ChatSummary,
   ChatUpdate,
+  ClaimEchoNumberInput,
   Contact,
   CreateCallInput,
   DeleteAccountInput,
+  EchoNumberAvailability,
   EditMessageBody,
   FileInfo,
   FileUploadInput,
@@ -594,6 +596,230 @@ export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCheckEchoNumberUrl = (number: string,) => {
+
+
+
+
+  return `/api/numbers/check/${number}`
+}
+
+/**
+ * @summary Check if an ECHO number is available
+ */
+export const checkEchoNumber = async (number: string, options?: RequestInit): Promise<EchoNumberAvailability> => {
+
+  return customFetch<EchoNumberAvailability>(getCheckEchoNumberUrl(number),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getCheckEchoNumberQueryKey = (number: string,) => {
+    return [
+    `/api/numbers/check/${number}`
+    ] as const;
+    }
+
+
+export const getCheckEchoNumberQueryOptions = <TData = Awaited<ReturnType<typeof checkEchoNumber>>, TError = ErrorType<unknown>>(number: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof checkEchoNumber>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getCheckEchoNumberQueryKey(number);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof checkEchoNumber>>> = ({ signal }) => checkEchoNumber(number, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: number !== null && number !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof checkEchoNumber>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type CheckEchoNumberQueryResult = NonNullable<Awaited<ReturnType<typeof checkEchoNumber>>>
+export type CheckEchoNumberQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Check if an ECHO number is available
+ */
+
+export function useCheckEchoNumber<TData = Awaited<ReturnType<typeof checkEchoNumber>>, TError = ErrorType<unknown>>(
+ number: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof checkEchoNumber>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getCheckEchoNumberQueryOptions(number,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getClaimEchoNumberUrl = () => {
+
+
+
+
+  return `/api/numbers/claim`
+}
+
+/**
+ * @summary Claim an ECHO number for the current user
+ */
+export const claimEchoNumber = async (claimEchoNumberInput: ClaimEchoNumberInput, options?: RequestInit): Promise<UserProfile> => {
+
+  return customFetch<UserProfile>(getClaimEchoNumberUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(claimEchoNumberInput)
+  }
+);}
+
+
+
+
+export const getClaimEchoNumberMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimEchoNumber>>, TError,{data: BodyType<ClaimEchoNumberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimEchoNumber>>, TError,{data: BodyType<ClaimEchoNumberInput>}, TContext> => {
+
+const mutationKey = ['claimEchoNumber'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimEchoNumber>>, {data: BodyType<ClaimEchoNumberInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  claimEchoNumber(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimEchoNumberMutationResult = NonNullable<Awaited<ReturnType<typeof claimEchoNumber>>>
+    export type ClaimEchoNumberMutationBody = BodyType<ClaimEchoNumberInput>
+    export type ClaimEchoNumberMutationError = ErrorType<void>
+
+    /**
+ * @summary Claim an ECHO number for the current user
+ */
+export const useClaimEchoNumber = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimEchoNumber>>, TError,{data: BodyType<ClaimEchoNumberInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimEchoNumber>>,
+        TError,
+        {data: BodyType<ClaimEchoNumberInput>},
+        TContext
+      > => {
+      return useMutation(getClaimEchoNumberMutationOptions(options));
+    }
+
+export const getGetUserByEchoNumberUrl = (echoNumber: string,) => {
+
+
+
+
+  return `/api/users/by-number/${echoNumber}`
+}
+
+/**
+ * @summary Find user by ECHO number (+999XXXXXXX)
+ */
+export const getUserByEchoNumber = async (echoNumber: string, options?: RequestInit): Promise<PublicUser> => {
+
+  return customFetch<PublicUser>(getGetUserByEchoNumberUrl(echoNumber),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUserByEchoNumberQueryKey = (echoNumber: string,) => {
+    return [
+    `/api/users/by-number/${echoNumber}`
+    ] as const;
+    }
+
+
+export const getGetUserByEchoNumberQueryOptions = <TData = Awaited<ReturnType<typeof getUserByEchoNumber>>, TError = ErrorType<void>>(echoNumber: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserByEchoNumber>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUserByEchoNumberQueryKey(echoNumber);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserByEchoNumber>>> = ({ signal }) => getUserByEchoNumber(echoNumber, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: echoNumber !== null && echoNumber !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserByEchoNumber>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUserByEchoNumberQueryResult = NonNullable<Awaited<ReturnType<typeof getUserByEchoNumber>>>
+export type GetUserByEchoNumberQueryError = ErrorType<void>
+
+
+/**
+ * @summary Find user by ECHO number (+999XXXXXXX)
+ */
+
+export function useGetUserByEchoNumber<TData = Awaited<ReturnType<typeof getUserByEchoNumber>>, TError = ErrorType<void>>(
+ echoNumber: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUserByEchoNumber>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUserByEchoNumberQueryOptions(echoNumber,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

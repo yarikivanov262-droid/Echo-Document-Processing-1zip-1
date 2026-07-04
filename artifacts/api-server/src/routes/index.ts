@@ -10,11 +10,13 @@ import activityLogRouter from "./activity-log";
 import stickersRouter from "./stickers";
 import foldersRouter from "./folders";
 import callsRouter from "./calls";
+import numbersRouter from "./numbers";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(numbersRouter);
 router.use(usersRouter);
 router.use(messagesRouter);
 router.use(chatsRouter);

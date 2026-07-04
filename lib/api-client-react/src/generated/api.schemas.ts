@@ -55,6 +55,15 @@ export interface UsernameAvailability {
   available: boolean;
 }
 
+export interface EchoNumberAvailability {
+  available: boolean;
+  number: string;
+}
+
+export interface ClaimEchoNumberInput {
+  number: string;
+}
+
 export interface PublicUser {
   id: number;
   username: string;
@@ -71,6 +80,8 @@ export interface PublicUser {
   /** @nullable */
   bio?: string | null;
   isPremium?: boolean;
+  /** @nullable */
+  echoNumber?: string | null;
 }
 
 export interface UserSettings {
@@ -98,6 +109,8 @@ export interface UserProfile {
   starsBalance: number;
   settings?: UserSettings;
   createdAt: string;
+  /** @nullable */
+  echoNumber?: string | null;
 }
 
 export interface UpdateMeInput {

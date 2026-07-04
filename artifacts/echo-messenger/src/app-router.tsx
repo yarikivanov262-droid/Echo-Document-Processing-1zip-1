@@ -19,6 +19,8 @@ import { PrivacySettings } from "@/pages/settings/privacy";
 import { LanguageSettings } from "@/pages/settings/language";
 import { ProfilesSettings } from "@/pages/settings/profiles";
 import { ActivityLog } from "@/pages/settings/activity-log";
+import { FoldersSettings } from "@/pages/settings/folders";
+import { DataSettings } from "@/pages/settings/data";
 import { MyProfile } from "@/pages/profile/my-profile";
 import { UserProfile } from "@/pages/profile/user-profile";
 import { CreateGroup } from "@/pages/group/create-group";
@@ -200,6 +202,12 @@ export function AppRouter() {
       </Route>
       <Route path="/settings/log">
         <ProtectedLayout><ActivityLog /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/folders">
+        <ProtectedLayout><FoldersSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/data">
+        <ProtectedLayout><DataSettings /></ProtectedLayout>
       </Route>
       <Route path="/settings/rate">
         <ProtectedLayout>

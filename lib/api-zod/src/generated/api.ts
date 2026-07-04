@@ -114,9 +114,75 @@ export const ListUsersResponseItem = zod.object({
   "avatarFileId": zod.string().nullish(),
   "displayName": zod.string().nullish(),
   "bio": zod.string().nullish(),
-  "isPremium": zod.boolean().optional()
+  "isPremium": zod.boolean().optional(),
+  "echoNumber": zod.string().nullish()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
+
+
+/**
+ * @summary Check if an ECHO number is available
+ */
+export const CheckEchoNumberParams = zod.object({
+  "number": zod.coerce.string()
+})
+
+export const CheckEchoNumberResponse = zod.object({
+  "available": zod.boolean(),
+  "number": zod.string()
+})
+
+
+/**
+ * @summary Claim an ECHO number for the current user
+ */
+export const ClaimEchoNumberBody = zod.object({
+  "number": zod.string()
+})
+
+export const ClaimEchoNumberResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "publicIdentityKey": zod.string(),
+  "lastActive": zod.string(),
+  "avatarFileId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "isPremium": zod.boolean(),
+  "starsBalance": zod.number(),
+  "settings": zod.object({
+  "theme": zod.string().optional(),
+  "language": zod.string().optional(),
+  "notifications": zod.boolean().optional(),
+  "showLastSeen": zod.boolean().optional(),
+  "showAvatar": zod.boolean().optional(),
+  "autoDeleteMessages": zod.number().nullish()
+}).optional(),
+  "createdAt": zod.string(),
+  "echoNumber": zod.string().nullish()
+})
+
+
+/**
+ * @summary Find user by ECHO number (+999XXXXXXX)
+ */
+export const GetUserByEchoNumberParams = zod.object({
+  "echoNumber": zod.coerce.string()
+})
+
+export const GetUserByEchoNumberResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "publicIdentityKey": zod.string(),
+  "publicSignedPrekey": zod.string().optional(),
+  "oneTimePrekey": zod.string().nullish(),
+  "lastActive": zod.string().nullish(),
+  "avatarFileId": zod.string().nullish(),
+  "displayName": zod.string().nullish(),
+  "bio": zod.string().nullish(),
+  "isPremium": zod.boolean().optional(),
+  "echoNumber": zod.string().nullish()
+})
 
 
 /**
@@ -136,7 +202,8 @@ export const GetUserByUsernameResponse = zod.object({
   "avatarFileId": zod.string().nullish(),
   "displayName": zod.string().nullish(),
   "bio": zod.string().nullish(),
-  "isPremium": zod.boolean().optional()
+  "isPremium": zod.boolean().optional(),
+  "echoNumber": zod.string().nullish()
 })
 
 
@@ -161,7 +228,8 @@ export const GetMeResponse = zod.object({
   "showAvatar": zod.boolean().optional(),
   "autoDeleteMessages": zod.number().nullish()
 }).optional(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "echoNumber": zod.string().nullish()
 })
 
 
@@ -198,7 +266,8 @@ export const UpdateMeResponse = zod.object({
   "showAvatar": zod.boolean().optional(),
   "autoDeleteMessages": zod.number().nullish()
 }).optional(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "echoNumber": zod.string().nullish()
 })
 
 
@@ -234,7 +303,8 @@ export const UpdateSettingsResponse = zod.object({
   "showAvatar": zod.boolean().optional(),
   "autoDeleteMessages": zod.number().nullish()
 }).optional(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "echoNumber": zod.string().nullish()
 })
 
 

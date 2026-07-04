@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useGetMe, useUpdateSettings } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -19,17 +21,14 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, footer }: { title: string; children: React.ReactNode; footer?: string }) {
   return (
-    <div className="mb-6">
-      {title && (
-        <div className="px-4 pb-1.5 pt-4">
-          <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">{title}</span>
-        </div>
-      )}
-      <div className="bg-card divide-y divide-border/50">
-        {children}
+    <div className="mb-0">
+      <div className="px-4 pb-1.5 pt-5">
+        <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">{title}</span>
       </div>
+      <div className="bg-card divide-y divide-border/50">{children}</div>
+      {footer && <div className="px-4 pt-2 pb-1 text-[13px] text-muted-foreground">{footer}</div>}
     </div>
   );
 }
@@ -46,35 +45,75 @@ function ToggleRow({ label, sub, value, onChange }: { label: string; sub?: strin
   );
 }
 
+type NotifSettings = {
+  messages: boolean;
+  groups: boolean;
+  channels: boolean;
+  calls: boolean;
+  sound: boolean;
+  vibration: boolean;
+  preview: boolean;
+  badge: boolean;
+  loginAlerts: boolean;
+  securityAlerts: boolean;
+};
+
+const DEFAULTS: NotifSettings = {
+  messages: true, groups: true, channels: false, calls: true,
+  sound: true, vibration: true, preview: true, badge: true,
+  loginAlerts: true, securityAlerts: true,
+};
+
 export function NotificationsSettings() {
   const [, navigate] = useLocation();
-  const [s, setS] = useState({
-    messages: true,
-    groups: true,
-    channels: false,
-    calls: true,
-    sound: true,
-    vibration: true,
-    preview: true,
-    badge: true,
-  });
-  const set = (k: keyof typeof s) => (v: boolean) => setS(p => ({ ...p, [k]: v }));
+  const { data: me } = useGetMe();
+  const updateSettings = useUpdateSettings();
+  const { toast } = useToast();
+  const [s, setS] = useState<NotifSettings>(DEFAULTS);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (me?.settings) {
+      const saved = (me.settings as Record<string, unknown>).notifications as Partial<NotifSettings> | undefined;
+      if (saved) setS({ ...DEFAULTS, ...saved });
+    }
+  }, [me]);
+
+  const set = (k: keyof NotifSettings) => (v: boolean) => {
+    setS(p => ({ ...p, [k]: v }));
+    setDirty(true);
+  };
+
+  const save = () => {
+    const existingSettings = (me?.settings as Record<string, unknown>) ?? {};
+    updateSettings.mutate(
+      { data: { settings: { ...existingSettings, notifications: s } as never } },
+      {
+        onSuccess: () => { toast({ title: "Настройки сохранены" }); setDirty(false); },
+        onError: () => toast({ title: "Ошибка сохранения", variant: "destructive" }),
+      }
+    );
+  };
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
       <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
         <button onClick={() => navigate("/settings")} className="text-primary text-[17px]">Назад</button>
         <span className="text-[17px] font-semibold">Уведомления</span>
-        <div className="w-16" />
+        {dirty ? (
+          <button onClick={save} disabled={updateSettings.isPending} className="text-primary text-[17px] font-semibold disabled:opacity-50">
+            {updateSettings.isPending ? "..." : "Сохранить"}
+          </button>
+        ) : <div className="w-20" />}
       </div>
 
       <Section title="Личные сообщения">
         <ToggleRow label="Уведомления" value={s.messages} onChange={set("messages")} />
-        <ToggleRow label="Предпросмотр текста" sub="Показывать фрагмент сообщения" value={s.preview} onChange={set("preview")} />
+        <ToggleRow label="Предпросмотр" sub="Показывать фрагмент сообщения" value={s.preview} onChange={set("preview")} />
       </Section>
 
       <Section title="Группы">
-        <ToggleRow label="Уведомления" value={s.groups} onChange={set("groups")} />
+        <ToggleRow label="Уведомления о сообщениях" value={s.groups} onChange={set("groups")} />
       </Section>
 
       <Section title="Каналы">
@@ -88,8 +127,15 @@ export function NotificationsSettings() {
       <Section title="Общие">
         <ToggleRow label="Звук" value={s.sound} onChange={set("sound")} />
         <ToggleRow label="Вибрация" value={s.vibration} onChange={set("vibration")} />
-        <ToggleRow label="Значок непрочитанных" sub="Показывать счётчик на иконке" value={s.badge} onChange={set("badge")} />
+        <ToggleRow label="Значок непрочитанных" sub="Счётчик на иконке приложения" value={s.badge} onChange={set("badge")} />
       </Section>
+
+      <Section title="Системные" footer="Уведомления безопасности рекомендуется оставить включёнными.">
+        <ToggleRow label="Новый вход в аккаунт" value={s.loginAlerts} onChange={set("loginAlerts")} />
+        <ToggleRow label="Уведомления безопасности" value={s.securityAlerts} onChange={set("securityAlerts")} />
+      </Section>
+
+      <div className="h-8" />
     </div>
   );
 }

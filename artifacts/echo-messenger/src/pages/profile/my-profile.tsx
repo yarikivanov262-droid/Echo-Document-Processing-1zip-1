@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Camera, Check, X, Copy, Star } from "lucide-react";
+import { Camera, Check, X, Copy, Star, Hash, Shuffle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useGetMe, useUpdateMe, useUploadFile } from "@workspace/api-client-react";
+import { useGetMe, useUpdateMe, useUploadFile, useCheckEchoNumber, useClaimEchoNumber } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,114 @@ function getAvatarColor(name: string) {
 const BIO_MAX = 255;
 const NAME_MAX = 64;
 
+function generateRandomNumber(): string {
+  const digits = Math.floor(1000000 + Math.random() * 9000000).toString();
+  return `+999${digits}`;
+}
+
+function EchoNumberPicker({ current, onClose }: { current: string | null | undefined; onClose: () => void }) {
+  const [input, setInput] = useState(current ?? generateRandomNumber());
+  const [debouncedInput, setDebouncedInput] = useState(input);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const claimMutation = useClaimEchoNumber();
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedInput(input), 500);
+    return () => clearTimeout(t);
+  }, [input]);
+
+  const { data: availability, isFetching } = useCheckEchoNumber(
+    debouncedInput,
+    { query: { enabled: /^\+999\d{7}$/.test(debouncedInput) && debouncedInput !== current } as never }
+  );
+
+  const isValid = /^\+999\d{7}$/.test(input);
+  const isSelf = input === current;
+  const isAvailable = isSelf || (availability?.available ?? false);
+
+  const handleClaim = () => {
+    if (isSelf) { onClose(); return; }
+    claimMutation.mutate({ data: { number: input } }, {
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: ["/api/users/me"] });
+        toast({ title: `Номер ${input} привязан!` });
+        onClose();
+      },
+      onError: (e: unknown) => {
+        const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Ошибка";
+        toast({ title: msg, variant: "destructive" });
+      },
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center" onClick={onClose}>
+      <div
+        className="bg-card w-full max-w-md rounded-t-2xl p-6 pb-8 flex flex-col gap-4"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-[18px] font-bold">ECHO Номер</h3>
+          <button onClick={onClose}><X className="h-5 w-5 text-muted-foreground" /></button>
+        </div>
+
+        <p className="text-[13px] text-muted-foreground">
+          Уникальный коллекционный номер +999XXXXXXX. Виден всем пользователям, привязан к вашей 12-словной фразе. Заменить можно в любой момент.
+        </p>
+
+        <div className="flex items-center gap-2">
+          <div className={cn(
+            "flex-1 flex items-center border rounded-xl px-3 h-11 bg-background",
+            !isValid && input !== "" ? "border-red-500/60" : isAvailable && isValid ? "border-[#34c759]" : "border-border"
+          )}>
+            <Hash className="h-4 w-4 text-muted-foreground shrink-0 mr-1" />
+            <input
+              value={input}
+              onChange={e => {
+                let v = e.target.value;
+                if (!v.startsWith("+999")) v = "+999" + v.replace(/[^0-9]/g, "");
+                setInput(v.slice(0, 11));
+              }}
+              placeholder="+9991234567"
+              className="flex-1 bg-transparent outline-none text-[17px] font-mono tracking-wider"
+            />
+            {isFetching && <div className="h-3 w-3 border border-t-transparent border-primary rounded-full animate-spin shrink-0" />}
+            {!isFetching && isValid && !isSelf && (
+              isAvailable
+                ? <Check className="h-4 w-4 text-[#34c759] shrink-0" />
+                : <X className="h-4 w-4 text-red-500 shrink-0" />
+            )}
+          </div>
+          <button
+            onClick={() => setInput(generateRandomNumber())}
+            className="h-11 w-11 rounded-xl bg-muted flex items-center justify-center hover:bg-muted/60"
+          >
+            <Shuffle className="h-4 w-4" />
+          </button>
+        </div>
+
+        {isValid && !isSelf && !isFetching && (
+          <p className={cn("text-[12px]", isAvailable ? "text-[#34c759]" : "text-red-500")}>
+            {isAvailable ? "✓ Номер свободен" : "✗ Номер уже занят"}
+          </p>
+        )}
+        {!isValid && input.length > 0 && (
+          <p className="text-[12px] text-muted-foreground">Формат: +999 + 7 цифр (например +9991234567)</p>
+        )}
+
+        <button
+          onClick={handleClaim}
+          disabled={!isValid || (!isAvailable && !isSelf) || claimMutation.isPending}
+          className="h-11 rounded-xl bg-primary text-white font-semibold text-[16px] disabled:opacity-40"
+        >
+          {claimMutation.isPending ? "Сохраняем..." : isSelf ? "Закрыть" : "Привязать номер"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function MyProfile() {
   const [, navigate] = useLocation();
   const { data: user, isLoading } = useGetMe();
@@ -27,7 +135,9 @@ export function MyProfile() {
   const username = user?.username ?? "";
 
   const [copied, setCopied] = useState(false);
+  const [numberCopied, setNumberCopied] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showNumberPicker, setShowNumberPicker] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarFileId, setAvatarFileId] = useState<string | null | undefined>(undefined);
@@ -48,6 +158,14 @@ export function MyProfile() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const copyNumber = () => {
+    if (!user?.echoNumber) return;
+    navigator.clipboard.writeText(user.echoNumber);
+    setNumberCopied(true);
+    toast({ title: "Номер скопирован" });
+    setTimeout(() => setNumberCopied(false), 2000);
+  };
+
   const startEdit = () => {
     setDisplayName(user?.displayName ?? "");
     setBio(user?.bio ?? "");
@@ -55,9 +173,7 @@ export function MyProfile() {
     setEditing(true);
   };
 
-  const cancelEdit = () => {
-    setEditing(false);
-  };
+  const cancelEdit = () => setEditing(false);
 
   const saveEdit = () => {
     updateMeMutation.mutate(
@@ -94,6 +210,13 @@ export function MyProfile() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
+      {showNumberPicker && (
+        <EchoNumberPicker
+          current={user?.echoNumber}
+          onClose={() => setShowNumberPicker(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
         <button
@@ -157,6 +280,12 @@ export function MyProfile() {
           @{username}
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5 opacity-60" />}
         </button>
+        {user?.echoNumber && (
+          <button onClick={copyNumber} className="flex items-center gap-1 mt-0.5 text-muted-foreground text-[14px] font-mono">
+            {user.echoNumber}
+            {numberCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3 opacity-50" />}
+          </button>
+        )}
       </div>
 
       <div className="h-[6px] bg-muted/30" />
@@ -209,6 +338,20 @@ export function MyProfile() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ECHO Number */}
+        <div
+          className="flex items-center px-4 py-3 border-b border-border/50 cursor-pointer hover:bg-muted/20"
+          onClick={() => setShowNumberPicker(true)}
+        >
+          <div className="flex-1">
+            <div className="text-[13px] text-muted-foreground mb-0.5">ECHO Номер</div>
+            <div className={cn("text-[16px] font-mono", !user?.echoNumber && "text-primary")}>
+              {user?.echoNumber ?? "Получить номер +999..."}
+            </div>
+          </div>
+          <span className="text-muted-foreground/50 text-[18px]">›</span>
         </div>
 
         {/* User ID */}

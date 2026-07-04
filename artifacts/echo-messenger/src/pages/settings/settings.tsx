@@ -1,8 +1,8 @@
 import { useLocation } from "wouter";
 import {
-  ChevronRight, Bell, Lock, Archive, Palette, Globe, Smartphone,
-  Bookmark, Phone, LogOut, ShieldAlert, Star, UserCircle,
-  Smile, Users, Activity
+  ChevronRight, Bell, Lock, HardDrive, Palette, Globe, Smartphone,
+  Bookmark, Phone, LogOut, ShieldAlert, Star, FolderOpen,
+  Smile, Users, Activity, Database
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetMe } from "@workspace/api-client-react";
@@ -119,11 +119,13 @@ export function Settings() {
       <div>
         <Row icon={<Bell className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff2d55]" label="Уведомления и звуки" href="/settings/notifications" />
         <Row icon={<Lock className="h-[18px] w-[18px] text-white" />} bg="bg-[#8e8e93]" label="Конфиденциальность" href="/settings/privacy" />
-        <Row icon={<Archive className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Данные и архив" href="/settings/backup" />
+        <Row icon={<HardDrive className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Данные и хранилище" href="/settings/data" />
         <Row icon={<Palette className="h-[18px] w-[18px] text-white" />} bg="bg-[#007aff]" label="Оформление" href="/settings/appearance" />
         <Row icon={<Globe className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Язык" href="/settings/language" value="Русский" />
         <Row icon={<Smile className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Стикерпаки" href="/sticker-packs" />
-        <Row icon={<Users className="h-[18px] w-[18px] text-white" />} bg="bg-[#a695e7]" label="Мои профили" href="/settings/profiles" last />
+        <Row icon={<FolderOpen className="h-[18px] w-[18px] text-white" />} bg="bg-[#5856d6]" label="Папки чатов" href="/settings/folders" />
+        <Row icon={<Users className="h-[18px] w-[18px] text-white" />} bg="bg-[#a695e7]" label="Мои профили" href="/settings/profiles" />
+        <Row icon={<Database className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Резервная копия" href="/settings/backup" last />
       </div>
 
       <div className="h-[6px] bg-muted/30" />
