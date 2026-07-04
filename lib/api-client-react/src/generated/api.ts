@@ -47,6 +47,7 @@ import type {
   FileInfo,
   FileUploadInput,
   FileUploadResult,
+  ForwardMessageBody,
   GetMessagesParams,
   GiftStarsInput,
   HealthStatus,
@@ -55,6 +56,7 @@ import type {
   LoginInput,
   Message,
   MessageInput,
+  PinMessageResponse,
   PrekeysInput,
   PremiumStatusResponse,
   PublicUser,
@@ -2595,6 +2597,147 @@ export const useReactToMessage = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getReactToMessageMutationOptions(options));
+    }
+
+export const getPinMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/messages/${id}/pin`
+}
+
+/**
+ * @summary Toggle pin state of a message within its chat
+ */
+export const pinMessage = async (id: number, options?: RequestInit): Promise<PinMessageResponse> => {
+
+  return customFetch<PinMessageResponse>(getPinMessageUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getPinMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pinMessage>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof pinMessage>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['pinMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof pinMessage>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  pinMessage(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PinMessageMutationResult = NonNullable<Awaited<ReturnType<typeof pinMessage>>>
+
+    export type PinMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Toggle pin state of a message within its chat
+ */
+export const usePinMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof pinMessage>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof pinMessage>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getPinMessageMutationOptions(options));
+    }
+
+export const getForwardMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/messages/${id}/forward`
+}
+
+/**
+ * @summary Forward a message to another chat
+ */
+export const forwardMessage = async (id: number,
+    forwardMessageBody: ForwardMessageBody, options?: RequestInit): Promise<Message> => {
+
+  return customFetch<Message>(getForwardMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(forwardMessageBody)
+  }
+);}
+
+
+
+
+export const getForwardMessageMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forwardMessage>>, TError,{id: number;data: BodyType<ForwardMessageBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof forwardMessage>>, TError,{id: number;data: BodyType<ForwardMessageBody>}, TContext> => {
+
+const mutationKey = ['forwardMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof forwardMessage>>, {id: number;data: BodyType<ForwardMessageBody>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  forwardMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ForwardMessageMutationResult = NonNullable<Awaited<ReturnType<typeof forwardMessage>>>
+    export type ForwardMessageMutationBody = BodyType<ForwardMessageBody>
+    export type ForwardMessageMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Forward a message to another chat
+ */
+export const useForwardMessage = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof forwardMessage>>, TError,{id: number;data: BodyType<ForwardMessageBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof forwardMessage>>,
+        TError,
+        {id: number;data: BodyType<ForwardMessageBody>},
+        TContext
+      > => {
+      return useMutation(getForwardMessageMutationOptions(options));
     }
 
 export const getUploadBackupUrl = () => {

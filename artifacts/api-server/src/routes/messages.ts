@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, messagesTable, usersTable, chatMembersTable } from "@workspace/db";
+import { db, messagesTable, usersTable, chatMembersTable, pinnedMessagesTable, chatsTable } from "@workspace/db";
 import { eq, and, desc, lt } from "drizzle-orm";
 import {
   GetMessagesQueryParams,
@@ -296,6 +296,132 @@ router.post("/messages/:id/react", requireAuth, async (req: AuthenticatedRequest
   }
 
   res.json({ success: true });
+});
+
+router.post("/messages/:id/pin", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const msgId = parseInt(rawId, 10);
+  if (isNaN(msgId)) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+
+  const [msg] = await db
+    .select()
+    .from(messagesTable)
+    .where(and(eq(messagesTable.id, msgId), eq(messagesTable.isDeleted, false)));
+
+  if (!msg || !msg.chatId) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  const [existingPin] = await db
+    .select()
+    .from(pinnedMessagesTable)
+    .where(and(eq(pinnedMessagesTable.chatId, msg.chatId), eq(pinnedMessagesTable.messageId, msgId)));
+
+  let isPinned: boolean;
+  if (existingPin) {
+    await db.delete(pinnedMessagesTable).where(eq(pinnedMessagesTable.id, existingPin.id));
+    isPinned = false;
+  } else {
+    await db.insert(pinnedMessagesTable).values({
+      chatId: msg.chatId,
+      messageId: msgId,
+      pinnedBy: req.userId!,
+    });
+    isPinned = true;
+  }
+
+  await db
+    .update(chatsTable)
+    .set({ pinnedMessageId: isPinned ? msgId : null })
+    .where(eq(chatsTable.id, msg.chatId));
+
+  const memberIds = await getChatMemberIds(msg.chatId);
+  broadcastToChat(memberIds, {
+    type: "pin_message",
+    messageId: msgId,
+    chatId: msg.chatId,
+    isPinned,
+  });
+
+  res.json({ success: true, isPinned });
+});
+
+router.post("/messages/:id/forward", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const msgId = parseInt(rawId, 10);
+  const body = z.object({ chatId: z.number() }).safeParse(req.body);
+  if (!body.success || isNaN(msgId)) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+
+  const [original] = await db
+    .select()
+    .from(messagesTable)
+    .where(and(eq(messagesTable.id, msgId), eq(messagesTable.isDeleted, false)));
+
+  if (!original) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  const [targetChat] = await db.select({ id: chatsTable.id, type: chatsTable.type }).from(chatsTable).where(eq(chatsTable.id, body.data.chatId));
+  if (!targetChat) {
+    res.status(404).json({ error: "Chat not found" });
+    return;
+  }
+
+  const [originalSender] = await db.select().from(usersTable).where(eq(usersTable.id, original.senderId));
+
+  const [msg] = await db
+    .insert(messagesTable)
+    .values({
+      senderId: req.userId!,
+      chatId: targetChat.id,
+      chatType: targetChat.type,
+      encryptedContent: original.encryptedContent,
+      isVoice: original.isVoice,
+      mediaFileId: original.mediaFileId ?? null,
+      forwardedFromId: original.id,
+      forwardedFromUsername: originalSender?.username ?? null,
+    })
+    .returning();
+
+  const [sender] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+
+  const msgPayload = {
+    id: msg.id,
+    senderId: msg.senderId,
+    senderUsername: sender.username,
+    chatId: targetChat.id,
+    chatType: msg.chatType,
+    encryptedContent: msg.encryptedContent,
+    timestamp: msg.timestamp.toISOString(),
+    deliveredAt: null,
+    readAt: null,
+    deleteAfterRead: msg.deleteAfterRead,
+    deleteAfterSeconds: msg.deleteAfterSeconds ?? null,
+    isVoice: msg.isVoice,
+    mediaFileId: msg.mediaFileId ?? null,
+    replyToId: null,
+    isEdited: false,
+    editedAt: null,
+    reactions: {},
+    forwardedFromId: msg.forwardedFromId ?? null,
+  };
+
+  const memberIds = await getChatMemberIds(targetChat.id);
+  broadcastToChat(memberIds, {
+    type: "new_message",
+    chatId: targetChat.id,
+    message: msgPayload as Record<string, unknown>,
+  }, req.userId!);
+
+  res.status(201).json(msgPayload);
 });
 
 export default router;

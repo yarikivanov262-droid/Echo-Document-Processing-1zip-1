@@ -4,12 +4,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Paperclip, Mic, ArrowLeft, MoreVertical, Phone,
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
-  Smile, X, Search, Pin, BellOff, UserPlus, ChevronDown,
+  Smile, X, Search, Pin, BellOff, UserPlus, ChevronDown, Pencil,
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageText } from "@/components/message-text";
-import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact } from "@workspace/api-client-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useWsEvent } from "@/hooks/use-ws";
@@ -58,6 +59,8 @@ type MsgItem = {
   senderUsername?: string;
   replyToId?: number | null;
   forwardedFromId?: number | null;
+  forwardedFromUsername?: string | null;
+  isPinned?: boolean;
 };
 
 export function ChatWindow() {
@@ -80,12 +83,19 @@ export function ChatWindow() {
   const uploadMutation = useUploadFile();
   const memberSettingsMutation = useUpdateChatMemberSettings();
   const addContactMutation = useAddContact();
+  const editMessageMutation = useEditMessage();
+  const pinMessageMutation = usePinMessage();
+  const forwardMessageMutation = useForwardMessage();
+  const { data: allChats } = useGetChats();
 
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<MsgItem | null>(null);
   const [selectedMsg, setSelectedMsg] = useState<MsgItem | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const [editingMsg, setEditingMsg] = useState<MsgItem | null>(null);
+  const [showForwardDialog, setShowForwardDialog] = useState(false);
+  const [forwardMsg, setForwardMsg] = useState<MsgItem | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
   const [showChatInfo, setShowChatInfo] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
@@ -143,6 +153,8 @@ export function ChatWindow() {
     senderUsername: (m as { senderUsername?: string }).senderUsername,
     replyToId: (m as { replyToId?: number | null }).replyToId,
     forwardedFromId: (m as { forwardedFromId?: number | null }).forwardedFromId,
+    forwardedFromUsername: (m as { forwardedFromUsername?: string | null }).forwardedFromUsername,
+    isPinned: (m as { isPinned?: boolean }).isPinned,
   }));
 
   // Date separators
@@ -212,6 +224,19 @@ export function ChatWindow() {
     e?.preventDefault();
     const trimmed = text.trim();
     if (!trimmed || !chatId) return;
+
+    if (editingMsg) {
+      setText("");
+      const editId = editingMsg.id;
+      setEditingMsg(null);
+      editMessageMutation.mutate({ id: editId, data: { encryptedContent: trimmed } }, {
+        onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }),
+        onError: () => toast({ title: "Ошибка редактирования", variant: "destructive" }),
+      });
+      setTimeout(() => inputRef.current?.focus(), 50);
+      return;
+    }
+
     setText("");
     const replyId = replyTo?.id;
     setReplyTo(null);
@@ -295,6 +320,47 @@ export function ChatWindow() {
       onError: () => toast({ title: "Ошибка удаления", variant: "destructive" }),
     });
     setShowMenu(false);
+  };
+
+  const editMsg = () => {
+    if (!selectedMsg || !selectedMsg.isSelf) return;
+    setEditingMsg(selectedMsg);
+    setReplyTo(null);
+    setText(selectedMsg.encryptedContent);
+    setShowMenu(false);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const pinMsg = () => {
+    if (!selectedMsg) return;
+    pinMessageMutation.mutate({ id: selectedMsg.id }, {
+      onSuccess: (res) => {
+        void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+        toast({ title: res.isPinned ? "Закреплено" : "Откреплено" });
+      },
+      onError: () => toast({ title: "Ошибка закрепления", variant: "destructive" }),
+    });
+    setShowMenu(false);
+  };
+
+  const openForwardDialog = () => {
+    if (!selectedMsg) return;
+    setForwardMsg(selectedMsg);
+    setShowForwardDialog(true);
+    setShowMenu(false);
+  };
+
+  const doForward = (targetChatId: number) => {
+    if (!forwardMsg) return;
+    forwardMessageMutation.mutate({ id: forwardMsg.id, data: { chatId: targetChatId } }, {
+      onSuccess: () => {
+        toast({ title: "Переслано" });
+        setShowForwardDialog(false);
+        setForwardMsg(null);
+        if (targetChatId === chatId) void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+      },
+      onError: () => toast({ title: "Ошибка пересылки", variant: "destructive" }),
+    });
   };
 
   const reactToMsg = (emoji: string) => {
@@ -588,7 +654,15 @@ export function ChatWindow() {
                       {msg.forwardedFromId && (
                         <div className={cn("flex items-center gap-1 text-[12px] font-medium mb-1", isSelf ? "text-white/80" : "text-primary")}>
                           <Forward className="h-3.5 w-3.5" />
-                          Переслано
+                          Переслано {msg.forwardedFromUsername ? `от ${msg.forwardedFromUsername}` : ""}
+                        </div>
+                      )}
+
+                      {/* Pinned indicator */}
+                      {msg.isPinned && (
+                        <div className={cn("flex items-center gap-1 text-[11px] font-medium mb-1", isSelf ? "text-white/70" : "text-muted-foreground")}>
+                          <Pin className="h-3 w-3" />
+                          Закреплено
                         </div>
                       )}
 
@@ -715,8 +789,11 @@ export function ChatWindow() {
               {[
                 { icon: <Reply className="h-4 w-4" />, label: "Ответить", fn: replyMsg },
                 { icon: <Copy className="h-4 w-4" />, label: "Копировать", fn: copyMsg },
-                { icon: <Forward className="h-4 w-4" />, label: "Переслать", fn: () => { toast({ title: "Пересылка скоро" }); setShowMenu(false); } },
-                { icon: <Pin className="h-4 w-4" />, label: "Закрепить", fn: () => { toast({ title: "Закреплено" }); setShowMenu(false); } },
+                { icon: <Forward className="h-4 w-4" />, label: "Переслать", fn: openForwardDialog },
+                { icon: <Pin className="h-4 w-4" />, label: selectedMsg.isPinned ? "Открепить" : "Закрепить", fn: pinMsg },
+                ...(selectedMsg.isSelf
+                  ? [{ icon: <Pencil className="h-4 w-4" />, label: "Изменить", fn: editMsg }]
+                  : []),
                 { icon: <Trash2 className="h-4 w-4 text-[#ff3b30]" />, label: "Удалить", fn: deleteMsg, danger: true },
               ].map(({ icon, label, fn, danger }) => (
                 <button
@@ -738,6 +815,26 @@ export function ChatWindow() {
       {/* ── Input area ── */}
       <div className="shrink-0 bg-card border-t border-border"
            style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+
+        {/* Edit preview */}
+        <AnimatePresence>
+          {editingMsg && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              className="flex items-center gap-2 px-3 pt-2 pb-1"
+            >
+              <div className="flex-1 bg-muted rounded-xl px-3 py-1.5 border-l-4 border-amber-500">
+                <div className="text-[12px] text-amber-500 font-semibold flex items-center gap-1">
+                  <Pencil className="h-3 w-3" /> Редактирование
+                </div>
+                <div className="text-[13px] text-muted-foreground truncate">{editingMsg.encryptedContent}</div>
+              </div>
+              <button onClick={() => { setEditingMsg(null); setText(""); }} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Reply preview */}
         <AnimatePresence>
@@ -870,6 +967,37 @@ export function ChatWindow() {
           )}
         </form>
       </div>
+
+      {/* ── Forward dialog ── */}
+      <Dialog open={showForwardDialog} onOpenChange={(open) => { setShowForwardDialog(open); if (!open) setForwardMsg(null); }}>
+        <DialogContent className="max-w-sm max-h-[70vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Переслать сообщение</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 -mx-6 px-6">
+            {(allChats ?? []).length === 0 && (
+              <div className="text-sm text-muted-foreground py-4 text-center">Нет доступных чатов</div>
+            )}
+            {(allChats ?? []).map((c) => {
+              const cName = (c as { name?: string }).name ?? `Чат ${c.id}`;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => doForward(c.id)}
+                  className="w-full flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted text-left"
+                >
+                  <Avatar className="h-9 w-9">
+                    <AvatarFallback className={cn(getAvatarColor(cName), "text-white text-sm")}>
+                      {cName.slice(0, 1).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-[15px] text-foreground truncate">{cName}</span>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

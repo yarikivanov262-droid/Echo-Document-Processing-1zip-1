@@ -303,6 +303,15 @@ export interface ReactBody {
   emoji: string;
 }
 
+export interface PinMessageResponse {
+  success: boolean;
+  isPinned: boolean;
+}
+
+export interface ForwardMessageBody {
+  chatId: number;
+}
+
 export interface FileUploadInput {
   /** Base64-encoded encrypted file data */
   data: string;

@@ -688,6 +688,52 @@ export const ReactToMessageResponse = zod.object({
 
 
 /**
+ * @summary Toggle pin state of a message within its chat
+ */
+export const PinMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PinMessageResponse = zod.object({
+  "success": zod.boolean(),
+  "isPinned": zod.boolean()
+})
+
+
+/**
+ * @summary Forward a message to another chat
+ */
+export const ForwardMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ForwardMessageBody = zod.object({
+  "chatId": zod.number()
+})
+
+export const ForwardMessageResponse = zod.object({
+  "id": zod.number(),
+  "senderId": zod.number(),
+  "senderUsername": zod.string().optional(),
+  "chatId": zod.number(),
+  "chatType": zod.number(),
+  "encryptedContent": zod.string(),
+  "timestamp": zod.string(),
+  "deliveredAt": zod.string().nullish(),
+  "readAt": zod.string().nullish(),
+  "deleteAfterRead": zod.boolean(),
+  "deleteAfterSeconds": zod.number().nullish(),
+  "isVoice": zod.boolean(),
+  "mediaFileId": zod.string().nullish(),
+  "replyToId": zod.number().nullish(),
+  "isEdited": zod.boolean().optional(),
+  "editedAt": zod.string().nullish(),
+  "reactions": zod.record(zod.string(), zod.array(zod.number())).optional(),
+  "forwardedFromId": zod.number().nullish()
+})
+
+
+/**
  * @summary Upload encrypted backup
  */
 export const UploadBackupBody = zod.object({

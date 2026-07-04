@@ -706,6 +706,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /messages/{id}/pin:
+    post:
+      operationId: pinMessage
+      tags: [messages]
+      summary: Toggle pin state of a message within its chat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Pin toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PinMessageResponse"
+
+  /messages/{id}/forward:
+    post:
+      operationId: forwardMessage
+      tags: [messages]
+      summary: Forward a message to another chat
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForwardMessageBody"
+      responses:
+        "201":
+          description: Message forwarded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
   /backup/upload:
     post:
       operationId: uploadBackup
@@ -1659,6 +1703,22 @@ components:
         emoji:
           type: string
       required: [emoji]
+
+    PinMessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        isPinned:
+          type: boolean
+      required: [success, isPinned]
+
+    ForwardMessageBody:
+      type: object
+      properties:
+        chatId:
+          type: integer
+      required: [chatId]
 
     FileUploadInput:
       type: object
