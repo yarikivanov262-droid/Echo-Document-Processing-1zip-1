@@ -8,6 +8,7 @@ import {
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { MessageText } from "@/components/message-text";
 import { useGetChat, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
@@ -577,7 +578,7 @@ export function ChatWindow() {
                         );
                       })()}
 
-                      <p id={`msg-${msg.id}`} className="break-words whitespace-pre-wrap pr-14 scroll-mt-20">{msg.encryptedContent}</p>
+                      <MessageText id={`msg-${msg.id}`} text={msg.encryptedContent ?? ""} isSelf={isSelf} />
 
                       {/* Edited mark */}
                       {msg.isEdited && (

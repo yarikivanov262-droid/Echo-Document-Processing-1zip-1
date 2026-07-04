@@ -4,6 +4,8 @@ import { attachWsServer } from "./lib/ws-hub";
 import { db, sessionsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./lib/logger";
+import { startBackgroundJobs } from "./jobs";
+import { seedDatabase } from "./db-seed";
 
 const rawPort = process.env["PORT"];
 
@@ -33,6 +35,8 @@ attachWsServer(httpServer, validateToken);
 
 httpServer.listen(port, () => {
   logger.info({ port }, "Server listening");
+  void seedDatabase();
+  startBackgroundJobs();
 });
 
 httpServer.on("error", (err) => {

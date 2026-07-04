@@ -1,0 +1,26 @@
+{
+  "name": "ECHO Messenger",
+  "short_name": "ECHO",
+  "description": "Анонимный мессенджер. Говори. Никто не узнает.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#007AFF",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/opengraph.jpg",
+      "sizes": "1200x630",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["social", "communication"],
+  "lang": "ru"
+}

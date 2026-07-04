@@ -25,9 +25,44 @@ export function Login() {
   const registerMutation = useRegister();
   const checkUsernameMutation = useCheckUsername();
 
-  // Mock seed generation
+  const BIP39_WORDS = [
+    "abandon","ability","able","about","above","absent","absorb","abstract","absurd","abuse",
+    "access","accident","account","accuse","achieve","acid","acoustic","acquire","across","act",
+    "action","actor","actress","actual","adapt","add","addict","address","adjust","admit",
+    "adult","advance","advice","aerobic","afford","afraid","again","agent","agree","ahead",
+    "aim","air","airport","aisle","alarm","album","alcohol","alert","alien","all",
+    "alley","allow","almost","alone","alpha","already","also","alter","always","amateur",
+    "amazing","among","amount","amused","analyst","anchor","ancient","anger","angle","angry",
+    "animal","ankle","announce","annual","another","answer","antenna","antique","anxiety","any",
+    "apart","apology","appear","apple","approve","april","arch","arctic","area","arena",
+    "argue","arm","armed","armor","army","around","arrange","arrest","arrive","arrow",
+    "art","asset","assist","assume","asthma","athlete","atom","attack","attend","attitude",
+    "attract","audit","august","aunt","author","auto","autumn","average","avocado","avoid",
+    "awake","aware","away","awesome","awful","awkward","axis","baby","balance","bamboo",
+    "banana","banner","barely","bargain","barrel","base","basic","basket","battle","beach",
+    "bean","beauty","become","beef","before","begin","behave","behind","believe","below",
+    "belt","bench","benefit","best","betray","better","between","beyond","bicycle","bind",
+    "biology","bird","birth","bitter","black","blade","blame","blanket","blast","bleak",
+    "bless","blind","blood","blossom","blouse","blue","blur","blush","board","boat",
+    "body","boil","bomb","bone","book","boost","border","boring","borrow","boss",
+    "bottom","bounce","box","boy","bracket","brain","brand","brave","breeze","brick",
+    "bridge","brief","bright","bring","brisk","broccoli","broken","bronze","broom","brother",
+    "brown","brush","bubble","buddy","budget","buffalo","build","bulb","bulk","bullet",
+    "bundle","bunker","burden","burger","burst","bus","business","busy","butter","buyer",
+    "buzz","cabbage","cabin","cable","cactus","cage","cake","call","calm","camera",
+    "camp","cancel","candy","cannon","canvas","canyon","capable","capital","captain","carbon",
+    "card","cargo","carpet","carry","cart","case","cash","casino","castle","casual",
+    "catalog","catch","category","cause","cave","century","cereal","certain","chair","chaos",
+    "chapter","charge","chase","chat","cheap","check","cheese","chef","cherry","chest",
+    "chief","child","chimney","choice","choose","chronic","circle","citizen","city","civil",
+    "claim","clap","clarify","claw","clay","clean","clerk","clever","click","client",
+    "cliff","climb","clinic","clip","clock","clog","close","cloth","cloud","coach",
+    "coast","coconut","coffee","coil","coin","collect","color","column","combine","come",
+  ];
   const generateSeed = () => {
-    const words = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima"];
+    const arr = new Uint32Array(12);
+    crypto.getRandomValues(arr);
+    const words = Array.from(arr).map(n => BIP39_WORDS[n % BIP39_WORDS.length]);
     setSeed(words.join(" "));
   };
 
@@ -57,20 +92,27 @@ export function Login() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !seed) return;
-    
-    // Check username
+
+    const keyPair = await crypto.subtle.generateKey(
+      { name: "ECDH", namedCurve: "P-256" },
+      true,
+      ["deriveKey", "deriveBits"]
+    );
+    const spki = await crypto.subtle.exportKey("spki", keyPair.publicKey);
+    const pubKeyB64 = btoa(String.fromCharCode(...new Uint8Array(spki)));
+
     checkUsernameMutation.mutate({ data: { username } }, {
       onSuccess: (res) => {
         if (!res.available) {
           toast({ title: "Username taken", description: "Try another one.", variant: "destructive" });
           return;
         }
-        
+
         registerMutation.mutate({ 
           data: { 
             username, 
             seedHash: seed, 
-            publicIdentityKey: "mock-pub-key" 
+            publicIdentityKey: pubKeyB64,
           } 
         }, {
           onSuccess: (data) => {
