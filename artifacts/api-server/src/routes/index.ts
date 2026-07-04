@@ -11,6 +11,8 @@ import stickersRouter from "./stickers";
 import foldersRouter from "./folders";
 import callsRouter from "./calls";
 import numbersRouter from "./numbers";
+import starsRouter from "./stars";
+import premiumRouter from "./premium";
 
 const router: IRouter = Router();
 
@@ -26,5 +28,7 @@ router.use(activityLogRouter);
 router.use(stickersRouter);
 router.use(foldersRouter);
 router.use(callsRouter);
+router.use(starsRouter);
+router.use(premiumRouter);
 
 export default router;

@@ -466,6 +466,86 @@ export interface InstallStickerPackInput {
   packId: number;
 }
 
+export interface StarsTransaction {
+  id: number;
+  type: string;
+  amount: number;
+  /** @nullable */
+  description?: string | null;
+  /** @nullable */
+  relatedId?: number | null;
+  createdAt: string;
+}
+
+export interface StarsBalanceResponse {
+  balance: number;
+  transactions: StarsTransaction[];
+}
+
+export type PurchaseStarsInputPackageSize = typeof PurchaseStarsInputPackageSize[keyof typeof PurchaseStarsInputPackageSize];
+
+
+export const PurchaseStarsInputPackageSize = {
+  NUMBER_100: 100,
+  NUMBER_250: 250,
+  NUMBER_500: 500,
+  NUMBER_1000: 1000,
+  NUMBER_2500: 2500,
+  NUMBER_5000: 5000,
+} as const;
+
+export interface PurchaseStarsInput {
+  packageSize: PurchaseStarsInputPackageSize;
+}
+
+export interface PurchaseStarsResponse {
+  starsBalance: number;
+  transaction: StarsTransaction;
+}
+
+export interface GiftStarsInput {
+  recipientId: number;
+  amount: number;
+}
+
+export interface TipStarsInput {
+  messageId: number;
+  amount: number;
+}
+
+export interface PremiumSubscriptionRecord {
+  id: number;
+  plan: string;
+  startedAt: string;
+  expiresAt: string;
+}
+
+export interface PremiumStatusResponse {
+  isPremium: boolean;
+  /** @nullable */
+  premiumUntil?: string | null;
+  starsBalance: number;
+  subscriptions: PremiumSubscriptionRecord[];
+}
+
+export type SubscribePremiumInputTier = typeof SubscribePremiumInputTier[keyof typeof SubscribePremiumInputTier];
+
+
+export const SubscribePremiumInputTier = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export interface SubscribePremiumInput {
+  tier: SubscribePremiumInputTier;
+}
+
+export interface SubscribePremiumResponse {
+  isPremium: boolean;
+  premiumUntil: string;
+  newStarsBalance: number;
+}
+
 export type ListUsersParams = {
 search?: string;
 limit?: number;

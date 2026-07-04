@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import {
   ChevronRight, Bell, Lock, HardDrive, Palette, Globe, Smartphone,
   Bookmark, Phone, LogOut, ShieldAlert, Star, FolderOpen,
-  Smile, Users, Activity, Database
+  Smile, Users, Activity, Database, Crown
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetMe } from "@workspace/api-client-react";
@@ -130,7 +130,15 @@ export function Settings() {
 
       <div className="h-[6px] bg-muted/30" />
 
-      {/* Group 3 — help */}
+      {/* Group 3 — stars & premium */}
+      <div>
+        <Row icon={<Star className="h-[18px] w-[18px] text-white" />} bg="bg-[#FFD700]" label="ECHO Stars" href="/stars" value={user?.starsBalance !== undefined ? `${user.starsBalance} ⭐` : undefined} />
+        <Row icon={<Crown className="h-[18px] w-[18px] text-white" />} bg="bg-gradient-to-br from-[#FFD700] to-[#FFA500]" label="ECHO Premium" href="/premium" value={user?.isPremium ? "Активна" : undefined} last />
+      </div>
+
+      <div className="h-[6px] bg-muted/30" />
+
+      {/* Group 4 — help */}
       <div>
         <Row icon={<Activity className="h-[18px] w-[18px] text-white" />} bg="bg-[#5856d6]" label="Журнал активности" href="/settings/log" />
         <Row icon={<Star className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Оценить приложение" href="/settings/rate" />

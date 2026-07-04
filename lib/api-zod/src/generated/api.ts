@@ -1013,3 +1013,120 @@ export const UpdateCallResponse = zod.object({
 })
 
 
+/**
+ * @summary Get my stars balance and transaction history
+ */
+export const GetStarsResponse = zod.object({
+  "balance": zod.number(),
+  "transactions": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "amount": zod.number(),
+  "description": zod.string().nullish(),
+  "relatedId": zod.number().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Purchase a stars package (demo — free)
+ */
+export const PurchaseStarsBody = zod.object({
+  "packageSize": zod.union([zod.literal(100),zod.literal(250),zod.literal(500),zod.literal(1000),zod.literal(2500),zod.literal(5000)])
+})
+
+export const PurchaseStarsResponse = zod.object({
+  "starsBalance": zod.number(),
+  "transaction": zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "amount": zod.number(),
+  "description": zod.string().nullish(),
+  "relatedId": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+})
+
+
+/**
+ * @summary Gift stars to another user
+ */
+export const GiftStarsBody = zod.object({
+  "recipientId": zod.number(),
+  "amount": zod.number()
+})
+
+export const GiftStarsResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Send tip stars on a channel message
+ */
+export const TipStarsBody = zod.object({
+  "messageId": zod.number(),
+  "amount": zod.number()
+})
+
+export const TipStarsResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Send a paid reaction on a message
+ */
+export const PaidReactionBody = zod.object({
+  "messageId": zod.number(),
+  "amount": zod.number()
+})
+
+export const PaidReactionResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Get current premium status
+ */
+export const GetPremiumStatusResponse = zod.object({
+  "isPremium": zod.boolean(),
+  "premiumUntil": zod.string().nullish(),
+  "starsBalance": zod.number(),
+  "subscriptions": zod.array(zod.object({
+  "id": zod.number(),
+  "plan": zod.string(),
+  "startedAt": zod.string(),
+  "expiresAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Subscribe to ECHO Premium using stars
+ */
+export const SubscribePremiumBody = zod.object({
+  "tier": zod.enum(['monthly', 'yearly'])
+})
+
+export const SubscribePremiumResponse = zod.object({
+  "isPremium": zod.boolean(),
+  "premiumUntil": zod.string(),
+  "newStarsBalance": zod.number()
+})
+
+
+/**
+ * @summary Cancel premium auto-renewal
+ */
+export const CancelPremiumResponse = zod.object({
+  "success": zod.boolean(),
+  "message": zod.string().optional()
+})
+
+

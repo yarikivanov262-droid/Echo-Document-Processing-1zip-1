@@ -27,6 +27,10 @@ tags:
     description: Sticker pack operations
   - name: folders
     description: Chat folder operations
+  - name: stars
+    description: ECHO Stars virtual currency
+  - name: premium
+    description: ECHO Premium subscription
 paths:
   /healthz:
     get:
@@ -1052,6 +1056,138 @@ paths:
               schema:
                 $ref: "#/components/schemas/CallLog"
 
+  /stars:
+    get:
+      operationId: getStars
+      tags: [stars]
+      summary: Get my stars balance and transaction history
+      responses:
+        "200":
+          description: Stars balance and transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StarsBalanceResponse"
+
+  /stars/purchase:
+    post:
+      operationId: purchaseStars
+      tags: [stars]
+      summary: Purchase a stars package (demo — free)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseStarsInput"
+      responses:
+        "200":
+          description: Stars purchased
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PurchaseStarsResponse"
+
+  /stars/gift:
+    post:
+      operationId: giftStars
+      tags: [stars]
+      summary: Gift stars to another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GiftStarsInput"
+      responses:
+        "200":
+          description: Stars gifted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /stars/tip:
+    post:
+      operationId: tipStars
+      tags: [stars]
+      summary: Send tip stars on a channel message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipStarsInput"
+      responses:
+        "200":
+          description: Tip sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /stars/react:
+    post:
+      operationId: paidReaction
+      tags: [stars]
+      summary: Send a paid reaction on a message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TipStarsInput"
+      responses:
+        "200":
+          description: Reaction sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /premium:
+    get:
+      operationId: getPremiumStatus
+      tags: [premium]
+      summary: Get current premium status
+      responses:
+        "200":
+          description: Premium status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PremiumStatusResponse"
+
+  /premium/subscribe:
+    post:
+      operationId: subscribePremium
+      tags: [premium]
+      summary: Subscribe to ECHO Premium using stars
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscribePremiumInput"
+      responses:
+        "200":
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscribePremiumResponse"
+    delete:
+      operationId: cancelPremium
+      tags: [premium]
+      summary: Cancel premium auto-renewal
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1735,3 +1871,113 @@ components:
         packId:
           type: integer
       required: [packId]
+
+    StarsTransaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        amount:
+          type: integer
+        description:
+          type: ["string", "null"]
+        relatedId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+      required: [id, type, amount, createdAt]
+
+    StarsBalanceResponse:
+      type: object
+      properties:
+        balance:
+          type: integer
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/StarsTransaction"
+      required: [balance, transactions]
+
+    PurchaseStarsInput:
+      type: object
+      properties:
+        packageSize:
+          type: integer
+          enum: [100, 250, 500, 1000, 2500, 5000]
+      required: [packageSize]
+
+    PurchaseStarsResponse:
+      type: object
+      properties:
+        starsBalance:
+          type: integer
+        transaction:
+          $ref: "#/components/schemas/StarsTransaction"
+      required: [starsBalance, transaction]
+
+    GiftStarsInput:
+      type: object
+      properties:
+        recipientId:
+          type: integer
+        amount:
+          type: integer
+      required: [recipientId, amount]
+
+    TipStarsInput:
+      type: object
+      properties:
+        messageId:
+          type: integer
+        amount:
+          type: integer
+      required: [messageId, amount]
+
+    PremiumSubscriptionRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        plan:
+          type: string
+        startedAt:
+          type: string
+        expiresAt:
+          type: string
+      required: [id, plan, startedAt, expiresAt]
+
+    PremiumStatusResponse:
+      type: object
+      properties:
+        isPremium:
+          type: boolean
+        premiumUntil:
+          type: ["string", "null"]
+        starsBalance:
+          type: integer
+        subscriptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PremiumSubscriptionRecord"
+      required: [isPremium, starsBalance, subscriptions]
+
+    SubscribePremiumInput:
+      type: object
+      properties:
+        tier:
+          type: string
+          enum: [monthly, yearly]
+      required: [tier]
+
+    SubscribePremiumResponse:
+      type: object
+      properties:
+        isPremium:
+          type: boolean
+        premiumUntil:
+          type: string
+        newStarsBalance:
+          type: integer
+      required: [isPremium, premiumUntil, newStarsBalance]
