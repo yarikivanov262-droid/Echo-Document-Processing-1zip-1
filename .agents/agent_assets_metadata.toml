@@ -1,5 +1,16 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "sg1eHoQv-mAMg3CqujJpX"
+uri = "file://attached_assets/generated_images/echo_logo_concept.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "1HhrJPudfXw9hQHM0IUMh"
+uri = "file://attached_assets/generated_images/echo_logo_icon_only.png"
+type = "image"
+title = "generated_image"
 
 [[outputs]]
 id = "vF6xD0UyLj89asdcb5O_C"
