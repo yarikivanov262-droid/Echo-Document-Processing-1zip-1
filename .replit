@@ -22,10 +22,6 @@ args = "ECHO API"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "ECHO Messenger"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Start application"
 
 [[workflows.workflow]]
@@ -39,18 +35,6 @@ outputType = "console"
 task = "shell.exec"
 args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
 waitForPort = 8080
-
-[[workflows.workflow]]
-name = "ECHO Messenger"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "webview"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=5000 BASE_PATH=/ API_PORT=8080 pnpm --filter @workspace/echo-messenger run dev"
-waitForPort = 5000
 
 [[workflows.workflow]]
 name = "Start application"
