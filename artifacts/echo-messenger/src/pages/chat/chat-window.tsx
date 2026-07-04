@@ -16,6 +16,7 @@ import { useWsEvent } from "@/hooks/use-ws";
 import { echoWs } from "@/lib/ws-client";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { stripExif } from "@/lib/media/strip-exif";
 
 function getAvatarColor(name: string) {
   const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
@@ -288,9 +289,14 @@ export function ChatWindow() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = async () => {
-      const b64 = (reader.result as string).split(",")[1];
       try {
-        const res = await uploadMutation.mutateAsync({ data: { data: b64, mimeType: file.type } });
+        const processedFile = file.type.startsWith("image/") ? await stripExif(file) : file;
+        const processedReader = new FileReader();
+        const processedB64 = await new Promise<string>((resolve) => {
+          processedReader.onload = () => resolve((processedReader.result as string).split(",")[1]);
+          processedReader.readAsDataURL(processedFile);
+        });
+        const res = await uploadMutation.mutateAsync({ data: { data: processedB64, mimeType: processedFile.type } });
         sendMutation.mutate(
           { data: { chatId, chatType: chat?.type ?? 1, encryptedContent: file.name, mediaFileId: res.fileId } },
           {

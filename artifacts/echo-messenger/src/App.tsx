@@ -7,6 +7,7 @@ import { Router as WouterRouter } from "wouter";
 import { AppRouter } from "./app-router";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useWsConnect } from "@/hooks/use-ws";
+import { PanicButton } from "@/components/panic-button";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ function App() {
           <TooltipProvider>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
               <WsConnector />
+              <PanicButton />
               <AppRouter />
             </WouterRouter>
             <Toaster />

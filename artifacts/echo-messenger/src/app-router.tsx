@@ -27,6 +27,12 @@ import { CreateGroup } from "@/pages/group/create-group";
 import { StickerPacks } from "@/pages/stickers/sticker-packs";
 import { Stars } from "@/pages/stars/stars";
 import { Premium } from "@/pages/premium/premium";
+import { InvitePage } from "@/pages/invite";
+import { AskPage } from "@/pages/ask";
+import { ConnectionSettings } from "@/pages/settings/connection";
+import { PersonasSettings } from "@/pages/settings/personas";
+import { AnonInboxSettings } from "@/pages/settings/anon-inbox";
+import { PrivacyScore } from "@/pages/settings/privacy-score";
 import { useEchoAuth } from "@/lib/auth-context";
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -211,6 +217,18 @@ export function AppRouter() {
       <Route path="/settings/data">
         <ProtectedLayout><DataSettings /></ProtectedLayout>
       </Route>
+      <Route path="/settings/connection">
+        <ProtectedLayout><ConnectionSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/personas">
+        <ProtectedLayout><PersonasSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/anon-inbox">
+        <ProtectedLayout><AnonInboxSettings /></ProtectedLayout>
+      </Route>
+      <Route path="/settings/privacy-score">
+        <ProtectedLayout><PrivacyScore /></ProtectedLayout>
+      </Route>
       <Route path="/settings/rate">
         <ProtectedLayout>
           <div className="flex flex-col h-full items-center justify-center gap-4 text-center px-8">
@@ -222,6 +240,16 @@ export function AppRouter() {
             </div>
           </div>
         </ProtectedLayout>
+      </Route>
+
+      {/* Invite join */}
+      <Route path="/invite/:link">
+        <InvitePage />
+      </Route>
+
+      {/* Anonymous inbox (public, no login) */}
+      <Route path="/ask/:slug">
+        <AskPage />
       </Route>
 
       {/* Stars & Premium */}

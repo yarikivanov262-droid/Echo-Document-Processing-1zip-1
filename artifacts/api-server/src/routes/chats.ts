@@ -399,4 +399,41 @@ router.delete("/chats/:id/members/:userId", requireAuth, async (req: Authenticat
   res.json(RemoveChatMemberResponse.parse({ success: true }));
 });
 
+router.post("/chats/join/:link", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const link = Array.isArray(req.params.link) ? req.params.link[0] : req.params.link;
+  if (!link) {
+    res.status(400).json({ error: "Invite link required" });
+    return;
+  }
+
+  const [chat] = await db
+    .select()
+    .from(chatsTable)
+    .where(eq(chatsTable.inviteLink, link))
+    .limit(1);
+
+  if (!chat) {
+    res.status(404).json({ error: "Ссылка недействительна или истекла" });
+    return;
+  }
+
+  if (chat.inviteLinkExpiry && chat.inviteLinkExpiry < new Date()) {
+    res.status(410).json({ error: "Срок действия ссылки истёк" });
+    return;
+  }
+
+  const userId = req.userId!;
+  const [existing] = await db
+    .select()
+    .from(chatMembersTable)
+    .where(and(eq(chatMembersTable.chatId, chat.id), eq(chatMembersTable.userId, userId)))
+    .limit(1);
+
+  if (!existing) {
+    await db.insert(chatMembersTable).values({ chatId: chat.id, userId, role: "member" });
+  }
+
+  res.json({ chatId: chat.id });
+});
+
 export default router;

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLogin, useRegister, useCheckUsername } from "@workspace/api-client-react";
+import { storePrivateKey, storeKeyPair } from "@/lib/crypto/key-store";
+import { exportPrivateKey, exportPublicKey } from "@/lib/crypto/signal";
 
 export function Login() {
   const [, setLocation] = useLocation();
@@ -98,8 +100,8 @@ export function Login() {
       true,
       ["deriveKey", "deriveBits"]
     );
-    const spki = await crypto.subtle.exportKey("spki", keyPair.publicKey);
-    const pubKeyB64 = btoa(String.fromCharCode(...new Uint8Array(spki)));
+    const pubKeyB64 = await exportPublicKey(keyPair.publicKey);
+    const privKeyB64 = await exportPrivateKey(keyPair.privateKey);
 
     checkUsernameMutation.mutate({ data: { username } }, {
       onSuccess: (res) => {
@@ -115,7 +117,9 @@ export function Login() {
             publicIdentityKey: pubKeyB64,
           } 
         }, {
-          onSuccess: (data) => {
+          onSuccess: async (data) => {
+            await storePrivateKey(data.userId, privKeyB64);
+            await storeKeyPair(`identity_${data.userId}`, pubKeyB64, privKeyB64);
             login(data.sessionToken, data.userId, data.username);
             toast({ title: "Keys generated", description: "Your vault is secure." });
             setLocation("/chats");

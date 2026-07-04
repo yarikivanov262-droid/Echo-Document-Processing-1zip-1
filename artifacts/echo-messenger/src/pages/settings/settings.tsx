@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import {
   ChevronRight, Bell, Lock, HardDrive, Palette, Globe, Smartphone,
   Bookmark, Phone, LogOut, ShieldAlert, Star, FolderOpen,
-  Smile, Users, Activity, Database, Crown
+  Smile, Users, Activity, Database, Crown, Wifi, Mail, Shield
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetMe } from "@workspace/api-client-react";
@@ -125,6 +125,10 @@ export function Settings() {
         <Row icon={<Smile className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Стикерпаки" href="/sticker-packs" />
         <Row icon={<FolderOpen className="h-[18px] w-[18px] text-white" />} bg="bg-[#5856d6]" label="Папки чатов" href="/settings/folders" />
         <Row icon={<Users className="h-[18px] w-[18px] text-white" />} bg="bg-[#a695e7]" label="Мои профили" href="/settings/profiles" />
+        <Row icon={<Users className="h-[18px] w-[18px] text-white" />} bg="bg-[#5856d6]" label="Псевдонимы" href="/settings/personas" />
+        <Row icon={<Wifi className="h-[18px] w-[18px] text-white" />} bg="bg-[#007aff]" label="Прокси и соединение" href="/settings/connection" />
+        <Row icon={<Mail className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff2d55]" label="Анонимный ящик" href="/settings/anon-inbox" />
+        <Row icon={<Shield className="h-[18px] w-[18px] text-white" />} bg="bg-[#34c759]" label="Анализ приватности" href="/settings/privacy-score" />
         <Row icon={<Database className="h-[18px] w-[18px] text-white" />} bg="bg-[#ff9500]" label="Резервная копия" href="/settings/backup" last />
       </div>
 
