@@ -12,3 +12,9 @@ id = "LABFGTkFJdxoI7JZBZZSQ"
 uri = "file://ТЕХ ПРОЕКТ ECHO — ДОПОЛНЕНИЯ.txt"
 type = "text"
 title = "ECHO — Дополнения к тех. проекту (аудит + баги + чек-лист запуска)"
+
+[[outputs]]
+id = "YtvXtyp17Rj9pGHr473xk"
+uri = "file://НЕДОСТАТКИ.md"
+type = "text"
+title = "ECHO — Недостатки и что нужно сделать"
