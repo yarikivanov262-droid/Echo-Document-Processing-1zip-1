@@ -7,3 +7,6 @@
 - [contactsTable owner field](contacts-schema.md) — contactsTable uses `ownerId` (not `userId`) for the owning user FK; blockedUsersTable uses `userId`.
 - [WebCrypto Uint8Array TS casts](webcrypto-ts-casts.md) — spread-built Uint8Array has `.buffer: ArrayBufferLike`; cast `combined.buffer as ArrayBuffer` and `data as unknown as ArrayBuffer` for sign/encrypt calls.
 - [Artifact-managed workflow conflicts](artifact-managed-workflows.md) — custom workflows sharing a port with an auto-registered `artifacts/<pkg>: ...` workflow fail with DIDNT_OPEN_A_PORT even if no real OS conflict; remove the duplicate, use the artifact-managed one.
+- [Argon2id migration pattern](argon2id-migration.md) — seedHash upgraded from SHA→Argon2id on login; seedLookupHash (HMAC-SHA256) stored for restore lookup; polls need chat membership check on GET/vote/close.
+- [db package types rebuild](db-types-rebuild.md) — after editing lib/db/src/schema/*.ts, run `cd lib/db && pnpm exec tsc --project tsconfig.json` to regenerate dist/; `pnpm run typecheck:libs` also works.
+- [pnpm onlyBuiltDependencies location](pnpm-built-deps.md) — native packages (argon2 etc.) must be added to `onlyBuiltDependencies` array in pnpm-workspace.yaml (not root package.json); then run `pnpm rebuild <pkg>`.

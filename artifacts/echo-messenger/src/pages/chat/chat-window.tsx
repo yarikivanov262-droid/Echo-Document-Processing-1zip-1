@@ -6,12 +6,16 @@ import {
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
   Smile, X, Pin, BellOff, UserPlus, ChevronDown, Pencil,
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive,
-  Square, Play, Pause, Search, ChevronUp
+  Square, Play, Pause, Search, ChevronUp, Link2
 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { MessageText } from "@/components/message-text";
+import { VoiceMessagePlayer } from "@/components/voice-message-player";
+import { PollMessage, type PollData } from "@/components/poll-message";
+import { CreatePollModal } from "@/components/create-poll-modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage } from "@workspace/api-client-react";
+import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage, useCreatePoll, useVotePoll, useGetPoll, getMessages } from "@workspace/api-client-react";
+import { BarChart2 } from "lucide-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useWsEvent } from "@/hooks/use-ws";
@@ -57,10 +61,42 @@ type MsgItem = {
   isPinned?: boolean;
 };
 
+function PollInChat({ pollId, isSelf, cached, onVoted }: {
+  pollId: number;
+  isSelf: boolean;
+  cached?: PollData;
+  onVoted: (updated: PollData) => void;
+}) {
+  const { data: fetched } = useGetPoll(pollId, { query: { enabled: !cached } as never });
+  const poll = cached ?? (fetched as unknown as PollData);
+  const voteMutation = useVotePoll();
+
+  if (!poll) return (
+    <div className="flex items-center gap-2 py-2 opacity-60">
+      <BarChart2 className="h-4 w-4" />
+      <span className="text-[13px]">Загрузка опроса...</span>
+    </div>
+  );
+
+  return (
+    <PollMessage
+      poll={poll}
+      isSelf={isSelf}
+      disabled={voteMutation.isPending}
+      onVote={(optionIndexes) => {
+        voteMutation.mutate(
+          { id: pollId, data: { optionIndexes } },
+          { onSuccess: (res: unknown) => onVoted(res as PollData) }
+        );
+      }}
+    />
+  );
+}
+
 export function ChatWindow() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { userId, username } = useEchoAuth();
+  const { userId, username, sessionToken } = useEchoAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const chatId = parseInt(id || "0", 10);
@@ -80,6 +116,7 @@ export function ChatWindow() {
   const editMessageMutation = useEditMessage();
   const pinMessageMutation = usePinMessage();
   const forwardMessageMutation = useForwardMessage();
+  const createPollMutation = useCreatePoll();
   const { data: allChats } = useGetChats();
 
   const [text, setText] = useState("");
@@ -99,6 +136,12 @@ export function ChatWindow() {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [decryptedMap, setDecryptedMap] = useState<Map<number, string>>(new Map());
+  const [pollsCache, setPollsCache] = useState<Map<number, PollData>>(new Map());
+  const [showPollModal, setShowPollModal] = useState(false);
+  const [olderMessages, setOlderMessages] = useState<MsgItem[]>([]);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
@@ -152,10 +195,58 @@ export function ChatWindow() {
     if (event.type === "status" && (chat as { otherUserId?: number })?.otherUserId === event.userId) {
       void queryClient.invalidateQueries({ queryKey: [`/api/chats/${chatId}`] });
     }
+    if ((event.type === "new_poll" || event.type === "poll_update") && event.chatId === chatId) {
+      const poll = event.poll as unknown as PollData;
+      if (poll?.id) {
+        setPollsCache(prev => new Map(prev).set(poll.id, poll));
+      }
+    }
   });
 
+  // Reset older messages when chat changes
+  useEffect(() => {
+    setOlderMessages([]);
+    setHasMoreOlder(true);
+  }, [chatId]);
+
+  // Load older messages
+  const loadOlderMessages = useCallback(async () => {
+    const allLoaded = [...olderMessages, ...(messages ?? [])];
+    const firstId = allLoaded[0]?.id;
+    if (!firstId || isLoadingOlder || !hasMoreOlder) return;
+    setIsLoadingOlder(true);
+    try {
+      const older = await getMessages({ chatId, before: firstId, limit: 40 });
+      if (!older || older.length === 0) { setHasMoreOlder(false); return; }
+      const enrichedOlder: MsgItem[] = older.map(m => ({
+        ...m,
+        timestamp: (m as { timestamp?: string }).timestamp ?? "",
+        isSelf: m.senderId === userId,
+        senderUsername: (m as { senderUsername?: string }).senderUsername,
+        replyToId: (m as { replyToId?: number | null }).replyToId,
+        forwardedFromId: (m as { forwardedFromId?: number | null }).forwardedFromId,
+        forwardedFromUsername: (m as { forwardedFromUsername?: string | null }).forwardedFromUsername,
+        isPinned: (m as { isPinned?: boolean }).isPinned,
+      }));
+      setOlderMessages(prev => [...enrichedOlder, ...prev]);
+      if (older.length < 40) setHasMoreOlder(false);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [chatId, olderMessages, messages, userId, isLoadingOlder, hasMoreOlder]);
+
+  // IntersectionObserver for top sentinel
+  useEffect(() => {
+    if (!topSentinelRef.current) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) void loadOlderMessages();
+    }, { threshold: 0.1 });
+    obs.observe(topSentinelRef.current);
+    return () => obs.disconnect();
+  }, [loadOlderMessages]);
+
   // Enrich messages with isSelf
-  const enriched: MsgItem[] = (messages ?? []).map(m => ({
+  const enriched: MsgItem[] = [...olderMessages, ...(messages ?? [])].map(m => ({
     ...m,
     timestamp: (m as { timestamp?: string }).timestamp ?? "",
     isSelf: m.senderId === userId,
@@ -205,12 +296,32 @@ export function ChatWindow() {
     setSearchMatchIndex(0);
   }, [searchQuery, chatId]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom only for new messages, not older ones being prepended
+  const prevLengthRef = useRef(0);
+  const prevOlderLengthRef = useRef(0);
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const container = scrollRef.current;
+    if (!container) return;
+    const totalNow = enriched.length;
+    const olderNow = olderMessages.length;
+    const prevTotal = prevLengthRef.current;
+    const prevOlder = prevOlderLengthRef.current;
+
+    if (olderNow > prevOlder) {
+      // Older messages were prepended — preserve scroll position
+      const scrollHeightBefore = container.scrollHeight;
+      requestAnimationFrame(() => {
+        const added = container.scrollHeight - scrollHeightBefore;
+        container.scrollTop += added;
+      });
+    } else if (totalNow > prevTotal) {
+      // New messages at the bottom — scroll to bottom
+      container.scrollTop = container.scrollHeight;
     }
-  }, [enriched.length]);
+
+    prevLengthRef.current = totalNow;
+    prevOlderLengthRef.current = olderNow;
+  }, [enriched.length, olderMessages.length]);
 
   // Mark unread as read
   useEffect(() => {
@@ -716,6 +827,27 @@ export function ChatWindow() {
                     });
                   },
                 },
+                ...(isGroup ? [{
+                  icon: <Link2 className="h-4 w-4" />,
+                  label: "Пригласить в группу",
+                  fn: () => {
+                    fetch(`/api/chats/${chatId}/invite`, {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${sessionToken ?? ""}` },
+                    })
+                      .then(r => r.json())
+                      .then((d: unknown) => {
+                        const data = d as { inviteLink?: string };
+                        if (data?.inviteLink) {
+                          const url = `${window.location.origin}/invite/${data.inviteLink}`;
+                          void navigator.clipboard.writeText(url).then(() =>
+                            toast({ title: "Ссылка скопирована!", description: url })
+                          );
+                        }
+                      })
+                      .catch(() => toast({ title: "Ошибка генерации ссылки", variant: "destructive" }));
+                  },
+                }] : []),
               ].map(({ icon, label, fn }) => (
                 <button
                   key={label}
@@ -769,6 +901,19 @@ export function ChatWindow() {
           backgroundSize: "32px 32px"
         }}
       >
+        {/* Top sentinel for infinite scroll */}
+        <div ref={topSentinelRef} className="h-1" />
+        {isLoadingOlder && (
+          <div className="flex justify-center py-2">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+        )}
+        {!hasMoreOlder && enriched.length > 40 && (
+          <div className="flex justify-center py-2">
+            <span className="text-[12px] text-muted-foreground bg-card/80 rounded-full px-3 py-1">Начало истории</span>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -870,12 +1015,22 @@ export function ChatWindow() {
                         if (displayText.startsWith("[voice:")) {
                           const voiceUrl = displayText.slice(7, -1);
                           return (
-                            <audio
-                              controls
+                            <VoiceMessagePlayer
                               src={voiceUrl}
+                              isSelf={isSelf}
                               id={`msg-${msg.id}`}
-                              className="max-w-[220px] h-10 mt-1"
-                              style={{ accentColor: isSelf ? "#fff" : "var(--primary)" }}
+                            />
+                          );
+                        }
+                        if (displayText.startsWith("[poll:")) {
+                          const pollId = parseInt(displayText.slice(6, -1), 10);
+                          return (
+                            <PollInChat
+                              key={`poll-${pollId}`}
+                              pollId={pollId}
+                              isSelf={isSelf}
+                              cached={pollsCache.get(pollId)}
+                              onVoted={(updated) => setPollsCache(p => new Map(p).set(pollId, updated))}
                             />
                           );
                         }
@@ -1152,6 +1307,13 @@ export function ChatWindow() {
                     <FileIcon className="h-6 w-6 text-primary" />
                     <span className="text-[13px] text-foreground">Файл</span>
                   </button>
+                  <button
+                    onClick={() => { setShowAttach(false); setShowPollModal(true); }}
+                    className="flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl bg-muted hover:bg-muted/70"
+                  >
+                    <BarChart2 className="h-6 w-6 text-primary" />
+                    <span className="text-[13px] text-foreground">Опрос</span>
+                  </button>
                 </div>
               </motion.div>
             </>
@@ -1224,6 +1386,31 @@ export function ChatWindow() {
           )}
         </form>
       </div>
+
+      {/* ── Poll modal ── */}
+      {showPollModal && (
+        <CreatePollModal
+          onClose={() => setShowPollModal(false)}
+          isPending={createPollMutation.isPending}
+          onSubmit={(data) => {
+            createPollMutation.mutate(
+              { data: { chatId, ...data } },
+              {
+                onSuccess: (poll) => {
+                  const p = poll as unknown as PollData;
+                  if (p?.id) setPollsCache(prev => new Map(prev).set(p.id, p));
+                  sendMutation.mutate(
+                    { data: { chatId, chatType: chat?.type ?? 1, encryptedContent: `[poll:${p.id}]` } },
+                    { onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }) }
+                  );
+                  setShowPollModal(false);
+                },
+                onError: () => toast({ title: "Ошибка создания опроса", variant: "destructive" }),
+              }
+            );
+          }}
+        />
+      )}
 
       {/* ── Forward dialog ── */}
       <Dialog open={showForwardDialog} onOpenChange={(open) => { setShowForwardDialog(open); if (!open) setForwardMsg(null); }}>

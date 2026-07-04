@@ -368,6 +368,117 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
 
+  /messages/search:
+    get:
+      operationId: searchMessages
+      tags: [messages]
+      summary: Search messages by text content
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: chatId
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Matching messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MessageSearchResult"
+
+  /polls:
+    post:
+      operationId: createPoll
+      tags: [messages]
+      summary: Create a poll in a chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePollInput"
+      responses:
+        "201":
+          description: Poll created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResult"
+
+  /polls/{id}:
+    get:
+      operationId: getPoll
+      tags: [messages]
+      summary: Get poll with vote counts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Poll details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResult"
+
+  /polls/{id}/vote:
+    post:
+      operationId: votePoll
+      tags: [messages]
+      summary: Vote on a poll (or retract vote)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VotePollInput"
+      responses:
+        "200":
+          description: Updated poll
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResult"
+
+  /polls/{id}/close:
+    post:
+      operationId: closePoll
+      tags: [messages]
+      summary: Close a poll (creator only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Closed poll
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PollResult"
+
   /messages/{id}:
     delete:
       operationId: deleteMessage
@@ -1564,6 +1675,111 @@ components:
         forwardedFromId:
           type: ["integer", "null"]
       required: [id, senderId, chatId, chatType, encryptedContent, timestamp, deleteAfterRead, isVoice]
+
+    MessageSearchResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        senderId:
+          type: integer
+        senderUsername:
+          type: string
+        chatId:
+          type: integer
+        chatType:
+          type: integer
+        encryptedContent:
+          type: string
+        timestamp:
+          type: string
+        isVoice:
+          type: boolean
+        mediaFileId:
+          type: ["string", "null"]
+      required: [id, senderId, chatId, chatType, encryptedContent, timestamp, isVoice]
+
+    CreatePollInput:
+      type: object
+      properties:
+        chatId:
+          type: integer
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+          minItems: 2
+          maxItems: 10
+        isAnonymous:
+          type: boolean
+        isMultipleChoice:
+          type: boolean
+        isQuiz:
+          type: boolean
+        correctOptionIndex:
+          type: ["integer", "null"]
+        explanation:
+          type: ["string", "null"]
+        closesAt:
+          type: ["string", "null"]
+      required: [chatId, question, options]
+
+    VotePollInput:
+      type: object
+      properties:
+        optionIndexes:
+          type: array
+          items:
+            type: integer
+          minItems: 1
+      required: [optionIndexes]
+
+    PollResult:
+      type: object
+      properties:
+        id:
+          type: integer
+        chatId:
+          type: integer
+        creatorId:
+          type: integer
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+        isAnonymous:
+          type: boolean
+        isMultipleChoice:
+          type: boolean
+        isQuiz:
+          type: boolean
+        correctOptionIndex:
+          type: ["integer", "null"]
+        explanation:
+          type: ["string", "null"]
+        closesAt:
+          type: ["string", "null"]
+        isClosed:
+          type: boolean
+        createdAt:
+          type: string
+        voteCounts:
+          type: array
+          items:
+            type: integer
+        totalVotes:
+          type: integer
+        totalVoters:
+          type: integer
+        myOptionIndexes:
+          type: array
+          items:
+            type: integer
+      required: [id, chatId, creatorId, question, options, isAnonymous, isMultipleChoice, isQuiz, isClosed, createdAt, voteCounts, totalVotes, totalVoters, myOptionIndexes]
 
     MessageInput:
       type: object

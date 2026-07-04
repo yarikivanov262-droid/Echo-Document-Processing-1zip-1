@@ -11,6 +11,8 @@ export type WsEvent =
   | { type: "edit_message"; messageId: number; chatId: number; encryptedContent: string; editedAt: string }
   | { type: "reaction"; messageId: number; chatId: number; emoji: string; userId: number; delta: number }
   | { type: "pin_message"; messageId: number; chatId: number; isPinned: boolean }
+  | { type: "new_poll"; chatId: number; poll: Record<string, unknown> }
+  | { type: "poll_update"; chatId: number; poll: Record<string, unknown> }
   | { type: "status"; userId: number; online: boolean }
   | { type: "incoming_call"; callId: number; callUuid: string; callerId: number; callerUsername: string; callType: "audio" | "video" }
   | { type: "call_signal"; fromUserId: number; signal: Record<string, unknown> }

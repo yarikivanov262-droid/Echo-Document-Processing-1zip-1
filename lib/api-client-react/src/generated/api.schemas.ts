@@ -180,6 +180,66 @@ export interface Message {
   forwardedFromId?: number | null;
 }
 
+export interface MessageSearchResult {
+  id: number;
+  senderId: number;
+  senderUsername?: string;
+  chatId: number;
+  chatType: number;
+  encryptedContent: string;
+  timestamp: string;
+  isVoice: boolean;
+  /** @nullable */
+  mediaFileId?: string | null;
+}
+
+export interface CreatePollInput {
+  chatId: number;
+  question: string;
+  /**
+     * @minItems 2
+     * @maxItems 10
+     */
+  options: string[];
+  isAnonymous?: boolean;
+  isMultipleChoice?: boolean;
+  isQuiz?: boolean;
+  /** @nullable */
+  correctOptionIndex?: number | null;
+  /** @nullable */
+  explanation?: string | null;
+  /** @nullable */
+  closesAt?: string | null;
+}
+
+export interface VotePollInput {
+  /** @minItems 1 */
+  optionIndexes: number[];
+}
+
+export interface PollResult {
+  id: number;
+  chatId: number;
+  creatorId: number;
+  question: string;
+  options: string[];
+  isAnonymous: boolean;
+  isMultipleChoice: boolean;
+  isQuiz: boolean;
+  /** @nullable */
+  correctOptionIndex?: number | null;
+  /** @nullable */
+  explanation?: string | null;
+  /** @nullable */
+  closesAt?: string | null;
+  isClosed: boolean;
+  createdAt: string;
+  voteCounts: number[];
+  totalVotes: number;
+  totalVoters: number;
+  myOptionIndexes: number[];
+}
+
 export interface MessageInput {
   /** @nullable */
   receiverId?: number | null;
@@ -580,6 +640,12 @@ limit?: number;
 export type GetMessagesParams = {
 chatId: number;
 before?: number;
+limit?: number;
+};
+
+export type SearchMessagesParams = {
+q: string;
+chatId?: number;
 limit?: number;
 };
 

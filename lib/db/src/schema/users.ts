@@ -9,6 +9,7 @@ export const usersTable = pgTable("users", {
   publicSignedPrekey: varchar("public_signed_prekey", { length: 512 }),
   publicOneTimePrekeys: jsonb("public_one_time_prekeys").$type<string[]>(),
   seedHash: varchar("seed_hash", { length: 512 }).notNull(),
+  seedLookupHash: varchar("seed_lookup_hash", { length: 64 }),
   isAdmin: boolean("is_admin").default(false).notNull(),
   isDeleted: boolean("is_deleted").default(false).notNull(),
   avatarFileId: varchar("avatar_file_id", { length: 36 }),

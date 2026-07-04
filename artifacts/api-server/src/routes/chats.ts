@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router, type IRouter } from "express";
 import { db, chatsTable, chatMembersTable, messagesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, count, isNull, ne, inArray } from "drizzle-orm";
@@ -425,6 +426,30 @@ router.delete("/chats/:id/members/:userId", requireAuth, async (req: Authenticat
     );
 
   res.json(RemoveChatMemberResponse.parse({ success: true }));
+});
+
+// POST /chats/:id/invite — generate an invite link
+router.post("/chats/:id/invite", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const chatId = parseInt(rawId, 10);
+  if (isNaN(chatId)) { res.status(400).json({ error: "Invalid chat id" }); return; }
+
+  const [membership] = await db.select({ role: chatMembersTable.role })
+    .from(chatMembersTable)
+    .where(and(eq(chatMembersTable.chatId, chatId), eq(chatMembersTable.userId, req.userId!)));
+  if (!membership || !["admin", "owner"].includes(membership.role ?? "")) {
+    res.status(403).json({ error: "Only admins can generate invite links" });
+    return;
+  }
+
+  const link = crypto.randomBytes(12).toString("hex");
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+  await db.update(chatsTable)
+    .set({ inviteLink: link, inviteLinkExpiry: expiresAt })
+    .where(eq(chatsTable.id, chatId));
+
+  res.json({ inviteLink: link, expiresAt: expiresAt.toISOString() });
 });
 
 router.post("/chats/join/:link", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {

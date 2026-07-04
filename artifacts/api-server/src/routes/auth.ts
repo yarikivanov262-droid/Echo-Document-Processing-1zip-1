@@ -2,6 +2,21 @@ import { Router, type IRouter } from "express";
 import { db, usersTable, sessionsTable, backupsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
+import argon2 from "argon2";
+
+async function hashSeed(seedHash: string): Promise<string> {
+  return argon2.hash(seedHash, { type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
+}
+
+async function verifySeed(stored: string, seedHash: string): Promise<boolean> {
+  if (!stored.startsWith("$argon2")) return stored === seedHash;
+  return argon2.verify(stored, seedHash);
+}
+
+function makeLookupHash(seedHash: string): string {
+  const secret = process.env.SESSION_SECRET ?? "echo-lookup-fallback";
+  return crypto.createHmac("sha256", secret).update(seedHash).digest("hex");
+}
 import {
   RegisterBody,
   RegisterResponse,
@@ -44,6 +59,9 @@ router.post("/register", authRateLimit, async (req, res): Promise<void> => {
     return;
   }
 
+  const hashedSeed = await hashSeed(seedHash);
+  const lookupHash = makeLookupHash(seedHash);
+
   const [user] = await db
     .insert(usersTable)
     .values({
@@ -51,7 +69,8 @@ router.post("/register", authRateLimit, async (req, res): Promise<void> => {
       publicIdentityKey,
       publicSignedPrekey: publicSignedPrekey ?? null,
       publicOneTimePrekeys: publicOneTimePrekeys ?? null,
-      seedHash,
+      seedHash: hashedSeed,
+      seedLookupHash: lookupHash,
     })
     .returning();
 
@@ -104,9 +123,24 @@ router.post("/login", authRateLimit, async (req, res): Promise<void> => {
     .from(usersTable)
     .where(and(eq(usersTable.username, username), eq(usersTable.isDeleted, false)));
 
-  if (!user || user.seedHash !== seedHash) {
+  if (!user) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
+  }
+
+  const valid = await verifySeed(user.seedHash, seedHash);
+  if (!valid) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  // Migrate legacy SHA hash to Argon2id on successful login (also set seedLookupHash)
+  if (!user.seedHash.startsWith("$argon2")) {
+    const upgraded = await hashSeed(seedHash);
+    const lookupHash = makeLookupHash(seedHash);
+    await db.update(usersTable)
+      .set({ seedHash: upgraded, seedLookupHash: lookupHash })
+      .where(eq(usersTable.id, user.id));
   }
 
   const sessionToken = crypto.randomBytes(32).toString("hex");
@@ -137,14 +171,41 @@ router.post("/restore", authRateLimit, async (req, res): Promise<void> => {
     return;
   }
 
-  const [user] = await db
+  const { seedHash: rawSeedHash } = parsed.data;
+  const lookupHash = makeLookupHash(rawSeedHash);
+
+  // Try new Argon2id accounts first (via seedLookupHash)
+  const [userByLookup] = await db
     .select()
     .from(usersTable)
-    .where(and(eq(usersTable.seedHash, parsed.data.seedHash), eq(usersTable.isDeleted, false)));
+    .where(and(eq(usersTable.seedLookupHash, lookupHash), eq(usersTable.isDeleted, false)));
+
+  // Fall back to legacy SHA accounts (direct seedHash comparison)
+  const [userByDirect] = !userByLookup
+    ? await db.select().from(usersTable)
+        .where(and(eq(usersTable.seedHash, rawSeedHash), eq(usersTable.isDeleted, false)))
+    : [undefined];
+
+  const user = userByLookup ?? userByDirect;
 
   if (!user) {
     res.status(401).json({ error: "No account found with this seed" });
     return;
+  }
+
+  // Verify argon2 hash (or accept legacy)
+  const valid = await verifySeed(user.seedHash, rawSeedHash);
+  if (!valid) {
+    res.status(401).json({ error: "Invalid seed" });
+    return;
+  }
+
+  // Migrate legacy account to Argon2id + add lookup hash
+  if (!user.seedHash.startsWith("$argon2")) {
+    const upgraded = await hashSeed(rawSeedHash);
+    await db.update(usersTable)
+      .set({ seedHash: upgraded, seedLookupHash: lookupHash })
+      .where(eq(usersTable.id, user.id));
   }
 
   const sessionToken = crypto.randomBytes(32).toString("hex");

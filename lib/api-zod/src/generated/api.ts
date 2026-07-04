@@ -391,6 +391,161 @@ export const SendMessageResponse = zod.object({
 
 
 /**
+ * @summary Search messages by text content
+ */
+export const SearchMessagesQueryParams = zod.object({
+  "q": zod.coerce.string(),
+  "chatId": zod.coerce.number().optional(),
+  "limit": zod.coerce.number().optional()
+})
+
+export const SearchMessagesResponseItem = zod.object({
+  "id": zod.number(),
+  "senderId": zod.number(),
+  "senderUsername": zod.string().optional(),
+  "chatId": zod.number(),
+  "chatType": zod.number(),
+  "encryptedContent": zod.string(),
+  "timestamp": zod.string(),
+  "isVoice": zod.boolean(),
+  "mediaFileId": zod.string().nullish()
+})
+export const SearchMessagesResponse = zod.array(SearchMessagesResponseItem)
+
+
+/**
+ * @summary Create a poll in a chat
+ */
+export const createPollBodyOptionsMin = 2;
+export const createPollBodyOptionsMax = 10;
+
+
+
+export const CreatePollBody = zod.object({
+  "chatId": zod.number(),
+  "question": zod.string(),
+  "options": zod.array(zod.string()).min(createPollBodyOptionsMin).max(createPollBodyOptionsMax),
+  "isAnonymous": zod.boolean().optional(),
+  "isMultipleChoice": zod.boolean().optional(),
+  "isQuiz": zod.boolean().optional(),
+  "correctOptionIndex": zod.number().nullish(),
+  "explanation": zod.string().nullish(),
+  "closesAt": zod.string().nullish()
+})
+
+export const CreatePollResponse = zod.object({
+  "id": zod.number(),
+  "chatId": zod.number(),
+  "creatorId": zod.number(),
+  "question": zod.string(),
+  "options": zod.array(zod.string()),
+  "isAnonymous": zod.boolean(),
+  "isMultipleChoice": zod.boolean(),
+  "isQuiz": zod.boolean(),
+  "correctOptionIndex": zod.number().nullish(),
+  "explanation": zod.string().nullish(),
+  "closesAt": zod.string().nullish(),
+  "isClosed": zod.boolean(),
+  "createdAt": zod.string(),
+  "voteCounts": zod.array(zod.number()),
+  "totalVotes": zod.number(),
+  "totalVoters": zod.number(),
+  "myOptionIndexes": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Get poll with vote counts
+ */
+export const GetPollParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetPollResponse = zod.object({
+  "id": zod.number(),
+  "chatId": zod.number(),
+  "creatorId": zod.number(),
+  "question": zod.string(),
+  "options": zod.array(zod.string()),
+  "isAnonymous": zod.boolean(),
+  "isMultipleChoice": zod.boolean(),
+  "isQuiz": zod.boolean(),
+  "correctOptionIndex": zod.number().nullish(),
+  "explanation": zod.string().nullish(),
+  "closesAt": zod.string().nullish(),
+  "isClosed": zod.boolean(),
+  "createdAt": zod.string(),
+  "voteCounts": zod.array(zod.number()),
+  "totalVotes": zod.number(),
+  "totalVoters": zod.number(),
+  "myOptionIndexes": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Vote on a poll (or retract vote)
+ */
+export const VotePollParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const VotePollBody = zod.object({
+  "optionIndexes": zod.array(zod.number()).min(1)
+})
+
+export const VotePollResponse = zod.object({
+  "id": zod.number(),
+  "chatId": zod.number(),
+  "creatorId": zod.number(),
+  "question": zod.string(),
+  "options": zod.array(zod.string()),
+  "isAnonymous": zod.boolean(),
+  "isMultipleChoice": zod.boolean(),
+  "isQuiz": zod.boolean(),
+  "correctOptionIndex": zod.number().nullish(),
+  "explanation": zod.string().nullish(),
+  "closesAt": zod.string().nullish(),
+  "isClosed": zod.boolean(),
+  "createdAt": zod.string(),
+  "voteCounts": zod.array(zod.number()),
+  "totalVotes": zod.number(),
+  "totalVoters": zod.number(),
+  "myOptionIndexes": zod.array(zod.number())
+})
+
+
+/**
+ * @summary Close a poll (creator only)
+ */
+export const ClosePollParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ClosePollResponse = zod.object({
+  "id": zod.number(),
+  "chatId": zod.number(),
+  "creatorId": zod.number(),
+  "question": zod.string(),
+  "options": zod.array(zod.string()),
+  "isAnonymous": zod.boolean(),
+  "isMultipleChoice": zod.boolean(),
+  "isQuiz": zod.boolean(),
+  "correctOptionIndex": zod.number().nullish(),
+  "explanation": zod.string().nullish(),
+  "closesAt": zod.string().nullish(),
+  "isClosed": zod.boolean(),
+  "createdAt": zod.string(),
+  "voteCounts": zod.array(zod.number()),
+  "totalVotes": zod.number(),
+  "totalVoters": zod.number(),
+  "myOptionIndexes": zod.array(zod.number())
+})
+
+
+/**
  * @summary Delete a message
  */
 export const DeleteMessageParams = zod.object({

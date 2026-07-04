@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, messagesTable, usersTable, chatMembersTable, pinnedMessagesTable, chatsTable } from "@workspace/db";
-import { eq, and, desc, lt } from "drizzle-orm";
+import { eq, and, desc, lt, ilike, inArray } from "drizzle-orm";
 import {
   GetMessagesQueryParams,
   GetMessagesResponse,
@@ -360,6 +360,61 @@ router.post("/messages/:id/pin", requireAuth, async (req: AuthenticatedRequest, 
   });
 
   res.json({ success: true, isPinned });
+});
+
+// GET /messages/search?q=...&chatId=... — full-text search in messages
+router.get("/messages/search", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const query = z.object({
+    q: z.string().min(1).max(200),
+    chatId: z.coerce.number().int().optional(),
+    limit: z.coerce.number().int().min(1).max(50).optional().default(30),
+  }).safeParse(req.query);
+  if (!query.success) { res.status(400).json({ error: query.error.message }); return; }
+
+  const { q, chatId, limit } = query.data;
+
+  // Build conditions
+  const conditions = [
+    ilike(messagesTable.encryptedContent, `%${q}%`),
+    eq(messagesTable.isDeleted, false),
+  ];
+
+  if (chatId) {
+    // Verify membership
+    const [membership] = await db.select({ userId: chatMembersTable.userId })
+      .from(chatMembersTable)
+      .where(and(eq(chatMembersTable.chatId, chatId), eq(chatMembersTable.userId, req.userId!)));
+    if (!membership) { res.status(403).json({ error: "Not a member" }); return; }
+    conditions.push(eq(messagesTable.chatId, chatId));
+  } else {
+    // Only search in chats the user belongs to
+    const memberships = await db.select({ chatId: chatMembersTable.chatId })
+      .from(chatMembersTable).where(eq(chatMembersTable.userId, req.userId!));
+    if (memberships.length === 0) { res.json([]); return; }
+    conditions.push(inArray(messagesTable.chatId, memberships.map(m => m.chatId)));
+  }
+
+  const results = await db.select({
+    id: messagesTable.id,
+    senderId: messagesTable.senderId,
+    senderUsername: usersTable.username,
+    chatId: messagesTable.chatId,
+    chatType: messagesTable.chatType,
+    encryptedContent: messagesTable.encryptedContent,
+    timestamp: messagesTable.timestamp,
+    isVoice: messagesTable.isVoice,
+    mediaFileId: messagesTable.mediaFileId,
+  })
+    .from(messagesTable)
+    .leftJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
+    .where(and(...conditions))
+    .orderBy(desc(messagesTable.timestamp))
+    .limit(limit);
+
+  res.json(results.map(m => ({
+    ...m,
+    timestamp: m.timestamp.toISOString(),
+  })));
 });
 
 router.post("/messages/:id/forward", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
