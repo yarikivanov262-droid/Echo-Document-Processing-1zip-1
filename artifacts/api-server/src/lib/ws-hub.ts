@@ -10,7 +10,10 @@ export type WsEvent =
   | { type: "delete_message"; messageId: number; chatId: number }
   | { type: "edit_message"; messageId: number; chatId: number; encryptedContent: string; editedAt: string }
   | { type: "reaction"; messageId: number; chatId: number; emoji: string; userId: number; delta: number }
-  | { type: "status"; userId: number; online: boolean };
+  | { type: "status"; userId: number; online: boolean }
+  | { type: "incoming_call"; callId: number; callUuid: string; callerId: number; callerUsername: string; callType: "audio" | "video" }
+  | { type: "call_signal"; fromUserId: number; signal: Record<string, unknown> }
+  | { type: "call_ended"; callId: number; status: "ended" | "declined" | "missed" };
 
 const clients = new Map<number, Set<WebSocket>>();
 
@@ -107,6 +110,14 @@ export function attachWsServer(httpServer: Server, validateToken: (token: string
               },
               userId
             );
+          }
+
+          if (msg.type === "call_signal" && typeof msg.targetUserId === "number") {
+            sendToUser(msg.targetUserId, {
+              type: "call_signal",
+              fromUserId: userId,
+              signal: (msg.signal as Record<string, unknown>) ?? {},
+            });
           }
         } catch {
           // ignore malformed

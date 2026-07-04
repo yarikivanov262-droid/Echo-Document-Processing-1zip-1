@@ -9,6 +9,7 @@ import { Contacts } from "@/pages/contacts/contacts";
 import { Calls } from "@/pages/calls/calls";
 import { CallScreen } from "@/pages/calls/call-screen";
 import { Search } from "@/pages/search/search";
+import { IncomingCallBanner } from "@/components/call/incoming-call-banner";
 import { Settings } from "@/pages/settings/settings";
 import { SecuritySettings } from "@/pages/settings/security";
 import { BackupSettings } from "@/pages/settings/backup";
@@ -45,6 +46,8 @@ function ChatSplit({ right, showList = false }: { right: React.ReactNode; showLi
 
 export function AppRouter() {
   return (
+    <>
+    <IncomingCallBanner />
     <Switch>
       <Route path="/" component={Login} />
 
@@ -101,6 +104,11 @@ export function AppRouter() {
 
       {/* Call screen — fullscreen, outside Layout */}
       <Route path="/chat/:id/voice">
+        <CallScreen />
+      </Route>
+
+      {/* New call screen — query-param based */}
+      <Route path="/call">
         <CallScreen />
       </Route>
 
@@ -215,5 +223,6 @@ export function AppRouter() {
         <Redirect to="/chats" />
       </Route>
     </Switch>
+    </>
   );
 }

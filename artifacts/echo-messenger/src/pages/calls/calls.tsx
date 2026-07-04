@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { PhoneOutgoing, PhoneIncoming, PhoneMissed, Phone, Info } from "lucide-react";
+import { PhoneOutgoing, PhoneIncoming, PhoneMissed, Phone, Info, Video } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useGetCalls } from "@workspace/api-client-react";
+import { useEchoAuth } from "@/lib/auth-context";
+import { format, isToday, isYesterday } from "date-fns";
+import { ru } from "date-fns/locale";
 
 function getAvatarColor(name: string) {
   const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
@@ -11,52 +15,72 @@ function getAvatarColor(name: string) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-type CallType = "outgoing" | "incoming" | "missed";
-
-interface Call {
-  id: number;
-  name: string;
-  type: CallType;
-  date: string;
-  duration?: string;
+function formatCallDate(dateStr: string) {
+  const d = new Date(dateStr);
+  if (isToday(d)) return format(d, "HH:mm");
+  if (isYesterday(d)) return "Вчера";
+  return format(d, "dd.MM", { locale: ru });
 }
 
-const allCalls: Call[] = [
-  { id: 1, name: "Мамулечка ❤️", type: "outgoing", date: "17/04" },
-  { id: 2, name: "Воздухан брат", type: "missed", date: "21/03" },
-  { id: 3, name: "Любимая ❤️", type: "missed", date: "03/03" },
-  { id: 4, name: "Артем бро", type: "outgoing", date: "14/02" },
-  { id: 5, name: "Богдан", type: "outgoing", date: "12/02" },
-  { id: 6, name: "Надя", type: "missed", date: "06/02" },
-  { id: 7, name: "Надя", type: "incoming", date: "06/02", duration: "20 сек." },
-  { id: 8, name: "Рустам", type: "missed", date: "05/02" },
-  { id: 9, name: "Артем бро", type: "outgoing", date: "24/01" },
-];
-
-const missedCalls = allCalls.filter(c => c.type === "missed");
-
-function CallIcon({ type }: { type: CallType }) {
-  if (type === "outgoing") return <PhoneOutgoing className="h-4 w-4 text-primary" />;
-  if (type === "missed") return <PhoneMissed className="h-4 w-4 text-[#ff3b30]" />;
-  return <PhoneIncoming className="h-4 w-4 text-[#34c759]" />;
+function formatDuration(seconds: number | null | undefined) {
+  if (!seconds) return "";
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m} мин ${s} сек` : `${s} сек`;
 }
 
-function callLabel(call: Call) {
-  if (call.type === "outgoing") return "Исходящий";
-  if (call.type === "missed") return "Пропущенный";
-  return call.duration ? `Входящий · ${call.duration}` : "Входящий";
-}
+type TabType = "all" | "missed";
 
 export function Calls() {
-  const [tab, setTab] = useState<"all" | "missed">("all");
+  const [tab, setTab] = useState<TabType>("all");
   const [, navigate] = useLocation();
+  const { userId } = useEchoAuth();
+  const { data: calls = [], isLoading } = useGetCalls();
+
+  const allCalls = calls;
+  const missedCalls = calls.filter((c) => c.status === "missed");
   const displayed = tab === "all" ? allCalls : missedCalls;
+
+  function getCallDirection(call: (typeof calls)[0]) {
+    if (call.callerId === userId) return "outgoing";
+    if (call.status === "missed") return "missed";
+    return "incoming";
+  }
+
+  function CallIcon({ call }: { call: (typeof calls)[0] }) {
+    const dir = getCallDirection(call);
+    const isVideo = call.type === "video";
+    const Icon = isVideo ? Video : Phone;
+    if (dir === "outgoing") return <Icon className="h-4 w-4 text-primary" />;
+    if (dir === "missed") return <PhoneMissed className="h-4 w-4 text-[#ff3b30]" />;
+    return <PhoneIncoming className="h-4 w-4 text-[#34c759]" />;
+  }
+
+  function callLabel(call: (typeof calls)[0]) {
+    const dir = getCallDirection(call);
+    const typeLabel = call.type === "video" ? "Видео" : "Голосовой";
+    if (dir === "outgoing") return `Исходящий · ${typeLabel}`;
+    if (dir === "missed") return `Пропущенный · ${typeLabel}`;
+    const dur = formatDuration(call.durationSeconds);
+    return dur ? `Входящий · ${typeLabel} · ${dur}` : `Входящий · ${typeLabel}`;
+  }
+
+  function getCallName(call: (typeof calls)[0]) {
+    const dir = getCallDirection(call);
+    if (dir === "outgoing") return `Пользователь ${call.calleeId}`;
+    return `Пользователь ${call.callerId}`;
+  }
+
+  function handleCallBack(call: (typeof calls)[0], type: "audio" | "video") {
+    const dir = getCallDirection(call);
+    const calleeId = dir === "outgoing" ? call.calleeId : call.callerId;
+    navigate(`/call?calleeId=${calleeId}&type=${type}&initiator=true` as never);
+  }
 
   return (
     <div className="flex flex-col h-full bg-background overflow-hidden">
-      {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
-        <button className="text-primary text-[17px] font-normal">Изм.</button>
+        <button className="text-primary text-[17px] font-normal opacity-0 pointer-events-none">Изм.</button>
         <div className="flex items-center gap-1 bg-muted rounded-[10px] p-0.5">
           <button
             onClick={() => setTab("all")}
@@ -80,10 +104,9 @@ export function Calls() {
         <div className="w-14" />
       </div>
 
-      {/* New Call */}
       <div className="mx-4 mt-1 mb-4 rounded-[12px] overflow-hidden bg-card">
         <button
-          onClick={() => navigate("/chat/new")}
+          onClick={() => navigate("/contacts" as never)}
           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 active:bg-muted/60 transition-colors"
         >
           <div className="h-[34px] w-[34px] rounded-full bg-primary/15 flex items-center justify-center shrink-0">
@@ -93,57 +116,75 @@ export function Calls() {
         </button>
       </div>
 
-      {/* Section header */}
       <div className="px-4 pb-2 shrink-0">
         <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Недавние</span>
       </div>
 
-      {/* Calls list */}
       <div className="flex-1 overflow-y-auto mx-4 rounded-[12px] bg-card overflow-hidden">
-        {displayed.length === 0 ? (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
+            <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          </div>
+        ) : displayed.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
             <PhoneMissed className="h-10 w-10 opacity-30" />
-            <div className="text-[15px]">Нет пропущенных звонков</div>
+            <div className="text-[15px]">
+              {tab === "missed" ? "Нет пропущенных звонков" : "Нет звонков"}
+            </div>
           </div>
         ) : (
-          displayed.map((call, i) => (
-            <div
-              key={call.id}
-              className={cn(
-                "flex items-center gap-3 px-4 py-2 hover:bg-muted/30 cursor-pointer transition-colors",
-                i < displayed.length - 1 && "border-b border-border/40"
-              )}
-            >
-              <Avatar className="h-[54px] w-[54px] shrink-0">
-                <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(call.name))}>
-                  {call.name.substring(0, 1).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+          displayed.map((call, i) => {
+            const name = getCallName(call);
+            const dir = getCallDirection(call);
+            return (
+              <div
+                key={call.id}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-2 hover:bg-muted/30 cursor-pointer transition-colors",
+                  i < displayed.length - 1 && "border-b border-border/40"
+                )}
+              >
+                <Avatar className="h-[54px] w-[54px] shrink-0">
+                  <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(name))}>
+                    {name.substring(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
 
-              <div className="flex-1 min-w-0 py-1">
-                <div className={cn(
-                  "text-[16px] font-semibold truncate",
-                  call.type === "missed" ? "text-[#ff3b30]" : "text-foreground"
-                )}>
-                  {call.name}
+                <div className="flex-1 min-w-0 py-1">
+                  <div className={cn(
+                    "text-[16px] font-semibold truncate",
+                    dir === "missed" ? "text-[#ff3b30]" : "text-foreground"
+                  )}>
+                    {name}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <CallIcon call={call} />
+                    <span className="text-[13px] text-muted-foreground">{callLabel(call)}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <CallIcon type={call.type} />
-                  <span className="text-[13px] text-muted-foreground">{callLabel(call)}</span>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-[14px] text-muted-foreground">{formatCallDate(call.createdAt)}</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCallBack(call, "audio"); }}
+                      className="h-8 w-8 flex items-center justify-center text-primary hover:bg-muted rounded-full"
+                      title="Голосовой звонок"
+                    >
+                      <Phone className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleCallBack(call, "video"); }}
+                      className="h-8 w-8 flex items-center justify-center text-primary hover:bg-muted rounded-full"
+                      title="Видеозвонок"
+                    >
+                      <Video className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[14px] text-muted-foreground">{call.date}</span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/profile/${call.id}`); }}
-                  className="h-8 w-8 flex items-center justify-center text-primary hover:bg-muted rounded-full"
-                >
-                  <Info className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

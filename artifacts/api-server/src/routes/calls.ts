@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
 import { db, callLogsTable, usersTable } from "@workspace/db";
-import { and, eq, or, desc } from "drizzle-orm";
-import { CallLog, CreateCallInput, UpdateCallInput } from "@workspace/api-zod";
+import { eq, or, desc } from "drizzle-orm";
+import { CreateCallBody, CreateCallResponse, UpdateCallBody, UpdateCallResponse, GetCallsResponse } from "@workspace/api-zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { logActivity } from "./activity-log";
+import { sendToUser } from "../lib/ws-hub";
 
 const router: IRouter = Router();
 
@@ -33,14 +34,18 @@ router.get("/calls", requireAuth, async (req: AuthenticatedRequest, res): Promis
     .orderBy(desc(callLogsTable.createdAt))
     .limit(200);
 
-  res.json(rows.map(serializeCall).map((c) => CallLog.parse(c)));
+  res.json(GetCallsResponse.parse(rows.map(serializeCall)));
 });
 
 router.post("/calls", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const userId = req.userId!;
-  const input = CreateCallInput.parse(req.body);
+  const input = CreateCallBody.parse(req.body);
 
-  const [callee] = await db.select().from(usersTable).where(eq(usersTable.id, input.calleeId)).limit(1);
+  const [[callee], [caller]] = await Promise.all([
+    db.select().from(usersTable).where(eq(usersTable.id, input.calleeId)).limit(1),
+    db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1),
+  ]);
+
   if (!callee) {
     res.status(404).json({ success: false, message: "Пользователь не найден" });
     return;
@@ -58,14 +63,23 @@ router.post("/calls", requireAuth, async (req: AuthenticatedRequest, res): Promi
     })
     .returning();
 
+  sendToUser(input.calleeId, {
+    type: "incoming_call",
+    callId: row.id,
+    callUuid: row.callUuid,
+    callerId: userId,
+    callerUsername: caller?.username ?? "Unknown",
+    callType: input.type as "audio" | "video",
+  });
+
   await logActivity(userId, "call_started", req);
-  res.status(201).json(CallLog.parse(serializeCall(row)));
+  res.status(201).json(CreateCallResponse.parse(serializeCall(row)));
 });
 
 router.patch("/calls/:id", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const userId = req.userId!;
   const id = Number(req.params.id);
-  const input = UpdateCallInput.parse(req.body);
+  const input = UpdateCallBody.parse(req.body);
 
   const [existing] = await db.select().from(callLogsTable).where(eq(callLogsTable.id, id)).limit(1);
   if (!existing || (existing.callerId !== userId && existing.calleeId !== userId)) {
@@ -90,7 +104,16 @@ router.patch("/calls/:id", requireAuth, async (req: AuthenticatedRequest, res): 
     .where(eq(callLogsTable.id, id))
     .returning();
 
-  res.json(CallLog.parse(serializeCall(row)));
+  const otherUserId = existing.callerId === userId ? existing.calleeId : existing.callerId;
+  if (input.status === "ended" || input.status === "declined" || input.status === "missed") {
+    sendToUser(otherUserId, {
+      type: "call_ended",
+      callId: row.id,
+      status: input.status as "ended" | "declined" | "missed",
+    });
+  }
+
+  res.json(UpdateCallResponse.parse(serializeCall(row)));
 });
 
 export default router;
