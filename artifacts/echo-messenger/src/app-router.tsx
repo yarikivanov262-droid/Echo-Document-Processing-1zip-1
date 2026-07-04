@@ -30,13 +30,13 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
   return <Layout>{children}</Layout>;
 }
 
-function ChatSplit({ right }: { right: React.ReactNode }) {
+function ChatSplit({ right, showList = false }: { right: React.ReactNode; showList?: boolean }) {
   return (
     <div className="flex h-full w-full">
-      <div className="hidden md:block shrink-0">
+      <div className={showList ? "flex w-full md:w-auto shrink-0" : "hidden md:flex shrink-0"}>
         <ChatList />
       </div>
-      <div className="flex-1 md:border-l border-border h-full overflow-hidden">
+      <div className={showList ? "hidden md:flex flex-1 md:border-l border-border h-full overflow-hidden" : "flex flex-1 md:border-l border-border h-full overflow-hidden"}>
         {right}
       </div>
     </div>
@@ -51,27 +51,33 @@ export function AppRouter() {
       {/* Chats */}
       <Route path="/chats">
         <ProtectedLayout>
-          <ChatSplit right={
-            <div className="hidden md:flex flex-1 h-full items-center justify-center bg-background">
-              <div className="text-center text-muted-foreground">
-                <div className="text-5xl mb-3">💬</div>
-                <div className="text-[15px]">Выберите чат</div>
+          <ChatSplit
+            showList
+            right={
+              <div className="flex flex-1 h-full items-center justify-center bg-background">
+                <div className="text-center text-muted-foreground">
+                  <div className="text-5xl mb-3">💬</div>
+                  <div className="text-[15px]">Выберите чат</div>
+                </div>
               </div>
-            </div>
-          } />
+            }
+          />
         </ProtectedLayout>
       </Route>
 
       <Route path="/chats/archived">
         <ProtectedLayout>
-          <ChatSplit right={
-            <div className="hidden md:flex flex-1 h-full items-center justify-center bg-background">
-              <div className="text-center text-muted-foreground">
-                <div className="text-5xl mb-3">🗄️</div>
-                <div className="text-[15px]">Выберите чат</div>
+          <ChatSplit
+            showList
+            right={
+              <div className="flex flex-1 h-full items-center justify-center bg-background">
+                <div className="text-center text-muted-foreground">
+                  <div className="text-5xl mb-3">🗄️</div>
+                  <div className="text-[15px]">Выберите чат</div>
+                </div>
               </div>
-            </div>
-          } />
+            }
+          />
         </ProtectedLayout>
       </Route>
 
