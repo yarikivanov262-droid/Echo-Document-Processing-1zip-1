@@ -40,7 +40,7 @@ router.get("/backup/export", requireAuth, async (req: AuthenticatedRequest, res)
   const contacts = await db
     .select()
     .from(contactsTable)
-    .where(eq(contactsTable.userId, userId));
+    .where(eq(contactsTable.ownerId, userId));
 
   const payload = {
     version: 1,

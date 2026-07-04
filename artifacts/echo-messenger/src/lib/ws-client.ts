@@ -12,7 +12,8 @@ export type WsServerEvent =
   | { type: "status"; userId: number; online: boolean }
   | { type: "incoming_call"; callId: number; callUuid: string; callerId: number; callerUsername: string; callType: "audio" | "video" }
   | { type: "call_signal"; fromUserId: number; signal: Record<string, unknown> }
-  | { type: "call_ended"; callId: number; status: "ended" | "declined" | "missed" };
+  | { type: "call_ended"; callId: number; status: "ended" | "declined" | "missed" }
+  | { type: "security_alert"; message: string; riskLevel: "low" | "medium" | "high" };
 
 class EchoWsClient {
   private ws: WebSocket | null = null;

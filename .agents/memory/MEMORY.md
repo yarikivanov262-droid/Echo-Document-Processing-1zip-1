@@ -2,4 +2,6 @@
 - [Orval schemas conflict fix](orval-schemas-conflict.md) — remove `schemas` option from orval zod config to prevent duplicate name exports between Zod schemas and TS interfaces.
 - [api-zod index overwritten by orval](orval-schemas-conflict.md) — orval regenerates lib/api-zod/src/index.ts on every codegen run; only the orval config controls its content.
 - [WS event handler return type](ws-hook-return-type.md) — echoWs.on() returns () => boolean (Set.delete); wrap in void arrow for useEffect Destructor compatibility.
-- [ECHO tech spec document](echo-tech-spec.md) — full feature roadmap lives in ТЕХ ПРОЕКТ ECHO.txt as 40 numbered STAGEs; user tracks progress by stage number.
+- [ECHO tech spec document](echo-tech-spec.md) — full feature roadmap lives in ТЕХ ПРОЕКТ ECHO.txt as 41 numbered STAGEs; user tracks progress by stage number.
+- [activity_logs schema fields](activity-logs-schema.md) — activityLogsTable uses `action` (not `type`), no `description`/`riskLevel` columns; put extra info in `metadata` jsonb.
+- [contactsTable owner field](contacts-schema.md) — contactsTable uses `ownerId` (not `userId`) for the owning user FK; blockedUsersTable uses `userId`.

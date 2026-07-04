@@ -3,7 +3,7 @@ import { db, activityLogsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import crypto from "node:crypto";
-import { wsHub } from "../ws-hub";
+import { sendToUser } from "../lib/ws-hub";
 
 const router = Router();
 
@@ -32,21 +32,24 @@ router.get("/canary/:uuid", async (req, res): Promise<void> => {
       .where(eq(usersTable.id, user.id))
       .limit(1);
 
-    const settings = (full?.settings as Record<string, unknown> | null) ?? {};
+    if (!full) continue;
+    const settings = (full.settings as Record<string, unknown> | null) ?? {};
     if (settings.canaryToken === uuid) {
       await db.insert(activityLogsTable).values({
         userId: full.id,
-        type: "canary_triggered",
-        description: "Canary token был активирован — возможная компрометация аккаунта",
+        action: "canary_triggered",
         ipAddress: req.ip ?? "unknown",
-        riskLevel: "high",
+        metadata: {
+          description: "Canary token был активирован — возможная компрометация аккаунта",
+          riskLevel: "high",
+        },
       });
 
-      wsHub.sendToUser(full.id, JSON.stringify({
+      sendToUser(full.id, {
         type: "security_alert",
         message: "⚠️ Canary Token активирован! Кто-то мог получить доступ к вашему аккаунту.",
         riskLevel: "high",
-      }));
+      });
       break;
     }
   }
