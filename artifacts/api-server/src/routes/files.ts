@@ -12,9 +12,7 @@ import { fileUploadRateLimit } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
 
-router.use(fileUploadRateLimit);
-
-router.post("/files/upload", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/files/upload", requireAuth, fileUploadRateLimit, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = UploadFileBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

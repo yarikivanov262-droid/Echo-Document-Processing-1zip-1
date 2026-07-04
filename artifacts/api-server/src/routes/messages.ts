@@ -18,8 +18,6 @@ import { messageRateLimit } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
 
-router.use(messageRateLimit);
-
 async function getChatMemberIds(chatId: number): Promise<number[]> {
   const members = await db
     .select({ userId: chatMembersTable.userId })
@@ -97,7 +95,7 @@ router.get("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pro
   );
 });
 
-router.post("/messages", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/messages", requireAuth, messageRateLimit, async (req: AuthenticatedRequest, res): Promise<void> => {
   const parsed = SendMessageBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

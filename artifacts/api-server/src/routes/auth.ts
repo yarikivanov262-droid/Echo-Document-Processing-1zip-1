@@ -25,9 +25,7 @@ import { authRateLimit } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
 
-router.use(authRateLimit);
-
-router.post("/register", async (req, res): Promise<void> => {
+router.post("/register", authRateLimit, async (req, res): Promise<void> => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -77,7 +75,7 @@ router.post("/register", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/check-username", async (req, res): Promise<void> => {
+router.post("/check-username", authRateLimit, async (req, res): Promise<void> => {
   const parsed = CheckUsernameBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -92,7 +90,7 @@ router.post("/check-username", async (req, res): Promise<void> => {
   res.json(CheckUsernameResponse.parse({ available: !existing }));
 });
 
-router.post("/login", async (req, res): Promise<void> => {
+router.post("/login", authRateLimit, async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -132,7 +130,7 @@ router.post("/login", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/restore", async (req, res): Promise<void> => {
+router.post("/restore", authRateLimit, async (req, res): Promise<void> => {
   const parsed = RestoreAccountBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
