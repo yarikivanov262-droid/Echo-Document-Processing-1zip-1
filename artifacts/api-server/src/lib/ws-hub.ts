@@ -41,6 +41,17 @@ export function broadcastToChat(
   }
 }
 
+export function broadcastAll(event: WsEvent) {
+  const payload = JSON.stringify(event);
+  for (const sockets of clients.values()) {
+    for (const ws of sockets) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(payload);
+      }
+    }
+  }
+}
+
 export function sendToUser(userId: number, event: WsEvent) {
   const payload = JSON.stringify(event);
   const sockets = clients.get(userId);
@@ -80,11 +91,21 @@ export function attachWsServer(httpServer: Server, validateToken: (token: string
       return;
     }
 
+    const wasOffline = !clients.has(userId) || clients.get(userId)!.size === 0;
     if (!clients.has(userId)) {
       clients.set(userId, new Set());
     }
     clients.get(userId)!.add(ws);
     logger.info({ userId }, "WS client connected");
+
+    if (wasOffline) {
+      void (async () => {
+        const { db, usersTable } = await import("@workspace/db");
+        const { eq } = await import("drizzle-orm");
+        await db.update(usersTable).set({ isOnline: true }).where(eq(usersTable.id, userId));
+        broadcastAll({ type: "status", userId, online: true });
+      })();
+    }
 
     ws.send(JSON.stringify({ type: "connected", userId }));
 
@@ -129,8 +150,15 @@ export function attachWsServer(httpServer: Server, validateToken: (token: string
 
     ws.on("close", () => {
       clients.get(userId)?.delete(ws);
-      if (clients.get(userId)?.size === 0) {
+      const isNowOffline = clients.get(userId)?.size === 0;
+      if (isNowOffline) {
         clients.delete(userId);
+        void (async () => {
+          const { db, usersTable } = await import("@workspace/db");
+          const { eq } = await import("drizzle-orm");
+          await db.update(usersTable).set({ isOnline: false, lastOnline: new Date() }).where(eq(usersTable.id, userId));
+          broadcastAll({ type: "status", userId, online: false });
+        })();
       }
       logger.info({ userId }, "WS client disconnected");
     });

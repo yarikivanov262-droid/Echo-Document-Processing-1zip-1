@@ -6,7 +6,7 @@ import {
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
   Smile, X, Pin, BellOff, UserPlus, ChevronDown, Pencil,
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive,
-  Square, Play, Pause
+  Square, Play, Pause, Search, ChevronUp
 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { MessageText } from "@/components/message-text";
@@ -99,6 +99,9 @@ export function ChatWindow() {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [decryptedMap, setDecryptedMap] = useState<Map<number, string>>(new Map());
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -146,6 +149,9 @@ export function ChatWindow() {
     if (event.type === "read_ack" && event.chatId === chatId) {
       void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
     }
+    if (event.type === "status" && (chat as { otherUserId?: number })?.otherUserId === event.userId) {
+      void queryClient.invalidateQueries({ queryKey: [`/api/chats/${chatId}`] });
+    }
   });
 
   // Enrich messages with isSelf
@@ -175,6 +181,29 @@ export function ChatWindow() {
     }
     listItems.push({ kind: "msg", msg });
   }
+
+  // Decrypted plaintext used for both rendering and client-side search
+  // (messages are E2EE — the server never sees plaintext, so search must run locally)
+  const getMsgText = (msg: MsgItem) => {
+    const raw = decryptedMap.get(msg.id) ?? (isE2EEPayload(msg.encryptedContent ?? "") && msg.isSelf ? "" : (msg.encryptedContent ?? ""));
+    return raw.startsWith("[voice:") ? "" : raw;
+  };
+
+  const searchMatches = searchQuery.trim()
+    ? enriched.filter(m => getMsgText(m).toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : [];
+  const activeSearchMsg = searchMatches.length > 0 ? searchMatches[searchMatchIndex % searchMatches.length] : undefined;
+
+  const goToSearchMatch = (index: number) => {
+    if (searchMatches.length === 0) return;
+    const normalized = ((index % searchMatches.length) + searchMatches.length) % searchMatches.length;
+    setSearchMatchIndex(normalized);
+    scrollToMsg(searchMatches[normalized]?.id);
+  };
+
+  useEffect(() => {
+    setSearchMatchIndex(0);
+  }, [searchQuery, chatId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -336,7 +365,7 @@ export function ChatWindow() {
     reader.onload = () => {
       const base64 = (reader.result as string).split(",")[1];
       uploadMutation.mutate(
-        { data: { filename: `voice-${Date.now()}.webm`, mimeType: audioBlob.type, data: base64 } },
+        { data: { mimeType: audioBlob.type, data: base64 } },
         {
           onSuccess: (res) => {
             const fileUrl = (res as { url?: string }).url ?? "";
@@ -449,9 +478,10 @@ export function ChatWindow() {
   const chatTitle = chat?.title || "Чат";
   const isGroup = chat?.type === 2 || chat?.type === 3;
   const memberCount = (chat as { memberCount?: number })?.memberCount;
+  const isOnline = (chat as { isOnline?: boolean })?.isOnline ?? false;
   const statusLine = isGroup
     ? `${memberCount ?? "?"} участников`
-    : typingUsers.size > 0 ? "печатает..." : "в сети";
+    : typingUsers.size > 0 ? "печатает..." : (isOnline ? "в сети" : "не в сети");
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -499,13 +529,19 @@ export function ChatWindow() {
           <UserAvatar name={chatTitle} size="sm" />
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-[15px] leading-tight truncate">{chatTitle}</div>
-            <div className={cn("text-[12px] truncate", isGroup ? "text-muted-foreground" : "text-[#34c759]")}>
+            <div className={cn("text-[12px] truncate", isGroup || (!isOnline && typingUsers.size === 0) ? "text-muted-foreground" : "text-[#34c759]")}>
               {statusLine}
             </div>
           </div>
         </button>
 
         <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={() => setSearchOpen(v => { const next = !v; if (!next) { setSearchQuery(""); } return next; })}
+            className={cn("h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted", searchOpen ? "text-primary" : "text-muted-foreground")}
+          >
+            <Search className="h-5 w-5" />
+          </button>
           <button
             onClick={() => navigate(`/chat/${chatId}/voice`)}
             className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-primary"
@@ -520,6 +556,58 @@ export function ChatWindow() {
           </button>
         </div>
       </div>
+
+      {/* ── Message search bar (client-side, decrypted locally — E2EE means the server can't search) ── */}
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-card border-b border-border overflow-hidden shrink-0"
+          >
+            <div className="flex items-center gap-2 px-3 py-2">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") goToSearchMatch(searchMatchIndex + (e.shiftKey ? -1 : 1));
+                  if (e.key === "Escape") { setSearchOpen(false); setSearchQuery(""); }
+                }}
+                placeholder="Поиск по сообщениям в этом чате"
+                className="flex-1 bg-transparent text-[14px] outline-none placeholder:text-muted-foreground"
+              />
+              {searchQuery.trim() && (
+                <span className="text-[12px] text-muted-foreground shrink-0">
+                  {searchMatches.length > 0 ? `${searchMatchIndex + 1}/${searchMatches.length}` : "0/0"}
+                </span>
+              )}
+              <button
+                onClick={() => goToSearchMatch(searchMatchIndex - 1)}
+                disabled={searchMatches.length === 0}
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-muted text-foreground disabled:opacity-30 shrink-0"
+              >
+                <ChevronUp className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => goToSearchMatch(searchMatchIndex + 1)}
+                disabled={searchMatches.length === 0}
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-muted text-foreground disabled:opacity-30 shrink-0"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
+                className="h-7 w-7 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Chat info quick panel ── */}
       <AnimatePresence>
@@ -706,6 +794,7 @@ export function ChatWindow() {
               const { msg } = item;
               const isSelf = msg.isSelf ?? false;
               const reactionEntries = msg.reactions ? Object.entries(msg.reactions) : [];
+              const isActiveSearchMatch = !!activeSearchMsg && activeSearchMsg.id === msg.id;
               return (
                 <motion.div
                   key={msg.id}
@@ -726,7 +815,8 @@ export function ChatWindow() {
                       className={cn("relative max-w-[75%] px-3 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm cursor-pointer select-text",
                         isSelf
                           ? "bg-primary text-white rounded-br-sm"
-                          : "bg-card text-foreground rounded-bl-sm"
+                          : "bg-card text-foreground rounded-bl-sm",
+                        isActiveSearchMatch && "ring-2 ring-yellow-400"
                       )}
                       onContextMenu={(e) => { e.preventDefault(); handleLongPress(msg, e); }}
                       onClick={(e) => { e.stopPropagation(); handleLongPress(msg, e); }}

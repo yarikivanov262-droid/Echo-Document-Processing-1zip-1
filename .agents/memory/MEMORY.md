@@ -6,3 +6,4 @@
 - [activity_logs schema fields](activity-logs-schema.md) — activityLogsTable uses `action` (not `type`), no `description`/`riskLevel` columns; put extra info in `metadata` jsonb.
 - [contactsTable owner field](contacts-schema.md) — contactsTable uses `ownerId` (not `userId`) for the owning user FK; blockedUsersTable uses `userId`.
 - [WebCrypto Uint8Array TS casts](webcrypto-ts-casts.md) — spread-built Uint8Array has `.buffer: ArrayBufferLike`; cast `combined.buffer as ArrayBuffer` and `data as unknown as ArrayBuffer` for sign/encrypt calls.
+- [Artifact-managed workflow conflicts](artifact-managed-workflows.md) — custom workflows sharing a port with an auto-registered `artifacts/<pkg>: ...` workflow fail with DIDNT_OPEN_A_PORT even if no real OS conflict; remove the duplicate, use the artifact-managed one.

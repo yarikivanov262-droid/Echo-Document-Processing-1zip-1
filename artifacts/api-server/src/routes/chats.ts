@@ -258,16 +258,44 @@ router.get("/chats/:id", requireAuth, async (req: AuthenticatedRequest, res): Pr
     .from(chatMembersTable)
     .where(eq(chatMembersTable.chatId, chat.id));
 
+  let otherUserId: number | null = null;
+  let isOnline = false;
+  let title = chat.title;
+  let avatarFileId = chat.avatarFileId ?? null;
+
+  if (chat.type === 1) {
+    const [otherMember] = await db
+      .select({ userId: chatMembersTable.userId })
+      .from(chatMembersTable)
+      .where(and(eq(chatMembersTable.chatId, chat.id), ne(chatMembersTable.userId, req.userId!)))
+      .limit(1);
+
+    if (otherMember) {
+      otherUserId = otherMember.userId;
+      const [otherUser] = await db
+        .select({ username: usersTable.username, displayName: usersTable.displayName, avatarFileId: usersTable.avatarFileId, isOnline: usersTable.isOnline })
+        .from(usersTable)
+        .where(eq(usersTable.id, otherMember.userId));
+      if (otherUser) {
+        isOnline = otherUser.isOnline;
+        title = otherUser.displayName || otherUser.username;
+        avatarFileId = otherUser.avatarFileId ?? avatarFileId;
+      }
+    }
+  }
+
   res.json(
     GetChatResponse.parse({
       id: chat.id,
       type: chat.type,
-      title: chat.title,
+      title,
       creatorId: chat.creatorId,
-      avatarFileId: chat.avatarFileId ?? null,
+      avatarFileId,
       createdAt: chat.createdAt.toISOString(),
       memberCount: Number(memberCount?.count ?? 0),
       settings: chat.settings ?? undefined,
+      isOnline,
+      otherUserId,
     })
   );
 });

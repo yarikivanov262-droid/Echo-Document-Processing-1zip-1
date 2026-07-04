@@ -62,6 +62,7 @@ import type {
   PublicUser,
   PurchaseStarsInput,
   PurchaseStarsResponse,
+  PushSubscribeInput,
   ReactBody,
   RegisterInput,
   RestoreInput,
@@ -73,11 +74,13 @@ import type {
   SubscribePremiumResponse,
   SuccessResponse,
   TipStarsInput,
+  UnsubscribePushBody,
   UpdateCallInput,
   UpdateMeInput,
   UserProfile,
   UsernameAvailability,
-  UsernameCheck
+  UsernameCheck,
+  VapidPublicKeyResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -4770,5 +4773,222 @@ export const useCancelPremium = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCancelPremiumMutationOptions(options));
+    }
+
+export const getGetVapidPublicKeyUrl = () => {
+
+
+
+
+  return `/api/push/vapid-public-key`
+}
+
+/**
+ * @summary Get the server's VAPID public key for Web Push subscription
+ */
+export const getVapidPublicKey = async ( options?: RequestInit): Promise<VapidPublicKeyResponse> => {
+
+  return customFetch<VapidPublicKeyResponse>(getGetVapidPublicKeyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetVapidPublicKeyQueryKey = () => {
+    return [
+    `/api/push/vapid-public-key`
+    ] as const;
+    }
+
+
+export const getGetVapidPublicKeyQueryOptions = <TData = Awaited<ReturnType<typeof getVapidPublicKey>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKey>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetVapidPublicKeyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getVapidPublicKey>>> = ({ signal }) => getVapidPublicKey({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKey>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetVapidPublicKeyQueryResult = NonNullable<Awaited<ReturnType<typeof getVapidPublicKey>>>
+export type GetVapidPublicKeyQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the server's VAPID public key for Web Push subscription
+ */
+
+export function useGetVapidPublicKey<TData = Awaited<ReturnType<typeof getVapidPublicKey>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getVapidPublicKey>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetVapidPublicKeyQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubscribePushUrl = () => {
+
+
+
+
+  return `/api/push/subscribe`
+}
+
+/**
+ * @summary Register a Web Push subscription for the current device
+ */
+export const subscribePush = async (pushSubscribeInput: PushSubscribeInput, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getSubscribePushUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pushSubscribeInput)
+  }
+);}
+
+
+
+
+export const getSubscribePushMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscribePush>>, TError,{data: BodyType<PushSubscribeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof subscribePush>>, TError,{data: BodyType<PushSubscribeInput>}, TContext> => {
+
+const mutationKey = ['subscribePush'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof subscribePush>>, {data: BodyType<PushSubscribeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  subscribePush(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubscribePushMutationResult = NonNullable<Awaited<ReturnType<typeof subscribePush>>>
+    export type SubscribePushMutationBody = BodyType<PushSubscribeInput>
+    export type SubscribePushMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Register a Web Push subscription for the current device
+ */
+export const useSubscribePush = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof subscribePush>>, TError,{data: BodyType<PushSubscribeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof subscribePush>>,
+        TError,
+        {data: BodyType<PushSubscribeInput>},
+        TContext
+      > => {
+      return useMutation(getSubscribePushMutationOptions(options));
+    }
+
+export const getUnsubscribePushUrl = () => {
+
+
+
+
+  return `/api/push/unsubscribe`
+}
+
+/**
+ * @summary Remove a Web Push subscription
+ */
+export const unsubscribePush = async (unsubscribePushBody: UnsubscribePushBody, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getUnsubscribePushUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(unsubscribePushBody)
+  }
+);}
+
+
+
+
+export const getUnsubscribePushMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsubscribePush>>, TError,{data: BodyType<UnsubscribePushBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unsubscribePush>>, TError,{data: BodyType<UnsubscribePushBody>}, TContext> => {
+
+const mutationKey = ['unsubscribePush'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unsubscribePush>>, {data: BodyType<UnsubscribePushBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  unsubscribePush(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnsubscribePushMutationResult = NonNullable<Awaited<ReturnType<typeof unsubscribePush>>>
+    export type UnsubscribePushMutationBody = BodyType<UnsubscribePushBody>
+    export type UnsubscribePushMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Remove a Web Push subscription
+ */
+export const useUnsubscribePush = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsubscribePush>>, TError,{data: BodyType<UnsubscribePushBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof unsubscribePush>>,
+        TError,
+        {data: BodyType<UnsubscribePushBody>},
+        TContext
+      > => {
+      return useMutation(getUnsubscribePushMutationOptions(options));
     }
 

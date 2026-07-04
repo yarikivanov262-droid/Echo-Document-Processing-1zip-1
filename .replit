@@ -18,23 +18,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "ECHO API"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Start application"
-
-[[workflows.workflow]]
-name = "ECHO API"
-author = "agent"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
-waitForPort = 8080
 
 [[workflows.workflow]]
 name = "Start application"
@@ -60,6 +44,8 @@ timeoutMs = 20000
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 8080
-externalPort = 8080
+[userenv]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BDoCI_-V3VnoWI1pf4M4fxUtMCiq_8vd-nS7dnBlVp7Ucgbr_Qy11UUS2PaO6kKQPlrAYbZNDT2AV_-3bN5CaZk"
+VAPID_PRIVATE_KEY = "N_cN3tmjS1skBiwoysOBh5JG7OJgws0-tfXDw6vrjko"

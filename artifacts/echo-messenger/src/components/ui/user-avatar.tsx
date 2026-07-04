@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-const GRADIENTS = [
+const GRADIENTS: [string, string][] = [
   ["#f3713b", "#e8603a"],
   ["#2eba5a", "#1d9e50"],
   ["#259fe6", "#1a85c3"],

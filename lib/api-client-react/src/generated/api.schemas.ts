@@ -10,8 +10,22 @@ export interface HealthStatus {
 }
 
 export interface SuccessResponse {
-  success: boolean;
+  success?: boolean;
   message?: string;
+}
+
+export interface VapidPublicKeyResponse {
+  publicKey: string;
+}
+
+export type PushSubscribeInputKeys = {
+  p256dh: string;
+  auth: string;
+};
+
+export interface PushSubscribeInput {
+  endpoint: string;
+  keys: PushSubscribeInputKeys;
 }
 
 export interface RegisterInput {
@@ -256,6 +270,9 @@ export interface Chat {
   createdAt: string;
   memberCount: number;
   settings?: ChatSettings;
+  isOnline?: boolean;
+  /** @nullable */
+  otherUserId?: number | null;
 }
 
 export interface ChatInput {
@@ -564,5 +581,9 @@ export type GetMessagesParams = {
 chatId: number;
 before?: number;
 limit?: number;
+};
+
+export type UnsubscribePushBody = {
+  endpoint: string;
 };
 

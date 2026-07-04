@@ -7,6 +7,7 @@ import { Router as WouterRouter } from "wouter";
 import { AppRouter } from "./app-router";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useWsConnect } from "@/hooks/use-ws";
+import { usePushSubscription } from "@/hooks/use-push";
 import { PanicButton } from "@/components/panic-button";
 import { toast } from "@/hooks/use-toast";
 
@@ -25,6 +26,7 @@ setAuthTokenGetter(() => localStorage.getItem("echo_session_token"));
 
 function WsConnector() {
   useWsConnect();
+  usePushSubscription();
   return null;
 }
 

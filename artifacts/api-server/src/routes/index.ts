@@ -14,6 +14,7 @@ import numbersRouter from "./numbers";
 import starsRouter from "./stars";
 import premiumRouter from "./premium";
 import anonInboxRouter from "./anon-inbox";
+import pushRouter from "./push";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(callsRouter);
 router.use(starsRouter);
 router.use(premiumRouter);
 router.use(anonInboxRouter);
+router.use(pushRouter);
 
 export default router;

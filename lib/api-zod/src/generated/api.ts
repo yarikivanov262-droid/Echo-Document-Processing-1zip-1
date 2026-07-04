@@ -91,7 +91,7 @@ export const DeleteAccountBody = zod.object({
 })
 
 export const DeleteAccountResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -316,7 +316,7 @@ export const UploadPrekeysBody = zod.object({
 })
 
 export const UploadPrekeysResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -398,7 +398,7 @@ export const DeleteMessageParams = zod.object({
 })
 
 export const DeleteMessageResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -411,7 +411,7 @@ export const MarkMessageReadParams = zod.object({
 })
 
 export const MarkMessageReadResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -460,7 +460,9 @@ export const CreateChatResponse = zod.object({
   "memberCount": zod.number(),
   "settings": zod.object({
 
-}).passthrough().optional()
+}).passthrough().optional(),
+  "isOnline": zod.boolean().optional(),
+  "otherUserId": zod.number().nullish()
 })
 
 
@@ -481,7 +483,9 @@ export const GetChatResponse = zod.object({
   "memberCount": zod.number(),
   "settings": zod.object({
 
-}).passthrough().optional()
+}).passthrough().optional(),
+  "isOnline": zod.boolean().optional(),
+  "otherUserId": zod.number().nullish()
 })
 
 
@@ -510,7 +514,9 @@ export const UpdateChatResponse = zod.object({
   "memberCount": zod.number(),
   "settings": zod.object({
 
-}).passthrough().optional()
+}).passthrough().optional(),
+  "isOnline": zod.boolean().optional(),
+  "otherUserId": zod.number().nullish()
 })
 
 
@@ -544,7 +550,7 @@ export const AddChatMemberBody = zod.object({
 })
 
 export const AddChatMemberResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -558,7 +564,7 @@ export const RemoveChatMemberParams = zod.object({
 })
 
 export const RemoveChatMemberResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -578,7 +584,7 @@ export const UpdateChatMemberSettingsBody = zod.object({
 })
 
 export const UpdateChatMemberSettingsResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -648,7 +654,7 @@ export const TerminateSessionParams = zod.object({
 })
 
 export const TerminateSessionResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -665,7 +671,7 @@ export const EditMessageBody = zod.object({
 })
 
 export const EditMessageResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -682,7 +688,7 @@ export const ReactToMessageBody = zod.object({
 })
 
 export const ReactToMessageResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -741,7 +747,7 @@ export const UploadBackupBody = zod.object({
 })
 
 export const UploadBackupResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -802,7 +808,7 @@ export const RemoveContactParams = zod.object({
 })
 
 export const RemoveContactResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -815,7 +821,7 @@ export const BlockUserParams = zod.object({
 })
 
 export const BlockUserResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -828,7 +834,7 @@ export const UnblockUserParams = zod.object({
 })
 
 export const UnblockUserResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -900,7 +906,7 @@ export const InstallStickerPackBody = zod.object({
 })
 
 export const InstallStickerPackResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -913,7 +919,7 @@ export const UninstallStickerPackParams = zod.object({
 })
 
 export const UninstallStickerPackResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -981,7 +987,7 @@ export const DeleteFolderParams = zod.object({
 })
 
 export const DeleteFolderResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -1104,7 +1110,7 @@ export const GiftStarsBody = zod.object({
 })
 
 export const GiftStarsResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -1118,7 +1124,7 @@ export const TipStarsBody = zod.object({
 })
 
 export const TipStarsResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -1132,7 +1138,7 @@ export const PaidReactionBody = zod.object({
 })
 
 export const PaidReactionResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 
@@ -1171,7 +1177,45 @@ export const SubscribePremiumResponse = zod.object({
  * @summary Cancel premium auto-renewal
  */
 export const CancelPremiumResponse = zod.object({
-  "success": zod.boolean(),
+  "success": zod.boolean().optional(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Get the server's VAPID public key for Web Push subscription
+ */
+export const GetVapidPublicKeyResponse = zod.object({
+  "publicKey": zod.string()
+})
+
+
+/**
+ * @summary Register a Web Push subscription for the current device
+ */
+export const SubscribePushBody = zod.object({
+  "endpoint": zod.string(),
+  "keys": zod.object({
+  "p256dh": zod.string(),
+  "auth": zod.string()
+})
+})
+
+export const SubscribePushResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "message": zod.string().optional()
+})
+
+
+/**
+ * @summary Remove a Web Push subscription
+ */
+export const UnsubscribePushBody = zod.object({
+  "endpoint": zod.string()
+})
+
+export const UnsubscribePushResponse = zod.object({
+  "success": zod.boolean().optional(),
   "message": zod.string().optional()
 })
 

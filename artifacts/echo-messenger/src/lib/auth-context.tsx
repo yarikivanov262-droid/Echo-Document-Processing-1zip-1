@@ -1,5 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
+import { unsubscribePush } from "@workspace/api-client-react";
+
+function unsubscribePushBestEffort() {
+  if (!("serviceWorker" in navigator)) return;
+  void navigator.serviceWorker.ready
+    .then((reg) => reg.pushManager.getSubscription())
+    .then((sub) => {
+      if (!sub) return;
+      const endpoint = sub.endpoint;
+      void sub.unsubscribe().then(() => unsubscribePush({ endpoint }).catch(() => {}));
+    })
+    .catch(() => {});
+}
 
 interface EchoAuthContextType {
   sessionToken: string | null;
@@ -41,6 +54,7 @@ export function EchoAuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    unsubscribePushBestEffort();
     localStorage.removeItem("echo_session_token");
     localStorage.removeItem("echo_user_id");
     localStorage.removeItem("echo_username");

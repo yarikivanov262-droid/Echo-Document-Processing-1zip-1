@@ -31,6 +31,8 @@ tags:
     description: ECHO Stars virtual currency
   - name: premium
     description: ECHO Premium subscription
+  - name: push
+    description: Web Push notification operations
 paths:
   /healthz:
     get:
@@ -1232,6 +1234,61 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /push/vapid-public-key:
+    get:
+      operationId: getVapidPublicKey
+      tags: [push]
+      summary: Get the server's VAPID public key for Web Push subscription
+      responses:
+        "200":
+          description: VAPID public key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VapidPublicKeyResponse"
+
+  /push/subscribe:
+    post:
+      operationId: subscribePush
+      tags: [push]
+      summary: Register a Web Push subscription for the current device
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushSubscribeInput"
+      responses:
+        "200":
+          description: Subscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /push/unsubscribe:
+    post:
+      operationId: unsubscribePush
+      tags: [push]
+      summary: Remove a Web Push subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                endpoint:
+                  type: string
+              required: [endpoint]
+      responses:
+        "200":
+          description: Unsubscribed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -1248,7 +1305,28 @@ components:
           type: boolean
         message:
           type: string
-      required: [success]
+
+    VapidPublicKeyResponse:
+      type: object
+      properties:
+        publicKey:
+          type: string
+      required: [publicKey]
+
+    PushSubscribeInput:
+      type: object
+      properties:
+        endpoint:
+          type: string
+        keys:
+          type: object
+          properties:
+            p256dh:
+              type: string
+            auth:
+              type: string
+          required: [p256dh, auth]
+      required: [endpoint, keys]
 
     RegisterInput:
       type: object
@@ -1626,6 +1704,10 @@ components:
           type: integer
         settings:
           type: object
+        isOnline:
+          type: boolean
+        otherUserId:
+          type: ["integer", "null"]
       required: [id, type, title, creatorId, createdAt, memberCount]
 
     ChatInput:

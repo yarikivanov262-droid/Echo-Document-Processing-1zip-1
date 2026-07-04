@@ -15,6 +15,7 @@ import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { broadcastToChat } from "../lib/ws-hub";
 import { messageRateLimit } from "../middlewares/rate-limit";
+import { sendPushToUser } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -112,10 +113,13 @@ router.post("/messages", requireAuth, messageRateLimit, async (req: Authenticate
     }
   }
 
+  const [sender] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
+
   const [msg] = await db
     .insert(messagesTable)
     .values({
       senderId: req.userId!,
+      senderUsername: sender.username,
       receiverId: parsed.data.receiverId ?? null,
       chatId: parsed.data.chatId ?? null,
       chatType: parsed.data.chatType,
@@ -127,8 +131,6 @@ router.post("/messages", requireAuth, messageRateLimit, async (req: Authenticate
       replyToId: parsed.data.replyToId ?? null,
     })
     .returning();
-
-  const [sender] = await db.select().from(usersTable).where(eq(usersTable.id, req.userId!));
   const chatId = msg.chatId ?? 0;
 
   const msgPayload = {
@@ -159,6 +161,15 @@ router.post("/messages", requireAuth, messageRateLimit, async (req: Authenticate
       chatId,
       message: msgPayload as Record<string, unknown>,
     }, req.userId!);
+
+    for (const memberId of memberIds) {
+      if (memberId === req.userId) continue;
+      void sendPushToUser(memberId, {
+        title: "ECHO",
+        body: `Новое сообщение от ${sender.username}`,
+        chatUrl: `/chat/${chatId}`,
+      });
+    }
   }
 
   res.status(201).json(SendMessageResponse.parse(msgPayload));
