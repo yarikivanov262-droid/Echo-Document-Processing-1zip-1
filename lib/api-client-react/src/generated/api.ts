@@ -27,6 +27,7 @@ import type {
   BackupInfo,
   BackupInput,
   BlockedUser,
+  CallLog,
   Chat,
   ChatFolder,
   ChatFolderInput,
@@ -38,6 +39,7 @@ import type {
   ChatSummary,
   ChatUpdate,
   Contact,
+  CreateCallInput,
   DeleteAccountInput,
   EditMessageBody,
   FileInfo,
@@ -59,6 +61,7 @@ import type {
   SettingsUpdate,
   StickerPack,
   SuccessResponse,
+  UpdateCallInput,
   UpdateMeInput,
   UserProfile,
   UsernameAvailability,
@@ -3598,5 +3601,223 @@ export const useDeleteFolder = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteFolderMutationOptions(options));
+    }
+
+export const getGetCallsUrl = () => {
+
+
+
+
+  return `/api/calls`
+}
+
+/**
+ * @summary List call history for the current user
+ */
+export const getCalls = async ( options?: RequestInit): Promise<CallLog[]> => {
+
+  return customFetch<CallLog[]>(getGetCallsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCallsQueryKey = () => {
+    return [
+    `/api/calls`
+    ] as const;
+    }
+
+
+export const getGetCallsQueryOptions = <TData = Awaited<ReturnType<typeof getCalls>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCallsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCalls>>> = ({ signal }) => getCalls({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCalls>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCallsQueryResult = NonNullable<Awaited<ReturnType<typeof getCalls>>>
+export type GetCallsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List call history for the current user
+ */
+
+export function useGetCalls<TData = Awaited<ReturnType<typeof getCalls>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCalls>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCallsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateCallUrl = () => {
+
+
+
+
+  return `/api/calls`
+}
+
+/**
+ * @summary Start a new call (creates a call log entry)
+ */
+export const createCall = async (createCallInput: CreateCallInput, options?: RequestInit): Promise<CallLog> => {
+
+  return customFetch<CallLog>(getCreateCallUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createCallInput)
+  }
+);}
+
+
+
+
+export const getCreateCallMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCall>>, TError,{data: BodyType<CreateCallInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createCall>>, TError,{data: BodyType<CreateCallInput>}, TContext> => {
+
+const mutationKey = ['createCall'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createCall>>, {data: BodyType<CreateCallInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createCall(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateCallMutationResult = NonNullable<Awaited<ReturnType<typeof createCall>>>
+    export type CreateCallMutationBody = BodyType<CreateCallInput>
+    export type CreateCallMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Start a new call (creates a call log entry)
+ */
+export const useCreateCall = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createCall>>, TError,{data: BodyType<CreateCallInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createCall>>,
+        TError,
+        {data: BodyType<CreateCallInput>},
+        TContext
+      > => {
+      return useMutation(getCreateCallMutationOptions(options));
+    }
+
+export const getUpdateCallUrl = (id: number,) => {
+
+
+
+
+  return `/api/calls/${id}`
+}
+
+/**
+ * @summary Update call status (answered/ended/etc.)
+ */
+export const updateCall = async (id: number,
+    updateCallInput: UpdateCallInput, options?: RequestInit): Promise<CallLog> => {
+
+  return customFetch<CallLog>(getUpdateCallUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateCallInput)
+  }
+);}
+
+
+
+
+export const getUpdateCallMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCall>>, TError,{id: number;data: BodyType<UpdateCallInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCall>>, TError,{id: number;data: BodyType<UpdateCallInput>}, TContext> => {
+
+const mutationKey = ['updateCall'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCall>>, {id: number;data: BodyType<UpdateCallInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCall(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCallMutationResult = NonNullable<Awaited<ReturnType<typeof updateCall>>>
+    export type UpdateCallMutationBody = BodyType<UpdateCallInput>
+    export type UpdateCallMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update call status (answered/ended/etc.)
+ */
+export const useUpdateCall = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCall>>, TError,{id: number;data: BodyType<UpdateCallInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCall>>,
+        TError,
+        {id: number;data: BodyType<UpdateCallInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateCallMutationOptions(options));
     }
 

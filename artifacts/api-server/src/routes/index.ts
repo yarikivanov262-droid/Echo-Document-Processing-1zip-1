@@ -9,6 +9,7 @@ import contactsRouter from "./contacts";
 import activityLogRouter from "./activity-log";
 import stickersRouter from "./stickers";
 import foldersRouter from "./folders";
+import callsRouter from "./calls";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(contactsRouter);
 router.use(activityLogRouter);
 router.use(stickersRouter);
 router.use(foldersRouter);
+router.use(callsRouter);
 
 export default router;

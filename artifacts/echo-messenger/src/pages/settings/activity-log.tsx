@@ -1,31 +1,40 @@
-import { useState } from "react";
-import { ArrowLeft, Shield, LogIn, LogOut, Key, Trash2, Lock, MessageCircle, User, Filter } from "lucide-react";
+import { ArrowLeft, Shield, LogIn, LogOut, Key, Lock, MessageCircle, User, Filter } from "lucide-react";
 import { useLocation } from "wouter";
+import { useState } from "react";
+import { useGetActivityLog } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+
+type LogType = "login" | "logout" | "key_change" | "message_sent" | "session_revoked" | "profile_change" | "backup" | "other";
 
 type LogEntry = {
   id: number;
-  type: "login" | "logout" | "key_change" | "message_sent" | "session_revoked" | "profile_change" | "backup";
+  type: LogType;
   description: string;
-  device?: string;
+  device?: string | null;
   timestamp: Date;
   risk: "none" | "low" | "medium" | "high";
 };
 
-function makeEntries(): LogEntry[] {
-  const now = new Date();
-  return [
-    { id: 1, type: "login", description: "Вход в систему", device: "Chrome · Linux", timestamp: new Date(now.getTime() - 2 * 60000), risk: "none" },
-    { id: 2, type: "message_sent", description: "Отправлено 12 сообщений", device: undefined, timestamp: new Date(now.getTime() - 15 * 60000), risk: "none" },
-    { id: 3, type: "key_change", description: "Обновлены одноразовые пре-ключи", device: undefined, timestamp: new Date(now.getTime() - 60 * 60000), risk: "low" },
-    { id: 4, type: "login", description: "Вход в систему", device: "Firefox · Android", timestamp: new Date(now.getTime() - 3 * 3600000), risk: "none" },
-    { id: 5, type: "session_revoked", description: "Сессия завершена", device: "Safari · iPhone", timestamp: new Date(now.getTime() - 5 * 3600000), risk: "none" },
-    { id: 6, type: "backup", description: "Создан зашифрованный бэкап", device: undefined, timestamp: new Date(now.getTime() - 24 * 3600000), risk: "none" },
-    { id: 7, type: "profile_change", description: "Изменены настройки приватности", device: undefined, timestamp: new Date(now.getTime() - 2 * 24 * 3600000), risk: "low" },
-    { id: 8, type: "login", description: "Попытка входа с неизвестного устройства", device: "Unknown · Windows", timestamp: new Date(now.getTime() - 3 * 24 * 3600000), risk: "high" },
-    { id: 9, type: "message_sent", description: "Отправлено 47 сообщений", device: undefined, timestamp: new Date(now.getTime() - 4 * 24 * 3600000), risk: "none" },
-    { id: 10, type: "logout", description: "Выход из системы", device: "Chrome · Linux", timestamp: new Date(now.getTime() - 5 * 24 * 3600000), risk: "none" },
-  ];
+const ACTION_LABELS: Record<string, { description: string; type: LogType; risk: LogEntry["risk"] }> = {
+  login: { description: "Вход в систему", type: "login", risk: "none" },
+  register: { description: "Регистрация аккаунта", type: "login", risk: "none" },
+  logout: { description: "Выход из системы", type: "logout", risk: "none" },
+  session_revoked: { description: "Сессия завершена", type: "session_revoked", risk: "none" },
+  key_change: { description: "Обновлены одноразовые пре-ключи", type: "key_change", risk: "low" },
+  profile_update: { description: "Изменён профиль", type: "profile_change", risk: "low" },
+  backup_created: { description: "Создан зашифрованный бэкап", type: "backup", risk: "none" },
+};
+
+function mapEntry(row: { id: number; action: string; ipAddress?: string | null; userAgent?: string | null; createdAt: string }): LogEntry {
+  const known = ACTION_LABELS[row.action];
+  return {
+    id: row.id,
+    type: known?.type ?? "other",
+    description: known?.description ?? row.action,
+    device: row.userAgent ?? row.ipAddress ?? undefined,
+    timestamp: new Date(row.createdAt),
+    risk: known?.risk ?? "none",
+  };
 }
 
 function formatTime(d: Date): string {
@@ -45,6 +54,7 @@ const TYPE_ICON: Record<LogEntry["type"], React.ReactNode> = {
   session_revoked: <Lock className="h-4 w-4" />,
   profile_change: <User className="h-4 w-4" />,
   backup: <Shield className="h-4 w-4" />,
+  other: <Shield className="h-4 w-4" />,
 };
 
 const RISK_COLOR: Record<LogEntry["risk"], string> = {
@@ -56,8 +66,10 @@ const RISK_COLOR: Record<LogEntry["risk"], string> = {
 
 export function ActivityLog() {
   const [, navigate] = useLocation();
-  const [entries] = useState<LogEntry[]>(makeEntries);
+  const { data: rows, isLoading } = useGetActivityLog();
   const [filter, setFilter] = useState<"all" | "risk">("all");
+
+  const entries: LogEntry[] = (rows ?? []).map(mapEntry);
 
   const displayed = filter === "risk"
     ? entries.filter(e => e.risk !== "none")
@@ -99,10 +111,24 @@ export function ActivityLog() {
             {filter === "all" ? `Все события (${displayed.length})` : `Подозрительные (${displayed.length})`}
           </div>
 
-          {displayed.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-3 py-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 animate-pulse">
+                  <div className="h-8 w-8 rounded-full bg-muted shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 bg-muted rounded w-2/5" />
+                    <div className="h-3 bg-muted rounded w-1/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : displayed.length === 0 ? (
             <div className="flex flex-col items-center py-12 text-muted-foreground">
               <Shield className="h-10 w-10 mb-3 opacity-40" />
-              <div className="text-[14px]">Нет подозрительных событий</div>
+              <div className="text-[14px]">
+                {filter === "risk" ? "Нет подозрительных событий" : "Журнал пуст"}
+              </div>
             </div>
           ) : (
             <div className="space-y-1">

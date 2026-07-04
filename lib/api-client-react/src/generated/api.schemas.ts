@@ -367,6 +367,75 @@ export interface ActivityLogEntry {
   createdAt: string;
 }
 
+export type CallLogType = typeof CallLogType[keyof typeof CallLogType];
+
+
+export const CallLogType = {
+  audio: 'audio',
+  video: 'video',
+} as const;
+
+export type CallLogStatus = typeof CallLogStatus[keyof typeof CallLogStatus];
+
+
+export const CallLogStatus = {
+  ringing: 'ringing',
+  missed: 'missed',
+  declined: 'declined',
+  answered: 'answered',
+  ended: 'ended',
+} as const;
+
+export interface CallLog {
+  id: number;
+  callUuid: string;
+  callerId: number;
+  calleeId: number;
+  /** @nullable */
+  chatId?: number | null;
+  type: CallLogType;
+  status: CallLogStatus;
+  /** @nullable */
+  startedAt?: string | null;
+  /** @nullable */
+  answeredAt?: string | null;
+  /** @nullable */
+  endedAt?: string | null;
+  /** @nullable */
+  durationSeconds?: number | null;
+  createdAt: string;
+}
+
+export type CreateCallInputType = typeof CreateCallInputType[keyof typeof CreateCallInputType];
+
+
+export const CreateCallInputType = {
+  audio: 'audio',
+  video: 'video',
+} as const;
+
+export interface CreateCallInput {
+  calleeId: number;
+  chatId?: number;
+  type: CreateCallInputType;
+}
+
+export type UpdateCallInputStatus = typeof UpdateCallInputStatus[keyof typeof UpdateCallInputStatus];
+
+
+export const UpdateCallInputStatus = {
+  ringing: 'ringing',
+  missed: 'missed',
+  declined: 'declined',
+  answered: 'answered',
+  ended: 'ended',
+} as const;
+
+export interface UpdateCallInput {
+  status: UpdateCallInputStatus;
+  durationSeconds?: number;
+}
+
 export type StickerPackStickersItem = { [key: string]: unknown };
 
 export interface StickerPack {

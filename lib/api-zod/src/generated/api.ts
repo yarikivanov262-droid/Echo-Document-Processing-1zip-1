@@ -870,3 +870,76 @@ export const DeleteFolderResponse = zod.object({
 })
 
 
+/**
+ * @summary List call history for the current user
+ */
+export const GetCallsResponseItem = zod.object({
+  "id": zod.number(),
+  "callUuid": zod.string(),
+  "callerId": zod.number(),
+  "calleeId": zod.number(),
+  "chatId": zod.number().nullish(),
+  "type": zod.enum(['audio', 'video']),
+  "status": zod.enum(['ringing', 'missed', 'declined', 'answered', 'ended']),
+  "startedAt": zod.string().nullish(),
+  "answeredAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "durationSeconds": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+export const GetCallsResponse = zod.array(GetCallsResponseItem)
+
+
+/**
+ * @summary Start a new call (creates a call log entry)
+ */
+export const CreateCallBody = zod.object({
+  "calleeId": zod.number(),
+  "chatId": zod.number().optional(),
+  "type": zod.enum(['audio', 'video'])
+})
+
+export const CreateCallResponse = zod.object({
+  "id": zod.number(),
+  "callUuid": zod.string(),
+  "callerId": zod.number(),
+  "calleeId": zod.number(),
+  "chatId": zod.number().nullish(),
+  "type": zod.enum(['audio', 'video']),
+  "status": zod.enum(['ringing', 'missed', 'declined', 'answered', 'ended']),
+  "startedAt": zod.string().nullish(),
+  "answeredAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "durationSeconds": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Update call status (answered/ended/etc.)
+ */
+export const UpdateCallParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateCallBody = zod.object({
+  "status": zod.enum(['ringing', 'missed', 'declined', 'answered', 'ended']),
+  "durationSeconds": zod.number().optional()
+})
+
+export const UpdateCallResponse = zod.object({
+  "id": zod.number(),
+  "callUuid": zod.string(),
+  "callerId": zod.number(),
+  "calleeId": zod.number(),
+  "chatId": zod.number().nullish(),
+  "type": zod.enum(['audio', 'video']),
+  "status": zod.enum(['ringing', 'missed', 'declined', 'answered', 'ended']),
+  "startedAt": zod.string().nullish(),
+  "answeredAt": zod.string().nullish(),
+  "endedAt": zod.string().nullish(),
+  "durationSeconds": zod.number().nullish(),
+  "createdAt": zod.string()
+})
+
+

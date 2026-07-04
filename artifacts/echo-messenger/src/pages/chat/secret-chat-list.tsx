@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { Lock, Plus } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useGetChats, useCreateChat } from "@workspace/api-client-react";
+import { useGetChats } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
 function getAvatarColor(name: string) {
@@ -11,17 +11,11 @@ function getAvatarColor(name: string) {
   return colors[Math.abs(h) % colors.length];
 }
 
-const mockSecretChats = [
-  { id: 4, title: "Ghost Team", lastMessage: "Coordinates received.", time: "11:00", unreadCount: 1 },
-  { id: 5, title: "cipher_ops", lastMessage: "Package delivered.", time: "Вчера", unreadCount: 0 },
-];
-
 export function SecretChatList() {
   const [, navigate] = useLocation();
-  const { data: chats } = useGetChats({ query: { refetchInterval: 5000 } as never });
-  const createChatMutation = useCreateChat();
+  const { data: chats, isLoading } = useGetChats({ query: { refetchInterval: 5000 } as never });
 
-  const displayChats = chats && chats.length > 0 ? chats : mockSecretChats;
+  const displayChats = chats ?? [];
 
   return (
     <div className="flex flex-col h-full bg-background w-full md:w-80 lg:w-96 shrink-0 md:border-r md:border-border">
@@ -51,7 +45,23 @@ export function SecretChatList() {
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">
-        {displayChats.map((chat) => {
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-2 animate-pulse">
+              <div className="w-[54px] h-[54px] rounded-full bg-muted shrink-0" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-4 bg-muted rounded w-2/5" />
+                <div className="h-3 bg-muted rounded w-3/5" />
+              </div>
+            </div>
+          ))
+        ) : displayChats.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground px-8 text-center">
+            <Lock className="h-10 w-10 text-primary/40" />
+            <div className="text-[15px]">Нет секретных чатов</div>
+          </div>
+        ) : (
+          displayChats.map((chat) => {
           const time = (chat as { time?: string }).time;
           const lastMsg = (chat as { lastMessage?: string; description?: string }).lastMessage || (chat as { description?: string }).description || "";
           return (
@@ -86,7 +96,8 @@ export function SecretChatList() {
               </div>
             </button>
           );
-        })}
+          })
+        )}
       </div>
 
       {/* Create secret chat CTA */}
