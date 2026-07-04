@@ -8,8 +8,18 @@ import { AppRouter } from "./app-router";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { useWsConnect } from "@/hooks/use-ws";
 import { PanicButton } from "@/components/panic-button";
+import { toast } from "@/hooks/use-toast";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    mutations: {
+      onError: (error: unknown) => {
+        const msg = error instanceof Error ? error.message : "Что-то пошло не так";
+        toast({ title: "Ошибка", description: msg, variant: "destructive" });
+      },
+    },
+  },
+});
 
 setAuthTokenGetter(() => localStorage.getItem("echo_session_token"));
 

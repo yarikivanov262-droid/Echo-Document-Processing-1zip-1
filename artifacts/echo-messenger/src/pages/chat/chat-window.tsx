@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Paperclip, Mic, ArrowLeft, MoreVertical, Phone,
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
-  Smile, X, Search, Pin, BellOff, UserPlus, ChevronDown, Pencil,
-  Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive
+  Smile, X, Pin, BellOff, UserPlus, ChevronDown, Pencil,
+  Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive,
+  Square, Play, Pause
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { MessageText } from "@/components/message-text";
@@ -105,6 +106,15 @@ export function ChatWindow() {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [decryptedMap, setDecryptedMap] = useState<Map<number, string>>(new Map());
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunks = useRef<Blob[]>([]);
+  const recordingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioPreviewRef = useRef<HTMLAudioElement | null>(null);
   const { encryptForChat, decryptForChat } = useE2EE();
   const scrollRef = useRef<HTMLDivElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
@@ -284,6 +294,77 @@ export function ChatWindow() {
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/ogg";
+      const mr = new MediaRecorder(stream, { mimeType });
+      recordingChunks.current = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) recordingChunks.current.push(e.data); };
+      mr.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recordingChunks.current, { type: mimeType });
+        setAudioBlob(blob);
+        setAudioUrl(URL.createObjectURL(blob));
+      };
+      mr.start(100);
+      mediaRecorderRef.current = mr;
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimer.current = setInterval(() => setRecordingTime(t => t + 1), 1000);
+    } catch {
+      toast({ title: "Нет доступа к микрофону", variant: "destructive" });
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimer.current) { clearInterval(recordingTimer.current); recordingTimer.current = null; }
+    setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimer.current) { clearInterval(recordingTimer.current); recordingTimer.current = null; }
+    setIsRecording(false);
+    setAudioBlob(null);
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); setAudioUrl(null); }
+  };
+
+  const sendVoiceMessage = () => {
+    if (!audioBlob) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      uploadMutation.mutate(
+        { data: { filename: `voice-${Date.now()}.webm`, mimeType: audioBlob.type, data: base64 } },
+        {
+          onSuccess: (res) => {
+            const fileUrl = (res as { url?: string }).url ?? "";
+            sendMutation.mutate(
+              { data: { chatId, chatType: chat?.type ?? 1, encryptedContent: `[voice:${fileUrl}]` } },
+              {
+                onSuccess: () => { void queryClient.invalidateQueries({ queryKey: messagesQueryKey }); },
+                onError: () => toast({ title: "Ошибка отправки голосового", variant: "destructive" }),
+              }
+            );
+            cancelRecording();
+          },
+          onError: () => toast({ title: "Ошибка загрузки аудио", variant: "destructive" }),
+        }
+      );
+    };
+    reader.readAsDataURL(audioBlob);
+  };
+
+  const formatRecordTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+
   const handleLongPress = useCallback((msg: MsgItem, e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setSelectedMsg(msg);
@@ -443,12 +524,6 @@ export function ChatWindow() {
             <Phone className="h-5 w-5" />
           </button>
           <button
-            onClick={() => toast({ title: "Поиск по чату скоро" })}
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground"
-          >
-            <Search className="h-4 w-4" />
-          </button>
-          <button
             onClick={() => setShowActionsMenu(v => !v)}
             className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground"
           >
@@ -505,7 +580,6 @@ export function ChatWindow() {
                     });
                   },
                 },
-                { icon: <Search className="h-5 w-5" />, label: "Поиск", fn: () => toast({ title: "Поиск по чату скоро" }) },
               ].map(({ icon, label, fn }) => (
                 <button
                   key={label}
@@ -579,6 +653,33 @@ export function ChatWindow() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── Pinned message banner ── */}
+      {enriched.some(m => m.isPinned) && (() => {
+        const pinned = [...enriched].reverse().find(m => m.isPinned);
+        if (!pinned) return null;
+        return (
+          <button
+            onClick={() => scrollToMsg(pinned.id)}
+            className="flex items-center gap-2.5 px-4 py-2 bg-card/90 border-b border-border/50 hover:bg-muted/30 shrink-0 w-full text-left"
+          >
+            <div className="flex flex-col items-center gap-0.5 shrink-0">
+              <Pin className="h-3.5 w-3.5 text-primary" />
+              <div className="w-0.5 h-3 bg-primary/40 rounded-full" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] text-primary font-semibold">Закреплённое сообщение</div>
+              <div className="text-[13px] text-muted-foreground truncate">
+                {pinned.encryptedContent.startsWith("[voice:") ? "🎤 Голосовое сообщение" : pinned.encryptedContent}
+              </div>
+            </div>
+            <X
+              className="h-3.5 w-3.5 text-muted-foreground shrink-0"
+              onClick={(e) => { e.stopPropagation(); }}
+            />
+          </button>
+        );
+      })()}
 
       {/* ── Messages ── */}
       <div
@@ -687,7 +788,22 @@ export function ChatWindow() {
                         );
                       })()}
 
-                      <MessageText id={`msg-${msg.id}`} text={decryptedMap.get(msg.id) ?? (isE2EEPayload(msg.encryptedContent ?? "") && isSelf ? "🔒 [зашифровано]" : (msg.encryptedContent ?? ""))} isSelf={isSelf} />
+                      {(() => {
+                        const displayText = decryptedMap.get(msg.id) ?? (isE2EEPayload(msg.encryptedContent ?? "") && isSelf ? "🔒 [зашифровано]" : (msg.encryptedContent ?? ""));
+                        if (displayText.startsWith("[voice:")) {
+                          const voiceUrl = displayText.slice(7, -1);
+                          return (
+                            <audio
+                              controls
+                              src={voiceUrl}
+                              id={`msg-${msg.id}`}
+                              className="max-w-[220px] h-10 mt-1"
+                              style={{ accentColor: isSelf ? "#fff" : "var(--primary)" }}
+                            />
+                          );
+                        }
+                        return <MessageText id={`msg-${msg.id}`} text={displayText} isSelf={isSelf} />;
+                      })()}
 
                       {/* Edited mark */}
                       {msg.isEdited && (
@@ -815,6 +931,67 @@ export function ChatWindow() {
       {/* ── Input area ── */}
       <div className="shrink-0 bg-card border-t border-border"
            style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
+
+        {/* Recording status bar */}
+        <AnimatePresence>
+          {isRecording && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              className="flex items-center gap-3 px-3 pt-2 pb-1"
+            >
+              <div className="flex-1 flex items-center gap-2 bg-muted rounded-xl px-3 py-1.5 border-l-4 border-[#ff3b30]">
+                <div className="w-2 h-2 rounded-full bg-[#ff3b30] animate-pulse" />
+                <span className="text-[13px] text-[#ff3b30] font-medium">Запись {formatRecordTime(recordingTime)}</span>
+              </div>
+              <button onClick={cancelRecording} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Voice message preview */}
+        <AnimatePresence>
+          {audioBlob && !isRecording && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+              className="flex items-center gap-2 px-3 pt-2 pb-1"
+            >
+              <div className="flex-1 flex items-center gap-2 bg-muted rounded-xl px-3 py-1.5 border-l-4 border-primary">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!audioUrl) return;
+                    if (!audioPreviewRef.current) audioPreviewRef.current = new Audio(audioUrl);
+                    if (isPlayingPreview) {
+                      audioPreviewRef.current.pause();
+                      setIsPlayingPreview(false);
+                    } else {
+                      void audioPreviewRef.current.play();
+                      audioPreviewRef.current.onended = () => setIsPlayingPreview(false);
+                      setIsPlayingPreview(true);
+                    }
+                  }}
+                  className="text-primary"
+                >
+                  {isPlayingPreview ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                </button>
+                <span className="text-[13px] text-muted-foreground">🎤 Голосовое сообщение</span>
+              </div>
+              <button
+                type="button"
+                onClick={sendVoiceMessage}
+                disabled={uploadMutation.isPending}
+                className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white shrink-0 disabled:opacity-50"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={cancelRecording} className="text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Edit preview */}
         <AnimatePresence>
@@ -959,10 +1136,13 @@ export function ChatWindow() {
           ) : (
             <button
               type="button"
-              onClick={() => toast({ title: "Голосовые сообщения скоро" })}
-              className="h-9 w-9 flex items-center justify-center text-primary rounded-full hover:bg-muted shrink-0"
+              onClick={isRecording ? stopRecording : startRecording}
+              className={cn(
+                "h-9 w-9 flex items-center justify-center rounded-full shrink-0 transition-colors",
+                isRecording ? "bg-[#ff3b30] text-white animate-pulse" : "text-primary hover:bg-muted"
+              )}
             >
-              <Mic className="h-5 w-5" />
+              {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}
             </button>
           )}
         </form>

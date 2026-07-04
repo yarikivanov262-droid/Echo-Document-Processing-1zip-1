@@ -71,6 +71,25 @@ export function DataSettings() {
       if (authToken) localStorage.setItem("echo_session_token", authToken);
       if (authUser) localStorage.setItem("echo_user_id", authUser);
       if (authUsername) localStorage.setItem("echo_username", authUsername);
+
+      // Clear IndexedDB stores except private keys
+      if (indexedDB) {
+        const dbs = await indexedDB.databases().catch(() => [] as IDBDatabaseInfo[]);
+        for (const dbInfo of dbs) {
+          if (!dbInfo.name) continue;
+          const skipDb = dbInfo.name.toLowerCase().includes("key") ||
+                         dbInfo.name.toLowerCase().includes("signal") ||
+                         dbInfo.name.toLowerCase().includes("crypto");
+          if (!skipDb) {
+            await new Promise<void>((resolve) => {
+              const req = indexedDB.deleteDatabase(dbInfo.name!);
+              req.onsuccess = () => resolve();
+              req.onerror = () => resolve();
+            });
+          }
+        }
+      }
+
       toast({ title: "Кэш очищен" });
     } catch {
       toast({ title: "Ошибка очистки", variant: "destructive" });
@@ -81,11 +100,33 @@ export function DataSettings() {
 
   const exportData = async () => {
     try {
+      const token = localStorage.getItem("echo_session_token");
+      const userId = localStorage.getItem("echo_user_id");
+      const username = localStorage.getItem("echo_username");
+
+      let chats: unknown[] = [];
+      let profile: unknown = null;
+
+      if (token) {
+        const headers = { Authorization: `Bearer ${token}` };
+        try {
+          const [chatsRes, profileRes] = await Promise.all([
+            fetch("/api/chats", { headers }),
+            fetch("/api/users/me", { headers }),
+          ]);
+          if (chatsRes.ok) chats = await chatsRes.json() as unknown[];
+          if (profileRes.ok) profile = await profileRes.json();
+        } catch { /* continue with partial data */ }
+      }
+
       const data = {
         exportedAt: new Date().toISOString(),
-        note: "Зашифрованные данные ECHO Messenger",
         version: "1.0",
+        account: { userId, username, profile },
+        chats,
+        note: "Сообщения хранятся зашифрованными на сервере и недоступны в открытом виде.",
       };
+
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -157,7 +198,7 @@ export function DataSettings() {
         </div>
       </Section>
 
-      <Section title="Экспорт данных" footer="Экспорт содержит метаданные. Сообщения хранятся зашифрованными на сервере.">
+      <Section title="Экспорт данных" footer="Экспорт содержит профиль и список чатов. Сообщения хранятся зашифрованными и не включаются.">
         <button
           onClick={exportData}
           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30"

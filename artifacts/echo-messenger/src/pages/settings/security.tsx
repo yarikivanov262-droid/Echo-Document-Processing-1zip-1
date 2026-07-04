@@ -60,6 +60,7 @@ export function SecuritySettings() {
   const { logout } = useEchoAuth();
   const { toast } = useToast();
   const [burnOpen, setBurnOpen] = useState(false);
+  const [burnSeed, setBurnSeed] = useState("");
   const [terminateId, setTerminateId] = useState<string | null>(null);
 
   const handleTerminate = (deviceId: string) => {
@@ -77,21 +78,29 @@ export function SecuritySettings() {
   };
 
   const handleBurnAccount = () => {
-    deleteMutation.mutate({ data: { seedHash: "confirm-burn" } }, {
-      onSuccess: () => {
-        toast({ title: "Аккаунт удалён", variant: "destructive" });
-        logout();
-      },
-      onError: () => {
-        toast({ title: "Ошибка", description: "Не удалось удалить аккаунт", variant: "destructive" });
-        setBurnOpen(false);
-      },
+    if (!burnSeed.trim()) {
+      toast({ title: "Введите seed-фразу", description: "Необходима seed-фраза для подтверждения", variant: "destructive" });
+      return;
+    }
+    const encoder = new TextEncoder();
+    const data = encoder.encode(burnSeed.trim().toLowerCase());
+    void crypto.subtle.digest("SHA-256", data).then((hash) => {
+      const hashArray = Array.from(new Uint8Array(hash));
+      const seedHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+      deleteMutation.mutate({ data: { seedHash } }, {
+        onSuccess: () => {
+          toast({ title: "Аккаунт удалён", variant: "destructive" });
+          logout();
+        },
+        onError: () => {
+          toast({ title: "Ошибка", description: "Не удалось удалить аккаунт. Проверьте seed-фразу.", variant: "destructive" });
+          setBurnOpen(false);
+        },
+      });
     });
   };
 
-  const displaySessions = sessions && sessions.length > 0
-    ? sessions
-    : [{ deviceId: "current-device", isCurrent: true, lastUsed: new Date().toISOString(), userAgent: "Echo Web Client", createdAt: new Date().toISOString() }];
+  const displaySessions = sessions && sessions.length > 0 ? sessions : [];
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
@@ -111,6 +120,11 @@ export function SecuritySettings() {
             <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Активные сессии</span>
           </div>
           <div className="rounded-[12px] overflow-hidden bg-card divide-y divide-border/60">
+            {displaySessions.length === 0 && (
+              <div className="px-4 py-4 text-[14px] text-muted-foreground text-center">
+                Нет данных об активных сессиях
+              </div>
+            )}
             {displaySessions.map((s) => (
               <div key={s.deviceId} className={cn("flex items-center gap-3 px-4 py-3", s.isCurrent && "bg-primary/5")}>
                 <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
@@ -197,15 +211,40 @@ export function SecuritySettings() {
       />
 
       {/* Confirm: burn account */}
-      <ConfirmDialog
-        open={burnOpen}
-        title="Уничтожить аккаунт?"
-        message="Все данные будут безвозвратно удалены. Это действие нельзя отменить."
-        confirmLabel={deleteMutation.isPending ? "Удаляем..." : "Уничтожить"}
-        onConfirm={handleBurnAccount}
-        onCancel={() => setBurnOpen(false)}
-        danger
-      />
+      {burnOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card rounded-2xl w-[300px] overflow-hidden shadow-2xl">
+            <div className="px-6 pt-6 pb-4 text-center">
+              <h3 className="font-bold text-[17px] mb-2">Уничтожить аккаунт?</h3>
+              <p className="text-[14px] text-muted-foreground leading-relaxed mb-4">
+                Введите вашу seed-фразу для подтверждения. Все данные будут безвозвратно удалены.
+              </p>
+              <input
+                type="text"
+                value={burnSeed}
+                onChange={e => setBurnSeed(e.target.value)}
+                placeholder="Ваша seed-фраза..."
+                className="w-full bg-muted rounded-xl px-3 py-2.5 text-[14px] text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-[#ff3b30]"
+              />
+            </div>
+            <div className="border-t border-border">
+              <button
+                onClick={handleBurnAccount}
+                disabled={deleteMutation.isPending}
+                className="w-full py-3.5 text-[17px] font-semibold border-b border-border text-[#ff3b30] disabled:opacity-50"
+              >
+                {deleteMutation.isPending ? "Удаляем..." : "Уничтожить"}
+              </button>
+              <button
+                onClick={() => { setBurnOpen(false); setBurnSeed(""); }}
+                className="w-full py-3.5 text-[17px] text-foreground"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

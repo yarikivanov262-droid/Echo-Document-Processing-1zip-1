@@ -20,6 +20,7 @@ class EchoWsClient {
   private token: string | null = null;
   private listeners = new Set<WsListener>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private forceReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1500;
   private shouldReconnect = false;
 
@@ -33,6 +34,7 @@ class EchoWsClient {
   disconnect() {
     this.shouldReconnect = false;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    if (this.forceReconnectTimer) clearTimeout(this.forceReconnectTimer);
     this.ws?.close();
     this.ws = null;
   }
@@ -70,23 +72,39 @@ class EchoWsClient {
 
     this.ws.onopen = () => {
       this.reconnectDelay = 1500;
+      if (this.forceReconnectTimer) {
+        clearTimeout(this.forceReconnectTimer);
+        this.forceReconnectTimer = null;
+      }
     };
 
     this.ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(ev.data) as WsServerEvent;
         this.listeners.forEach((fn) => fn(data));
-      } catch {
-        // ignore
+      } catch (err) {
+        console.error("[WS] Failed to parse message:", err, String(ev.data).slice(0, 200));
       }
     };
 
     this.ws.onclose = () => {
+      if (this.forceReconnectTimer) {
+        clearTimeout(this.forceReconnectTimer);
+        this.forceReconnectTimer = null;
+      }
       if (this.shouldReconnect) this.scheduleReconnect();
     };
 
     this.ws.onerror = () => {
       this.ws?.close();
+      // Some browsers never fire onclose after onerror — force reconnect after 3s
+      if (this.shouldReconnect && !this.forceReconnectTimer) {
+        this.forceReconnectTimer = setTimeout(() => {
+          this.forceReconnectTimer = null;
+          this.ws = null;
+          if (this.shouldReconnect) this.openSocket();
+        }, 3000);
+      }
     };
   }
 
