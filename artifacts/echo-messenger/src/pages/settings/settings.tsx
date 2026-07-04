@@ -4,17 +4,10 @@ import {
   Bookmark, Phone, LogOut, ShieldAlert, Star, FolderOpen,
   Smile, Users, Activity, Database, Crown, Wifi, Mail, Shield
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useGetMe } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 interface RowProps {
   icon: React.ReactNode;
@@ -81,12 +74,11 @@ export function Settings() {
         {isLoading ? (
           <div className="h-[62px] w-[62px] rounded-full bg-muted animate-pulse shrink-0" />
         ) : (
-          <Avatar className="h-[62px] w-[62px] shrink-0">
-            {user?.avatarFileId && <AvatarImage src={user.avatarFileId} />}
-            <AvatarFallback className={cn("text-white text-2xl font-semibold", getAvatarColor(username))}>
-              {username.substring(0, 1).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            name={username}
+            src={user?.avatarFileId ? `/api/files/${user.avatarFileId}/download` : null}
+            size="lg"
+          />
         )}
         <div className="flex-1 min-w-0">
           {isLoading ? (

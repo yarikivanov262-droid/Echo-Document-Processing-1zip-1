@@ -5,7 +5,7 @@ import {
   Mic, Camera, Video as VideoIcon, Paperclip, Sticker as StickerIcon,
   Check, CheckCheck, ChevronLeft,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   useGetChats,
   useGetFolders,
@@ -16,13 +16,6 @@ import { useEchoAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 function formatChatTime(raw?: string | null): string {
   if (!raw) return "";
@@ -361,12 +354,7 @@ export function ChatList() {
                 onClick={() => navigate(`/profile/${u.username}`)}
                 className="flex items-center gap-3 px-4 py-2 hover:bg-muted/30 cursor-pointer"
               >
-                <Avatar className="h-11 w-11">
-                  {u.avatarFileId && <AvatarImage src={u.avatarFileId} />}
-                  <AvatarFallback className={cn("text-white font-semibold", getAvatarColor(u.username))}>
-                    {u.username.substring(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar name={u.username} size="sm" />
                 <span className="text-[15px] font-medium">@{u.username}</span>
               </div>
             ))}
@@ -442,20 +430,13 @@ export function ChatList() {
               >
                 <Link href={`/chat/${chat.id}`}>
                   <div className="flex items-center gap-3 px-4 py-2 hover:bg-muted/30 active:bg-muted/50 cursor-pointer transition-colors">
-                    {/* Avatar with type badge */}
-                    <div className="relative shrink-0">
-                      <Avatar className="h-[54px] w-[54px]">
-                        {(chat as { avatarFileId?: string | null }).avatarFileId && (
-                          <AvatarImage src={(chat as { avatarFileId: string }).avatarFileId} />
-                        )}
-                        <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(chat.title))}>
-                          {chat.title.substring(0, 1).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      {chat.type === 1 && isOnline && (
-                        <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-[#34c759] border-2 border-background" />
-                      )}
-                    </div>
+                    {/* Avatar with online indicator */}
+                    <UserAvatar
+                      name={chat.title}
+                      src={(chat as { avatarFileId?: string | null }).avatarFileId}
+                      size="md"
+                      online={chat.type === 1 && isOnline}
+                    />
 
                     <div className="flex-1 min-w-0 border-b border-border/40 py-2">
                       {/* Title row */}

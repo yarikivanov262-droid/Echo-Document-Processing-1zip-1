@@ -1,18 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Camera, Check, X, Copy, Star, Hash, Shuffle } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useGetMe, useUpdateMe, useUploadFile, useCheckEchoNumber, useClaimEchoNumber } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 const BIO_MAX = 255;
 const NAME_MAX = 64;
@@ -245,12 +238,11 @@ export function MyProfile() {
           {isLoading ? (
             <div className="h-24 w-24 rounded-full bg-muted animate-pulse" />
           ) : (
-            <Avatar className="h-24 w-24">
-              {avatarFileId && <AvatarImage src={`/api/files/${avatarFileId}/download`} />}
-              <AvatarFallback className={cn("text-white text-4xl font-semibold", getAvatarColor(username))}>
-                {(displayLabel || "?").substring(0, 1).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar
+              name={displayLabel || username || "?"}
+              src={avatarFileId ? `/api/files/${avatarFileId}/download` : null}
+              size="xl"
+            />
           )}
           <button
             onClick={() => editing && fileRef.current?.click()}

@@ -1,16 +1,9 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Plus, UserPlus } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useGetUserByUsername, useCreateChat, useGetContacts } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 function formatLastSeen(isOnline: boolean, raw?: string | null): string {
   if (isOnline) return "в сети";
@@ -92,12 +85,7 @@ export function Contacts() {
               disabled={createChatMutation.isPending}
               className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/30 disabled:opacity-60"
             >
-              <Avatar className="h-[54px] w-[54px] shrink-0">
-                {foundUser.avatarFileId && <AvatarImage src={`/api/files/${foundUser.avatarFileId}/download`} />}
-                <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(foundUser.username))}>
-                  {foundUser.username.substring(0, 1).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar name={foundUser.displayName || foundUser.username} src={foundUser.avatarFileId ? `/api/files/${foundUser.avatarFileId}/download` : null} size="md" />
               <div className="flex-1 border-b border-border/50 py-2 text-left">
                 <div className="text-[16px] font-semibold">{foundUser.displayName || foundUser.username}</div>
                 <div className="text-[13px] text-primary">@{foundUser.username}</div>
@@ -142,17 +130,7 @@ export function Contacts() {
                 disabled={createChatMutation.isPending}
                 className="w-full flex items-center gap-3 px-4 hover:bg-muted/30 disabled:opacity-60"
               >
-                <div className="relative shrink-0">
-                  <Avatar className="h-[54px] w-[54px]">
-                    {contact.avatarFileId && <AvatarImage src={`/api/files/${contact.avatarFileId}/download`} />}
-                    <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(contact.username))}>
-                      {label.substring(0, 1).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  {contact.isOnline && (
-                    <span className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-[#34c759] border-2 border-background" />
-                  )}
-                </div>
+                <UserAvatar name={label} src={contact.avatarFileId ? `/api/files/${contact.avatarFileId}/download` : null} size="md" online={contact.isOnline} />
                 <div className={cn("flex-1 py-3 text-left", i < filtered.length - 1 && "border-b border-border/50")}>
                   <div className="text-[16px] font-semibold">{label}</div>
                   <div className="text-[13px] text-muted-foreground">

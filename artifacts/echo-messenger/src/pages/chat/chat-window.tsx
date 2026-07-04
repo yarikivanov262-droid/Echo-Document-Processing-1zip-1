@@ -8,7 +8,7 @@ import {
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive,
   Square, Play, Pause
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { MessageText } from "@/components/message-text";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage } from "@workspace/api-client-react";
@@ -20,13 +20,6 @@ import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { stripExif } from "@/lib/media/strip-exif";
 import { useE2EE, isE2EEPayload } from "@/lib/use-e2ee";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 function formatMsgTime(raw?: string | null) {
   if (!raw) return "";
@@ -503,11 +496,7 @@ export function ChatWindow() {
           className="flex items-center gap-2 flex-1 min-w-0 text-left"
           onClick={() => setShowChatInfo(v => !v)}
         >
-          <Avatar className="h-9 w-9 shrink-0">
-            <AvatarFallback className={cn("text-white font-semibold text-sm", getAvatarColor(chatTitle))}>
-              {chatTitle.substring(0, 1).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar name={chatTitle} size="sm" />
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-[15px] leading-tight truncate">{chatTitle}</div>
             <div className={cn("text-[12px] truncate", isGroup ? "text-muted-foreground" : "text-[#34c759]")}>
@@ -728,11 +717,9 @@ export function ChatWindow() {
                   <div className={cn("flex", isSelf ? "justify-end" : "justify-start", "w-full")}>
                     {/* Avatar for others in group chats */}
                     {!isSelf && isGroup && (
-                      <Avatar className="h-6 w-6 mr-1.5 mt-1 self-end shrink-0">
-                        <AvatarFallback className={cn("text-white text-[10px]", getAvatarColor(msg.senderId.toString()))}>
-                          {String(msg.senderId).substring(0, 1)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="mr-1.5 mt-1 self-end shrink-0">
+                        <UserAvatar name={msg.senderUsername || String(msg.senderId)} size="xs" />
+                      </div>
                     )}
 
                     <div
@@ -1166,11 +1153,7 @@ export function ChatWindow() {
                   onClick={() => doForward(c.id)}
                   className="w-full flex items-center gap-3 py-2.5 px-2 rounded-xl hover:bg-muted text-left"
                 >
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback className={cn(getAvatarColor(cName), "text-white text-sm")}>
-                      {cName.slice(0, 1).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar name={cName} size="sm" />
                   <span className="text-[15px] text-foreground truncate">{cName}</span>
                 </button>
               );

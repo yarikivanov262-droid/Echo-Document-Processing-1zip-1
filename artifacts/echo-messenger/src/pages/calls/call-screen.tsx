@@ -6,16 +6,10 @@ import {
   Volume2, VolumeX, RotateCcw, MessageCircle, Minimize2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useGetChat, useCreateCall, useUpdateCall } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useWebRTC } from "@/hooks/use-webrtc";
-
-function getAvatarColor(name: string) {
-  const colors = ["#e17076","#faa774","#a695e7","#7bc862","#6ec9cb","#65aadd","#ee7aae"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 function formatDuration(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -73,8 +67,6 @@ export function CallScreen() {
   });
 
   const chatName = chat?.title ?? (isInitiator ? `Пользователь ${calleeIdParam}` : `Звонок`);
-  const initials = chatName.charAt(0).toUpperCase();
-  const avatarColor = getAvatarColor(chatName);
 
   useEffect(() => {
     async function start() {
@@ -138,7 +130,7 @@ export function CallScreen() {
     <div
       className="fixed inset-0 z-50 flex flex-col items-center justify-between py-12"
       style={{
-        background: `linear-gradient(160deg, ${avatarColor}44 0%, #0f0f0f 55%)`,
+        background: "linear-gradient(160deg, #1a1a2e 0%, #0f0f0f 55%)",
         backgroundColor: "#0f0f0f",
       }}
     >
@@ -203,12 +195,7 @@ export function CallScreen() {
               ))}
             </>
           )}
-          <div
-            className="h-28 w-28 rounded-full flex items-center justify-center text-white text-5xl font-bold shadow-lg"
-            style={{ backgroundColor: avatarColor }}
-          >
-            {initials}
-          </div>
+          <UserAvatar name={chatName} size="xl" />
         </motion.div>
 
         <div className="text-center">

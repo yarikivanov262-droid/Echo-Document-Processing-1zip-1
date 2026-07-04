@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Phone, PhoneOff, Video } from "lucide-react";
 import { useWsEvent } from "@/hooks/use-ws";
 import { useUpdateCall } from "@workspace/api-client-react";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 interface IncomingCall {
   callId: number;
@@ -11,13 +12,6 @@ interface IncomingCall {
   callerId: number;
   callerUsername: string;
   callType: "audio" | "video";
-}
-
-function getAvatarColor(name: string) {
-  const colors = ["#e17076","#faa774","#a695e7","#7bc862","#6ec9cb","#65aadd","#ee7aae"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
 }
 
 export function IncomingCallBanner() {
@@ -58,8 +52,6 @@ export function IncomingCallBanner() {
     } catch { /* ignore */ }
   }
 
-  const avatarColor = incomingCall ? getAvatarColor(incomingCall.callerUsername) : "#65aadd";
-
   return (
     <AnimatePresence>
       {incomingCall && (
@@ -77,12 +69,7 @@ export function IncomingCallBanner() {
           }}
         >
           <div className="px-4 py-3 flex items-center gap-3">
-            <div
-              className="h-12 w-12 rounded-full flex items-center justify-center text-white text-[18px] font-bold shrink-0"
-              style={{ backgroundColor: avatarColor }}
-            >
-              {incomingCall.callerUsername.charAt(0).toUpperCase()}
-            </div>
+            <UserAvatar name={incomingCall.callerUsername} size="sm" />
 
             <div className="flex-1 min-w-0">
               <div className="text-white text-[15px] font-semibold truncate">

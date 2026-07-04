@@ -1,15 +1,8 @@
 import { useLocation } from "wouter";
 import { Lock, Plus } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useGetChats } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 export function SecretChatList() {
   const [, navigate] = useLocation();
@@ -71,11 +64,7 @@ export function SecretChatList() {
               className="w-full flex items-center gap-3 px-4 py-2 hover:bg-primary/5 active:bg-primary/10"
             >
               <div className="relative shrink-0">
-                <Avatar className="h-[54px] w-[54px]">
-                  <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(chat.title))}>
-                    {chat.title.substring(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar name={chat.title} size="md" />
                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
                   <Lock className="h-2.5 w-2.5 text-white" />
                 </div>

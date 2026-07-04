@@ -1,19 +1,12 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { PhoneOutgoing, PhoneIncoming, PhoneMissed, Phone, Info, Video } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
 import { useGetCalls } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { format, isToday, isYesterday } from "date-fns";
 import { ru } from "date-fns/locale";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return colors[Math.abs(hash) % colors.length];
-}
 
 function formatCallDate(dateStr: string) {
   const d = new Date(dateStr);
@@ -144,11 +137,7 @@ export function Calls() {
                   i < displayed.length - 1 && "border-b border-border/40"
                 )}
               >
-                <Avatar className="h-[54px] w-[54px] shrink-0">
-                  <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(name))}>
-                    {name.substring(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar name={name} size="md" />
 
                 <div className="flex-1 min-w-0 py-1">
                   <div className={cn(

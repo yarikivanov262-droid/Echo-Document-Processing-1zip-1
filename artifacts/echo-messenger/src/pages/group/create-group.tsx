@@ -1,17 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { ArrowLeft, Camera, Search } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useCreateChat, useGetUserByUsername } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 interface Props { type: "group" | "channel" }
 
@@ -111,11 +104,7 @@ export function CreateGroup({ type }: Props) {
           {selectedMembers.map(m => (
             <button key={m.id} onClick={() => toggleMember(m)} className="flex flex-col items-center gap-1 shrink-0">
               <div className="relative">
-                <Avatar className="h-12 w-12">
-                  <AvatarFallback className={cn("text-white font-semibold", getAvatarColor(m.username))}>
-                    {m.username.substring(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar name={m.username} size="sm" />
                 <span className="absolute -top-1 -right-1 bg-muted-foreground text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">✕</span>
               </div>
               <span className="text-[11px] text-muted-foreground max-w-[48px] truncate">{m.username}</span>
@@ -134,11 +123,7 @@ export function CreateGroup({ type }: Props) {
             onClick={() => toggleMember({ id: foundUser.id, username: foundUser.username })}
             className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/30"
           >
-            <Avatar className="h-[54px] w-[54px] shrink-0">
-              <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(foundUser.username))}>
-                {foundUser.username.substring(0, 1).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar name={foundUser.username} size="md" />
             <div className="flex-1 border-b border-border/50 py-2 text-left">
               <div className="text-[16px] font-semibold">{foundUser.username}</div>
               <div className="text-[13px] text-muted-foreground">

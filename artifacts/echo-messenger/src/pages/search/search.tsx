@@ -1,16 +1,9 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { X } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { useGetUserByUsername, useGetUserByEchoNumber, useGetChats, useCreateChat } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 export function Search() {
   const [, navigate] = useLocation();
@@ -99,11 +92,7 @@ export function Search() {
                 onClick={() => navigate(`/chat/${chat.id}`)}
                 className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/30"
               >
-                <Avatar className="h-[54px] w-[54px] shrink-0">
-                  <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(chat.title))}>
-                    {chat.title.substring(0, 1).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar name={chat.title} size="md" />
                 <div className="flex-1 border-b border-border/50 py-2 text-left">
                   <div className="text-[16px] font-semibold">{chat.title}</div>
                   <div className="text-[13px] text-muted-foreground">{chat.memberCount} участников</div>
@@ -130,11 +119,7 @@ export function Search() {
                   disabled={createChatMutation.isPending}
                   className="w-full flex items-center gap-3 px-4 py-2 hover:bg-muted/30 disabled:opacity-60"
                 >
-                  <Avatar className="h-[54px] w-[54px] shrink-0">
-                    <AvatarFallback className={cn("text-white font-semibold text-[18px]", getAvatarColor(resultUser.username))}>
-                      {resultUser.username.substring(0, 1).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar name={resultUser.username} size="md" />
                   <div className="flex-1 border-b border-border/50 py-3 text-left">
                     <div className="text-[16px] font-semibold">
                       {resultUser.displayName || resultUser.username}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { ArrowLeft, MessageCircle, Phone, MoreVertical, BellOff, UserX, Check, X } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import {
   useGetUserByUsername,
   useCreateChat,
@@ -15,13 +15,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-
-function getAvatarColor(name: string) {
-  const colors = ["bg-[#e17076]","bg-[#faa774]","bg-[#a695e7]","bg-[#7bc862]","bg-[#6ec9cb]","bg-[#65aadd]","bg-[#ee7aae]"];
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return colors[Math.abs(h) % colors.length];
-}
 
 function formatLastSeen(raw?: string | null) {
   if (!raw) return null;
@@ -198,12 +191,12 @@ export function UserProfile() {
         <>
           {/* Avatar + name */}
           <div className="flex flex-col items-center pt-6 pb-4 px-4">
-            <Avatar className="h-24 w-24 mb-4">
-              {profile.avatarFileId && <AvatarImage src={`/api/files/${profile.avatarFileId}/download`} />}
-              <AvatarFallback className={cn("text-white text-4xl font-semibold", getAvatarColor(displayName))}>
-                {displayName.substring(0, 1).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            <UserAvatar
+              name={displayName}
+              src={profile.avatarFileId ? `/api/files/${profile.avatarFileId}/download` : null}
+              size="xl"
+              className="mb-4"
+            />
             <div className="flex items-center gap-1.5">
               <h1 className="text-[22px] font-bold">{displayName}</h1>
               {profile.isPremium && <span className="text-[#f0b90b] text-[18px]">⭐</span>}
