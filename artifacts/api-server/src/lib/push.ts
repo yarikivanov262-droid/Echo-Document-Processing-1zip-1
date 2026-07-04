@@ -1,8 +1,19 @@
 import webpush from "web-push";
-import { db, pushSubscriptionsTable } from "@workspace/db";
+import { db, pushSubscriptionsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 import { getUserClients } from "./ws-hub";
+
+export type NotifiableChatType = "messages" | "groups" | "channels";
+
+export async function isPushEnabledForUser(userId: number, kind: NotifiableChatType): Promise<boolean> {
+  const [user] = await db.select({ settings: usersTable.settings }).from(usersTable).where(eq(usersTable.id, userId));
+  const notif = (user?.settings as Record<string, unknown> | undefined)?.notifications as
+    | Record<string, boolean>
+    | undefined;
+  if (!notif || typeof notif[kind] !== "boolean") return true;
+  return notif[kind];
+}
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;

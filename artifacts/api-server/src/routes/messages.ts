@@ -15,7 +15,7 @@ import { z } from "zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
 import { broadcastToChat } from "../lib/ws-hub";
 import { messageRateLimit } from "../middlewares/rate-limit";
-import { sendPushToUser } from "../lib/push";
+import { sendPushToUser, isPushEnabledForUser, type NotifiableChatType } from "../lib/push";
 
 const router: IRouter = Router();
 
@@ -162,13 +162,19 @@ router.post("/messages", requireAuth, messageRateLimit, async (req: Authenticate
       message: msgPayload as Record<string, unknown>,
     }, req.userId!);
 
+    const notifKind: NotifiableChatType =
+      msg.chatType === 2 ? "groups" : msg.chatType === 3 ? "channels" : "messages";
+
     for (const memberId of memberIds) {
       if (memberId === req.userId) continue;
-      void sendPushToUser(memberId, {
-        title: "ECHO",
-        body: `Новое сообщение от ${sender.username}`,
-        chatUrl: `/chat/${chatId}`,
-      });
+      void (async () => {
+        if (!(await isPushEnabledForUser(memberId, notifKind))) return;
+        await sendPushToUser(memberId, {
+          title: "ECHO",
+          body: `Новое сообщение от ${sender.username}`,
+          chatUrl: `/chat/${chatId}`,
+        });
+      })();
     }
   }
 
