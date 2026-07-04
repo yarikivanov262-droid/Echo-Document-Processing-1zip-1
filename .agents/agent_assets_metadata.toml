@@ -6,3 +6,9 @@ id = "vF6xD0UyLj89asdcb5O_C"
 uri = "file://ТЕХ ПРОЕКТ ECHO.txt"
 type = "text"
 title = "ТЕХ ПРОЕКТ ECHO v4.0 — 40 этапов + 16 анонимных фич"
+
+[[outputs]]
+id = "LABFGTkFJdxoI7JZBZZSQ"
+uri = "file://ТЕХ ПРОЕКТ ECHO — ДОПОЛНЕНИЯ.txt"
+type = "text"
+title = "ECHO — Дополнения к тех проекту (аудит готовности)"
