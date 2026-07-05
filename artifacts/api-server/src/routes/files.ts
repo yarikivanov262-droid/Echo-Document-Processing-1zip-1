@@ -66,4 +66,26 @@ router.get("/files/:fileId", requireAuth, async (req: AuthenticatedRequest, res)
   );
 });
 
+// Raw file endpoint — serves binary content (for fetch()-based media loading with Authorization header).
+// Uses the same requireAuth middleware as all other authenticated endpoints.
+// Frontend uses this via fetch() + createObjectURL(), never via <img src=> directly.
+router.get("/files/:fileId/raw", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.fileId) ? req.params.fileId[0] : req.params.fileId;
+  if (!rawId) { res.status(400).json({ error: "Missing fileId" }); return; }
+
+  const [file] = await db.select().from(filesTable).where(eq(filesTable.id, rawId));
+  if (!file) { res.status(404).json({ error: "File not found" }); return; }
+
+  const mimeType = file.mimeType ?? "application/octet-stream";
+  if (!file.data) { res.status(404).json({ error: "File data not found" }); return; }
+  const buffer = Buffer.from(file.data, "base64");
+
+  const isInline = mimeType.startsWith("image/") || mimeType.startsWith("video/") || mimeType.startsWith("audio/");
+  res.setHeader("Content-Type", mimeType);
+  res.setHeader("Content-Length", buffer.length);
+  res.setHeader("Content-Disposition", isInline ? "inline" : `attachment; filename="${rawId}"`);
+  res.setHeader("Cache-Control", "private, max-age=86400");
+  res.end(buffer);
+});
+
 export default router;

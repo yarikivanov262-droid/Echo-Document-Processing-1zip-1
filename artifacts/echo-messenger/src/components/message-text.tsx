@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 
@@ -8,46 +9,64 @@ interface MessageTextProps {
   id?: string;
 }
 
+// ── Segment types ─────────────────────────────────────────────────────────────
 type Segment =
   | { kind: "text"; value: string }
+  | { kind: "bold"; value: string }
+  | { kind: "italic"; value: string }
+  | { kind: "code"; value: string }
+  | { kind: "strike"; value: string }
+  | { kind: "spoiler"; value: string }
   | { kind: "url"; value: string; href: string }
   | { kind: "mention"; value: string; username: string }
-  | { kind: "hashtag"; value: string; tag: string }
-  | { kind: "command"; value: string };
+  | { kind: "hashtag"; value: string; tag: string };
 
-const URL_RE = /https?:\/\/[^\s<>"']+/g;
-const MENTION_RE = /@([a-zA-Z0-9_]{1,32})/g;
-const HASHTAG_RE = /#([а-яёa-z0-9_]{1,64})/gi;
-const COMMAND_RE = /\/([a-z_]{1,32})(?:\s|$)/gi;
+// ── Parser ────────────────────────────────────────────────────────────────────
+// Order matters: longer/more-specific patterns first.
+// NOTE: All sub-patterns compiled into one RegExp with "gi" flags.
+// The "i" flag applies to hashtag matching and is intentional for the whole pattern.
+const PATTERN = new RegExp(
+  [
+    /\|\|(.+?)\|\|/,          // ||spoiler||
+    /\*\*(.+?)\*\*/,          // **bold**
+    /~~(.+?)~~/,              // ~~strike~~
+    /`([^`]+)`/,              // `code`
+    /\*([^*\n]+?)\*/,         // *italic*
+    /_([^_\n]+?)_/,           // _italic_
+    /https?:\/\/[^\s<>"']+/,  // URL (no capture group — matched via full)
+    /@([a-zA-Z0-9_]{1,32})/,  // @mention
+    /#([а-яёa-z0-9_]{1,64})/, // #hashtag (case-insensitive via "i" flag on whole PATTERN)
+  ]
+    .map(r => r.source)
+    .join("|"),
+  "gi"  // "g" for repeated matching, "i" for case-insensitive hashtags/mentions
+);
 
 function parseText(text: string): Segment[] {
   const segments: Segment[] = [];
-  const combined = new RegExp(
-    `(https?:\\/\\/[^\\s<>"']+)|(@[a-zA-Z0-9_]{1,32})|(#[а-яёa-z0-9_]{1,64})|(\/[a-z_]{1,32}(?=\\s|$))`,
-    "gi"
-  );
-
   let lastIndex = 0;
   let match: RegExpExecArray | null;
+  PATTERN.lastIndex = 0;
 
-  while ((match = combined.exec(text)) !== null) {
+  while ((match = PATTERN.exec(text)) !== null) {
     if (match.index > lastIndex) {
       segments.push({ kind: "text", value: text.slice(lastIndex, match.index) });
     }
 
-    const raw = match[0];
+    const [full, spoiler, bold, strike, code, italic1, italic2, , mention, hashtag] = match;
 
-    if (match[1]) {
-      segments.push({ kind: "url", value: raw, href: raw });
-    } else if (match[2]) {
-      segments.push({ kind: "mention", value: raw, username: raw.slice(1) });
-    } else if (match[3]) {
-      segments.push({ kind: "hashtag", value: raw, tag: raw.slice(1) });
-    } else if (match[4]) {
-      segments.push({ kind: "command", value: raw });
-    }
+    if (spoiler !== undefined)       segments.push({ kind: "spoiler", value: spoiler });
+    else if (bold !== undefined)     segments.push({ kind: "bold",    value: bold });
+    else if (strike !== undefined)   segments.push({ kind: "strike",  value: strike });
+    else if (code !== undefined)     segments.push({ kind: "code",    value: code });
+    else if (italic1 !== undefined)  segments.push({ kind: "italic",  value: italic1 });
+    else if (italic2 !== undefined)  segments.push({ kind: "italic",  value: italic2 });
+    else if (full.startsWith("http")) segments.push({ kind: "url",    value: full, href: full });
+    else if (mention !== undefined)  segments.push({ kind: "mention", value: full, username: mention });
+    else if (hashtag !== undefined)  segments.push({ kind: "hashtag", value: full, tag: hashtag });
+    else                             segments.push({ kind: "text",    value: full });
 
-    lastIndex = combined.lastIndex;
+    lastIndex = PATTERN.lastIndex;
   }
 
   if (lastIndex < text.length) {
@@ -57,7 +76,27 @@ function parseText(text: string): Segment[] {
   return segments;
 }
 
-export function MessageText({ text, isSelf, className }: MessageTextProps) {
+// ── Spoiler inline component ──────────────────────────────────────────────────
+function Spoiler({ text, isSelf }: { text: string; isSelf?: boolean }) {
+  const [revealed, setRevealed] = useState(false);
+  return (
+    <span
+      onClick={(e) => { e.stopPropagation(); setRevealed(v => !v); }}
+      className={cn(
+        "cursor-pointer rounded px-0.5 transition-all select-none",
+        revealed
+          ? "bg-transparent"
+          : isSelf ? "bg-white/30 text-transparent" : "bg-foreground/20 text-transparent"
+      )}
+      title={revealed ? "скрыть" : "показать"}
+    >
+      {text}
+    </span>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+export function MessageText({ text, isSelf, className, id }: MessageTextProps) {
   const [, setLocation] = useLocation();
 
   const segments = parseText(text);
@@ -67,67 +106,95 @@ export function MessageText({ text, isSelf, className }: MessageTextProps) {
     : "underline underline-offset-2 text-primary hover:opacity-80";
 
   return (
-    <p className={cn("break-words whitespace-pre-wrap pr-14 scroll-mt-20 chat-msg-text", className)}>
+    <p id={id} className={cn("break-words whitespace-pre-wrap pr-14 scroll-mt-20 chat-msg-text", className)}>
       {segments.map((seg, i) => {
-        if (seg.kind === "text") {
-          return <span key={i}>{seg.value}</span>;
-        }
+        switch (seg.kind) {
+          case "text":
+            return <span key={i}>{seg.value}</span>;
 
-        if (seg.kind === "url") {
-          return (
-            <a
-              key={i}
-              href={seg.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={linkClass}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {seg.value}
-            </a>
-          );
-        }
+          case "bold":
+            return <strong key={i} className="font-semibold">{seg.value}</strong>;
 
-        if (seg.kind === "mention") {
-          return (
-            <button
-              key={i}
-              className={cn(linkClass, "font-medium")}
-              onClick={(e) => {
-                e.stopPropagation();
-                setLocation(`/profile/${seg.username}`);
-              }}
-            >
-              {seg.value}
-            </button>
-          );
-        }
+          case "italic":
+            return <em key={i} className="italic">{seg.value}</em>;
 
-        if (seg.kind === "hashtag") {
-          return (
-            <button
-              key={i}
-              className={cn(linkClass, "font-medium")}
-              onClick={(e) => {
-                e.stopPropagation();
-                setLocation(`/search?q=${encodeURIComponent(seg.tag)}`);
-              }}
-            >
-              {seg.value}
-            </button>
-          );
-        }
+          case "code":
+            return (
+              <code
+                key={i}
+                className={cn(
+                  "font-mono text-[0.88em] px-1 py-0.5 rounded",
+                  isSelf ? "bg-white/20 text-white" : "bg-muted text-foreground"
+                )}
+              >
+                {seg.value}
+              </code>
+            );
 
-        if (seg.kind === "command") {
-          return (
-            <span key={i} className={cn(linkClass, "font-mono text-[13px] font-semibold")}>
-              {seg.value}
-            </span>
-          );
-        }
+          case "strike":
+            return <s key={i} className="opacity-70">{seg.value}</s>;
 
-        return null;
+          case "spoiler":
+            return <Spoiler key={i} text={seg.value} isSelf={isSelf} />;
+
+          case "url":
+            return (
+              <a
+                key={i}
+                href={seg.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkClass}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {seg.value}
+              </a>
+            );
+
+          case "mention":
+            return (
+              <button
+                key={i}
+                className={cn(linkClass, "font-medium")}
+                onClick={(e) => { e.stopPropagation(); setLocation(`/profile/${seg.username}`); }}
+              >
+                {seg.value}
+              </button>
+            );
+
+          case "hashtag":
+            return (
+              <button
+                key={i}
+                className={cn(linkClass, "font-medium")}
+                onClick={(e) => { e.stopPropagation(); setLocation(`/search?q=${encodeURIComponent(seg.tag)}`); }}
+              >
+                {seg.value}
+              </button>
+            );
+
+          default:
+            return null;
+        }
       })}
     </p>
   );
+}
+
+// ── Format helpers (used by input toolbar) ────────────────────────────────────
+export function wrapSelection(
+  value: string,
+  selStart: number,
+  selEnd: number,
+  marker: string,
+  closeMarker?: string
+): { newValue: string; newStart: number; newEnd: number } {
+  const close = closeMarker ?? marker;
+  const selected = value.slice(selStart, selEnd);
+  const newValue = value.slice(0, selStart) + marker + selected + close + value.slice(selEnd);
+  return {
+    newValue,
+    newStart: selStart + marker.length,
+    newEnd: selEnd + marker.length,
+  };
 }

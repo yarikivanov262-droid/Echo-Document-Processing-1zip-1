@@ -6,13 +6,15 @@ import {
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
   Smile, X, Pin, BellOff, UserPlus, ChevronDown, Pencil,
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive,
-  Square, Play, Pause, Search, ChevronUp, Link2, Star
+  Square, Play, Pause, Search, ChevronUp, Link2, Star,
+  Bold, Italic, Code, Strikethrough, EyeOff,
 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
-import { MessageText } from "@/components/message-text";
+import { MessageText, wrapSelection } from "@/components/message-text";
 import { VoiceMessagePlayer } from "@/components/voice-message-player";
 import { PollMessage, type PollData } from "@/components/poll-message";
 import { CreatePollModal } from "@/components/create-poll-modal";
+import { MediaMessage } from "@/components/media-message";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage, useCreatePoll, useVotePoll, useGetPoll, useToggleMessageStar, getMessages } from "@workspace/api-client-react";
 import { BarChart2 } from "lucide-react";
@@ -60,6 +62,8 @@ type MsgItem = {
   forwardedFromUsername?: string | null;
   isPinned?: boolean;
   isStarred?: boolean;
+  mediaFileId?: string | null;
+  type?: string | null;
 };
 
 function PollInChat({ pollId, isSelf, cached, onVoted }: {
@@ -147,6 +151,7 @@ export function ChatWindow() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
+  const [showFormatBar, setShowFormatBar] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -230,6 +235,8 @@ export function ChatWindow() {
         forwardedFromUsername: (m as { forwardedFromUsername?: string | null }).forwardedFromUsername,
         isPinned: (m as { isPinned?: boolean }).isPinned,
         isStarred: (m as { isStarred?: boolean }).isStarred,
+        mediaFileId: (m as { mediaFileId?: string | null }).mediaFileId ?? null,
+        type: (m as { type?: string | null }).type ?? null,
       }));
       setOlderMessages(prev => [...enrichedOlder, ...prev]);
       if (older.length < 40) setHasMoreOlder(false);
@@ -259,6 +266,8 @@ export function ChatWindow() {
     forwardedFromUsername: (m as { forwardedFromUsername?: string | null }).forwardedFromUsername,
     isPinned: (m as { isPinned?: boolean }).isPinned,
     isStarred: (m as { isStarred?: boolean }).isStarred,
+    mediaFileId: (m as { mediaFileId?: string | null }).mediaFileId ?? null,
+    type: (m as { type?: string | null }).type ?? null,
   }));
 
   // Date separators
@@ -1044,6 +1053,20 @@ export function ChatWindow() {
                       })()}
 
                       {(() => {
+                        // Media attachment (image / video / document)
+                        if (msg.mediaFileId) {
+                          return (
+                            <>
+                              <MediaMessage
+                                fileId={msg.mediaFileId}
+                                fileName={msg.encryptedContent || undefined}
+                                isSelf={isSelf}
+                                token={sessionToken ?? ""}
+                              />
+                              {/* Caption text if any additional text was sent */}
+                            </>
+                          );
+                        }
                         const displayText = decryptedMap.get(msg.id) ?? (isE2EEPayload(msg.encryptedContent ?? "") && isSelf ? "🔒 [зашифровано]" : (msg.encryptedContent ?? ""));
                         if (displayText.startsWith("[voice:")) {
                           const voiceUrl = displayText.slice(7, -1);
@@ -1358,6 +1381,49 @@ export function ChatWindow() {
           )}
         </AnimatePresence>
 
+        {/* ── Format toolbar ── */}
+        <AnimatePresence>
+          {showFormatBar && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex items-center gap-1 px-3 pt-2 pb-0 overflow-hidden"
+            >
+              {[
+                { icon: <Bold className="h-3.5 w-3.5" />, title: "Жирный (Ctrl+B)", marker: "**" },
+                { icon: <Italic className="h-3.5 w-3.5" />, title: "Курсив (Ctrl+I)", marker: "*" },
+                { icon: <Code className="h-3.5 w-3.5" />, title: "Код (Ctrl+`)", marker: "`" },
+                { icon: <Strikethrough className="h-3.5 w-3.5" />, title: "Зачёркнутый", marker: "~~" },
+                { icon: <EyeOff className="h-3.5 w-3.5" />, title: "Спойлер", marker: "||" },
+              ].map(({ icon, title, marker }) => (
+                <button
+                  key={title}
+                  type="button"
+                  title={title}
+                  onClick={() => {
+                    const el = inputRef.current;
+                    if (!el) return;
+                    const start = el.selectionStart ?? text.length;
+                    const end = el.selectionEnd ?? text.length;
+                    const { newValue, newStart, newEnd } = wrapSelection(text, start, end, marker);
+                    setText(newValue);
+                    requestAnimationFrame(() => {
+                      el.focus();
+                      el.setSelectionRange(newStart, newEnd);
+                    });
+                  }}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  {icon}
+                </button>
+              ))}
+              <div className="w-px h-4 bg-border mx-1" />
+              <span className="text-[11px] text-muted-foreground">**жирный** *курсив* `код` ~~зачёркнутый~~ ||спойлер||</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <form onSubmit={handleSend} className="flex items-center gap-2 px-3 py-2.5">
           {/* Attachment */}
           <motion.button
@@ -1381,10 +1447,39 @@ export function ChatWindow() {
               ref={inputRef}
               value={text}
               onChange={e => handleTextChange(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }}}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+                // Formatting shortcuts
+                if (e.ctrlKey || e.metaKey) {
+                  const el = inputRef.current;
+                  if (!el) return;
+                  const start = el.selectionStart ?? text.length;
+                  const end = el.selectionEnd ?? text.length;
+                  let marker: string | null = null;
+                  if (e.key === "b" || e.key === "B") marker = "**";
+                  else if (e.key === "i" || e.key === "I") marker = "*";
+                  else if (e.key === "`") marker = "`";
+                  if (marker) {
+                    e.preventDefault();
+                    const { newValue, newStart, newEnd } = wrapSelection(text, start, end, marker);
+                    setText(newValue);
+                    requestAnimationFrame(() => el.setSelectionRange(newStart, newEnd));
+                  }
+                }
+              }}
               placeholder="Сообщение..."
               className="flex-1 bg-transparent outline-none text-[15px] chat-msg-input text-foreground placeholder:text-muted-foreground/60 min-w-0"
             />
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.15 }}
+              whileTap={{ scale: 0.85 }}
+              onClick={() => setShowFormatBar(v => !v)}
+              className={cn("shrink-0 transition-colors", showFormatBar ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+              title="Форматирование"
+            >
+              <Bold className="h-[16px] w-[16px]" />
+            </motion.button>
             <motion.button
               type="button"
               whileHover={{ scale: 1.15 }}
