@@ -140,7 +140,7 @@ export function UserProfile() {
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button
           onClick={() => navigate("/chats")}
           className="flex items-center gap-1 text-primary"
@@ -161,7 +161,7 @@ export function UserProfile() {
       {showActionsMenu && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setShowActionsMenu(false)} />
-          <div className="fixed z-50 right-2 top-14 bg-card border border-border rounded-2xl shadow-xl overflow-hidden min-w-[200px]">
+          <div className="fixed z-50 right-2 top-14 glass border border-border rounded-2xl shadow-xl overflow-hidden min-w-[200px]">
             <button
               onClick={toggleBlock}
               className={cn("w-full flex items-center gap-3 px-4 py-3 text-[15px] hover:bg-muted/50 text-left", isBlocked ? "text-foreground" : "text-[#ff3b30]")}
@@ -232,7 +232,7 @@ export function UserProfile() {
           <div className="h-[6px] bg-muted/30" />
 
           {/* Info */}
-          <div className="bg-card">
+          <div className="glass">
             {profile.bio && (
               <div className="px-4 py-3 border-b border-border/50">
                 <div className="text-[13px] text-muted-foreground mb-0.5">О себе</div>
@@ -249,7 +249,7 @@ export function UserProfile() {
           {isContact && (
             <>
               <div className="h-[6px] bg-muted/30" />
-              <div className="bg-card px-4 py-3">
+              <div className="glass px-4 py-3">
                 <div className="text-[13px] text-muted-foreground mb-1">Nickname</div>
                 {nicknameEditing ? (
                   <div className="flex items-center gap-2">
@@ -275,7 +275,7 @@ export function UserProfile() {
           <div className="h-[6px] bg-muted/30" />
 
           {/* Actions */}
-          <div className="bg-card divide-y divide-border/50">
+          <div className="glass divide-y divide-border/50">
             <button
               onClick={toggleContact}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/30 text-left"

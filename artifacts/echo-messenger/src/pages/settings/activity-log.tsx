@@ -80,7 +80,7 @@ export function ActivityLog() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border glass shrink-0">
         <button onClick={() => navigate("/settings/security")} className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
         </button>

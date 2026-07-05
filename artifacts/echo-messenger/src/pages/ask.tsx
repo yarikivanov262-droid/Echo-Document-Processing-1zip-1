@@ -86,7 +86,7 @@ export function AskPage() {
               onChange={(e) => setText(e.target.value.slice(0, info.maxLength))}
               placeholder="Ваше сообщение..."
               rows={5}
-              className="w-full bg-card border border-border rounded-[12px] px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground outline-none resize-none"
+              className="w-full glass rounded-[12px] px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground outline-none resize-none"
             />
             <div className="flex items-center justify-between text-[12px] text-muted-foreground">
               <span>{text.length} / {info.maxLength}</span>

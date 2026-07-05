@@ -28,7 +28,7 @@ function Section({ title, children, footer }: { title: string; children: React.R
       <div className="px-4 pb-1.5 pt-5">
         <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">{title}</span>
       </div>
-      <div className="bg-card divide-y divide-border/50">{children}</div>
+      <div className="glass divide-y divide-border/50">{children}</div>
       {footer && <div className="px-4 pt-2 pb-1 text-[13px] text-muted-foreground">{footer}</div>}
     </div>
   );
@@ -104,7 +104,7 @@ export function PrivacySettings() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={() => navigate("/settings")} className="text-primary text-[17px]">Назад</button>
         <span className="text-[17px] font-semibold">Конфиденциальность</span>
         {dirty ? (

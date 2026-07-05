@@ -17,7 +17,7 @@ export function LanguageSettings() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={() => navigate("/settings")} className="text-primary text-[17px]">Назад</button>
         <span className="text-[17px] font-semibold">Язык</span>
         <div className="w-14" />
@@ -27,7 +27,7 @@ export function LanguageSettings() {
         Выберите язык интерфейса
       </div>
 
-      <div className="bg-card divide-y divide-border/50">
+      <div className="glass divide-y divide-border/50">
         {LANGS.map((l) => (
           <div key={l.code} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors">
             <div className="flex-1">

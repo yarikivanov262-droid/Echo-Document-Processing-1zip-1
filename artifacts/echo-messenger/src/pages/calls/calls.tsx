@@ -79,7 +79,7 @@ export function Calls() {
             onClick={() => setTab("all")}
             className={cn(
               "px-5 py-1 rounded-[8px] text-[14px] font-medium transition-colors",
-              tab === "all" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              tab === "all" ? "glass text-foreground shadow-sm" : "text-muted-foreground"
             )}
           >
             Все
@@ -88,7 +88,7 @@ export function Calls() {
             onClick={() => setTab("missed")}
             className={cn(
               "px-5 py-1 rounded-[8px] text-[14px] font-medium transition-colors",
-              tab === "missed" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+              tab === "missed" ? "glass text-foreground shadow-sm" : "text-muted-foreground"
             )}
           >
             Пропущ.
@@ -97,7 +97,7 @@ export function Calls() {
         <div className="w-14" />
       </div>
 
-      <div className="mx-4 mt-1 mb-4 rounded-[12px] overflow-hidden bg-card">
+      <div className="mx-4 mt-1 mb-4 rounded-[12px] overflow-hidden glass">
         <button
           onClick={() => navigate("/contacts" as never)}
           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-muted/40 active:bg-muted/60 transition-colors"
@@ -113,7 +113,7 @@ export function Calls() {
         <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Недавние</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto mx-4 rounded-[12px] bg-card overflow-hidden">
+      <div className="flex-1 overflow-y-auto mx-4 rounded-[12px] glass overflow-hidden">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
             <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />

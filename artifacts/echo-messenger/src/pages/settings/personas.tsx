@@ -141,7 +141,7 @@ export function PersonasSettings() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={() => setLocation("/settings")} className="text-primary">
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -152,7 +152,7 @@ export function PersonasSettings() {
       </div>
 
       <div className="p-4 space-y-4 pb-10">
-        <div className="bg-card rounded-[12px] p-4 space-y-2">
+        <div className="glass rounded-[12px] p-4 space-y-2">
           <div className="flex items-center gap-3">
             <Users className="h-8 w-8 text-primary shrink-0" />
             <div>
@@ -170,7 +170,7 @@ export function PersonasSettings() {
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="bg-card rounded-[12px] p-4 space-y-3"
+              className="glass rounded-[12px] p-4 space-y-3"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[15px] font-semibold">Новая личность</span>
@@ -217,7 +217,7 @@ export function PersonasSettings() {
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   className={cn(
-                    "bg-card rounded-[12px] px-4 py-3 flex items-center gap-3",
+                    "glass rounded-[12px] px-4 py-3 flex items-center gap-3",
                     isActive && "border border-primary/40"
                   )}
                 >
@@ -277,7 +277,7 @@ export function PersonasSettings() {
           </button>
         )}
 
-        <div className="bg-card/50 rounded-[12px] p-4">
+        <div className="glass rounded-[12px] p-4">
           <div className="text-[12px] text-muted-foreground leading-relaxed">
             ⚠️ Каждая личность — отдельный аккаунт со своим seed. Токены хранятся локально в браузере. Для полного
             разделения — используйте разные устройства или отдельные seed-фразы.

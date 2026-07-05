@@ -83,7 +83,7 @@ export function StickerPacks() {
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 glass-header shrink-0">
         <button onClick={() => navigate("/settings")} className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
         </button>

@@ -81,7 +81,7 @@ export function ConnectionSettings() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={() => setLocation("/settings")} className="text-primary">
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -91,7 +91,7 @@ export function ConnectionSettings() {
 
       <div className="p-4 space-y-5 pb-10">
         {/* Status */}
-        <div className="bg-card rounded-[12px] p-4 space-y-3">
+        <div className="glass rounded-[12px] p-4 space-y-3">
           <div className="flex items-center gap-3">
             <Wifi className={cn("h-5 w-5", MODE_COLORS[mode])} />
             <div className="flex-1">
@@ -110,7 +110,7 @@ export function ConnectionSettings() {
         </div>
 
         {/* Auto detect */}
-        <div className="bg-card rounded-[12px] overflow-hidden">
+        <div className="glass rounded-[12px] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <div>
               <div className="text-[15px]">Автообнаружение</div>
@@ -121,7 +121,7 @@ export function ConnectionSettings() {
         </div>
 
         {/* Alt domains */}
-        <div className="bg-card rounded-[12px] overflow-hidden">
+        <div className="glass rounded-[12px] overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50">
             <div className="text-[13px] text-muted-foreground font-medium uppercase tracking-wide">Резервные домены</div>
           </div>
@@ -150,7 +150,7 @@ export function ConnectionSettings() {
         </div>
 
         {/* Cloudflare Worker */}
-        <div className="bg-card rounded-[12px] overflow-hidden">
+        <div className="glass rounded-[12px] overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50">
             <div className="text-[13px] text-muted-foreground font-medium uppercase tracking-wide">Cloudflare Worker</div>
           </div>
@@ -165,7 +165,7 @@ export function ConnectionSettings() {
         </div>
 
         {/* DNS over HTTPS */}
-        <div className="bg-card rounded-[12px] overflow-hidden">
+        <div className="glass rounded-[12px] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
             <div>
               <div className="text-[15px]">DNS over HTTPS</div>
@@ -193,7 +193,7 @@ export function ConnectionSettings() {
         </div>
 
         {/* Obfuscation */}
-        <div className="bg-card rounded-[12px] overflow-hidden">
+        <div className="glass rounded-[12px] overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <div>
               <div className="text-[15px]">Обфускация трафика</div>

@@ -106,7 +106,7 @@ export function PrivacyScore() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={() => setLocation("/settings")} className="text-primary">
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -119,7 +119,7 @@ export function PrivacyScore() {
           <ScoreCircle score={total} />
         </div>
 
-        <div className="bg-card rounded-[12px] overflow-hidden">
+        <div className="glass rounded-[12px] overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50">
             <div className="text-[13px] text-muted-foreground font-medium uppercase tracking-wide">Параметры защиты</div>
           </div>
@@ -151,7 +151,7 @@ export function PrivacyScore() {
           ))}
         </div>
 
-        <div className="bg-card/50 rounded-[12px] p-4">
+        <div className="glass rounded-[12px] p-4">
           <div className="text-[12px] text-muted-foreground leading-relaxed">
             Оценка рассчитывается на основе ваших текущих настроек. Для максимальной защиты включите все пункты в разделе «Прокси и соединение».
           </div>

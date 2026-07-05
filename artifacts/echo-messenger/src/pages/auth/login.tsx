@@ -111,7 +111,7 @@ export function Login() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-3xl shadow-2xl overflow-hidden"
+          className="glass-strong rounded-3xl overflow-hidden"
         >
           <div className="p-8">
             <div className="flex justify-center mb-6">

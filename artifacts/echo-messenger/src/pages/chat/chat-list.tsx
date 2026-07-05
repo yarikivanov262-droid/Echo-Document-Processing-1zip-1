@@ -258,18 +258,18 @@ export function ChatList() {
   return (
     <div className="flex flex-col h-full bg-background w-full md:w-80 lg:w-96 shrink-0 md:border-r md:border-border">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 shrink-0 glass-header sticky top-0 z-10 border-b border-white/10">
         {isArchivedRoute ? (
           <button
             onClick={() => navigate("/chats")}
-            className="h-8 w-8 flex items-center justify-center rounded-full bg-muted hover:bg-muted/80"
+            className="h-8 w-8 flex items-center justify-center rounded-full glass-pill hover:bg-muted/80"
           >
             <ChevronLeft className="h-5 w-5 text-foreground" />
           </button>
         ) : (
           <button
             onClick={() => navigate("/settings")}
-            className="h-8 w-8 flex items-center justify-center rounded-full bg-muted hover:bg-muted/80"
+            className="h-8 w-8 flex items-center justify-center rounded-full glass-pill hover:bg-muted/80"
           >
             <svg className="h-4 w-4 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -280,7 +280,7 @@ export function ChatList() {
         {!isArchivedRoute ? (
           <button
             onClick={() => navigate("/chat/new")}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-muted hover:bg-muted/80"
+            className="w-8 h-8 flex items-center justify-center rounded-full glass-pill hover:bg-muted/80"
           >
             <SquarePen className="h-4 w-4 text-primary" />
           </button>
@@ -517,7 +517,7 @@ export function ChatList() {
       {contextMenu && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
-          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden w-64 animate-in zoom-in-95 fade-in duration-150">
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 glass-strong rounded-2xl overflow-hidden w-64 animate-in zoom-in-95 fade-in duration-150">
             <button
               onClick={() => {
                 settingsMutation.mutate({ id: contextMenu.chatId, data: { isPinned: !contextMenu.isPinned } });

@@ -25,8 +25,8 @@ export function Layout({ children }: LayoutProps) {
   return (
     <div className="flex h-[100dvh] w-full flex-col md:flex-row bg-background overflow-hidden">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-16 flex-col items-center border-r border-border bg-card py-4 shrink-0 z-10">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary mb-6">
+      <aside className="hidden md:flex w-20 flex-col items-center py-4 shrink-0 z-10 m-3 rounded-3xl glass-nav">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full mb-6 shadow-lg" style={{ background: "var(--gradient-primary)" }}>
           <MessageCircle className="h-6 w-6 text-white" />
         </div>
         <nav className="flex flex-1 flex-col items-center gap-1 w-full">
@@ -35,8 +35,8 @@ export function Layout({ children }: LayoutProps) {
             return (
               <Link key={item.href} href={item.href} className="w-full flex justify-center py-1">
                 <div className={cn(
-                  "relative flex h-11 w-11 items-center justify-center rounded-full transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  "relative flex h-11 w-11 items-center justify-center rounded-full transition-all",
+                  isActive ? "text-primary glass-pill" : "text-muted-foreground hover:text-foreground"
                 )}>
                   <item.icon className="h-6 w-6" />
                   {item.badge > 0 && (
@@ -58,16 +58,16 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Mobile Bottom Nav */}
       <nav
-        className="md:hidden flex items-end justify-around bg-card border-t border-border shrink-0 z-10"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)", height: "calc(56px + env(safe-area-inset-bottom))" }}
+        className="md:hidden flex items-end justify-around shrink-0 z-10 mx-3 mb-3 rounded-3xl glass-nav"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)", height: "calc(60px + env(safe-area-inset-bottom))" }}
       >
         {navItems.map((item) => {
           const isActive = location.startsWith(item.href);
           return (
-            <Link key={item.href} href={item.href} className="flex-1 flex justify-center h-14">
+            <Link key={item.href} href={item.href} className="flex-1 flex justify-center h-14 py-1.5">
               <div className={cn(
-                "flex flex-col items-center justify-center gap-0.5 h-full w-full",
-                isActive ? "text-primary" : "text-muted-foreground"
+                "flex flex-col items-center justify-center gap-0.5 h-full w-full rounded-2xl transition-all mx-0.5",
+                isActive ? "text-primary glass-pill" : "text-muted-foreground"
               )}>
                 <div className="relative">
                   <item.icon

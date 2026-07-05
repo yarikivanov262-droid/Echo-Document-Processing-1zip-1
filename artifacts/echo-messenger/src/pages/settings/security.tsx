@@ -26,7 +26,7 @@ function ConfirmDialog({
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-card rounded-2xl w-[280px] overflow-hidden shadow-2xl">
+      <div className="glass rounded-2xl w-[280px] overflow-hidden shadow-2xl">
         <div className="px-6 pt-6 pb-4 text-center">
           <h3 className="font-bold text-[17px] mb-2">{title}</h3>
           <p className="text-[14px] text-muted-foreground leading-relaxed">{message}</p>
@@ -119,7 +119,7 @@ export function SecuritySettings() {
           <div className="px-1 pb-2">
             <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Активные сессии</span>
           </div>
-          <div className="rounded-[12px] overflow-hidden bg-card divide-y divide-border/60">
+          <div className="rounded-[12px] overflow-hidden glass divide-y divide-border/60">
             {displaySessions.length === 0 && (
               <div className="px-4 py-4 text-[14px] text-muted-foreground text-center">
                 Нет данных об активных сессиях
@@ -159,7 +159,7 @@ export function SecuritySettings() {
           <div className="px-1 pb-2">
             <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Конфиденциальность</span>
           </div>
-          <div className="rounded-[12px] overflow-hidden bg-card divide-y divide-border/60">
+          <div className="rounded-[12px] overflow-hidden glass divide-y divide-border/60">
             {[
               { label: "Последний вход", value: "Все" },
               { label: "Фото профиля", value: "Все" },
@@ -182,7 +182,7 @@ export function SecuritySettings() {
           <div className="px-1 pb-2">
             <span className="text-[13px] text-[#ff3b30] uppercase font-semibold tracking-wide">Опасная зона</span>
           </div>
-          <div className="rounded-[12px] overflow-hidden bg-card">
+          <div className="rounded-[12px] overflow-hidden glass">
             <div className="px-4 py-3 text-[13px] text-muted-foreground leading-relaxed border-b border-border/60">
               Уничтожение аккаунта безвозвратно удаляет все ключи, чаты и метаданные. Действие криптографически необратимо.
             </div>
@@ -213,7 +213,7 @@ export function SecuritySettings() {
       {/* Confirm: burn account */}
       {burnOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card rounded-2xl w-[300px] overflow-hidden shadow-2xl">
+          <div className="glass rounded-2xl w-[300px] overflow-hidden shadow-2xl">
             <div className="px-6 pt-6 pb-4 text-center">
               <h3 className="font-bold text-[17px] mb-2">Уничтожить аккаунт?</h3>
               <p className="text-[14px] text-muted-foreground leading-relaxed mb-4">

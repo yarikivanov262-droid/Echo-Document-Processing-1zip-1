@@ -163,12 +163,12 @@ export function BackupSettings() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center justify-center px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-center px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <h1 className="text-[17px] font-semibold">Шифрованный архив</h1>
       </div>
 
       <div className="p-4 space-y-4 pb-10">
-        <div className="rounded-[12px] bg-card overflow-hidden">
+        <div className="rounded-[12px] glass overflow-hidden">
           <div className="flex items-center gap-4 px-4 py-5">
             <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <HardDrive className="h-7 w-7 text-primary" />
@@ -255,14 +255,14 @@ export function BackupSettings() {
             <div className="flex gap-2">
               <button
                 onClick={copyKey}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] bg-card text-[14px]"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] glass text-[14px]"
               >
                 <Copy className="h-3.5 w-3.5" />
                 Скопировать
               </button>
               <button
                 onClick={handleDownloadKey}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] bg-card text-[14px]"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-[10px] glass text-[14px]"
               >
                 <FileUp className="h-3.5 w-3.5" />
                 Скачать файл
@@ -284,7 +284,7 @@ export function BackupSettings() {
           {collecting ? "Сбор данных..." : isPending ? "Загрузка..." : "Создать резервную копию"}
         </button>
 
-        <div className="rounded-[12px] overflow-hidden bg-card divide-y divide-border/60">
+        <div className="rounded-[12px] overflow-hidden glass divide-y divide-border/60">
           {[
             { label: "Шифрование", value: "AES-256-GCM" },
             { label: "Ключ", value: "Только у вас" },

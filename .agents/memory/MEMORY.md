@@ -11,3 +11,4 @@
 - [db package types rebuild](db-types-rebuild.md) — after editing lib/db/src/schema/*.ts, run `cd lib/db && pnpm exec tsc --project tsconfig.json` to regenerate dist/; `pnpm run typecheck:libs` also works.
 - [pnpm onlyBuiltDependencies location](pnpm-built-deps.md) — native packages (argon2 etc.) must be added to `onlyBuiltDependencies` array in pnpm-workspace.yaml (not root package.json); then run `pnpm rebuild <pkg>`.
 - [mockup-sandbox build needs PORT](mockup-sandbox-build-port.md) — `pnpm run build` fails on artifacts/mockup-sandbox with "PORT environment variable is required" even when app code is fine; pre-existing sandbox-only quirk, not a regression.
+- [Liquid Glass design system](liquid-glass-design.md) — global .glass/.glass-strong/.glass-nav/.glass-header/.glass-pill utility classes in index.css; use these instead of bg-card/bg-background for any new translucent surface.

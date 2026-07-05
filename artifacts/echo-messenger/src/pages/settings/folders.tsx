@@ -32,7 +32,7 @@ function FolderForm({
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={onCancel} className="text-primary text-[17px]">Отмена</button>
         <span className="text-[17px] font-semibold">{initial ? "Изм. папку" : "Новая папка"}</span>
         <button
@@ -48,7 +48,7 @@ function FolderForm({
         <div className="px-4 pb-1.5 pt-5">
           <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Название</span>
         </div>
-        <div className="bg-card px-4 py-3 flex items-center gap-3">
+        <div className="glass px-4 py-3 flex items-center gap-3">
           <div className="text-[28px]">{emoji}</div>
           <input
             value={name}
@@ -64,7 +64,7 @@ function FolderForm({
         <div className="px-4 pb-1.5">
           <span className="text-[13px] text-muted-foreground uppercase font-semibold tracking-wide">Иконка</span>
         </div>
-        <div className="bg-card px-4 py-3">
+        <div className="glass px-4 py-3">
           <div className="flex flex-wrap gap-2">
             {EMOJI_OPTIONS.map(e => (
               <button
@@ -88,7 +88,7 @@ function FolderForm({
             Чаты в папке ({chatIds.length})
           </span>
         </div>
-        <div className="bg-card divide-y divide-border/50">
+        <div className="glass divide-y divide-border/50">
           {chats?.map(chat => (
             <div
               key={chat.id}
@@ -181,7 +181,7 @@ export function FoldersSettings() {
       {/* Delete confirm overlay */}
       {deleteConfirm !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)}>
-          <div className="bg-card rounded-2xl w-[280px] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="glass rounded-2xl w-[280px] overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="px-6 pt-6 pb-4 text-center">
               <h3 className="font-bold text-[17px] mb-2">Удалить папку?</h3>
               <p className="text-[14px] text-muted-foreground leading-relaxed">Чаты останутся, только папка будет удалена.</p>
@@ -196,7 +196,7 @@ export function FoldersSettings() {
         </div>
       )}
 
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={() => navigate("/settings")} className="text-primary text-[17px]">Назад</button>
         <span className="text-[17px] font-semibold">Папки чатов</span>
         <button onClick={() => setCreating(true)} className="text-primary">
@@ -210,13 +210,13 @@ export function FoldersSettings() {
 
       {isLoading ? (
         Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border/50 animate-pulse">
+          <div key={i} className="flex items-center gap-3 px-4 py-3 glass border-b border-border/50 animate-pulse">
             <div className="h-10 w-10 rounded-xl bg-muted shrink-0" />
             <div className="flex-1 h-4 bg-muted rounded" />
           </div>
         ))
       ) : folders && folders.length > 0 ? (
-        <div className="bg-card divide-y divide-border/50">
+        <div className="glass divide-y divide-border/50">
           {folders.map(folder => (
             <div key={folder.id} className="flex items-center gap-3 px-4 py-3">
               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-[20px] shrink-0">

@@ -63,7 +63,7 @@ export function AnonInboxSettings() {
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
-      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center gap-3 px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button onClick={() => setLocation("/settings")} className="text-primary">
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -74,7 +74,7 @@ export function AnonInboxSettings() {
       </div>
 
       <div className="p-4 space-y-4 pb-10">
-        <div className="bg-card rounded-[12px] p-4 flex items-start gap-3">
+        <div className="glass rounded-[12px] p-4 flex items-start gap-3">
           <Mail className="h-8 w-8 text-primary mt-0.5 shrink-0" />
           <div>
             <div className="text-[15px] font-semibold">Анонимный ящик</div>
@@ -94,7 +94,7 @@ export function AnonInboxSettings() {
         )}
 
         {inboxes.map((inbox) => (
-          <div key={inbox.id} className="bg-card rounded-[12px] overflow-hidden">
+          <div key={inbox.id} className="glass rounded-[12px] overflow-hidden">
             <div className="flex items-center gap-3 px-4 py-3">
               <div className="flex-1">
                 <div className="text-[15px] font-medium">{inbox.label ?? "Анонимный ящик"}</div>

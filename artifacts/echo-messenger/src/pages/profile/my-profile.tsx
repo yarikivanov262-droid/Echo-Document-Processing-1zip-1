@@ -54,7 +54,7 @@ function EchoNumberPicker({ current, onClose }: { current: string | null | undef
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end justify-center" onClick={onClose}>
       <div
-        className="bg-card w-full max-w-md rounded-t-2xl p-6 pb-8 flex flex-col gap-4"
+        className="glass w-full max-w-md rounded-t-2xl p-6 pb-8 flex flex-col gap-4"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -211,7 +211,7 @@ export function MyProfile() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <button
           onClick={() => (editing ? cancelEdit() : navigate("/settings"))}
           className="text-primary text-[17px]"
@@ -278,7 +278,7 @@ export function MyProfile() {
       <div className="h-[6px] bg-muted/30" />
 
       {/* Info rows */}
-      <div className="bg-card">
+      <div className="glass">
         {/* Username */}
         <div className="flex items-center px-4 py-3 border-b border-border/50">
           <div className="flex-1">
@@ -353,7 +353,7 @@ export function MyProfile() {
       <div className="h-[6px] bg-muted/30" />
 
       {/* Seed phrase info */}
-      <div className="bg-card">
+      <div className="glass">
         <div className="px-4 py-3 border-b border-border/50">
           <div className="text-[13px] text-muted-foreground mb-1">Безопасность</div>
           <div className="text-[16px]">Сид-фраза активна</div>
@@ -373,7 +373,7 @@ export function MyProfile() {
       <div className="h-[6px] bg-muted/30" />
 
       {/* Danger */}
-      <div className="bg-card">
+      <div className="glass">
         <button
           onClick={() => navigate("/settings/security")}
           className="w-full flex items-center px-4 py-3 text-left hover:bg-muted/30"

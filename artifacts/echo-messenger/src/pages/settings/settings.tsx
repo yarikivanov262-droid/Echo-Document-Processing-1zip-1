@@ -30,7 +30,7 @@ function Row({ icon, bg, label, href, value, last, onClick, danger }: RowProps) 
     <div
       onClick={handleClick}
       className={cn(
-        "flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/40 active:bg-muted/60 transition-colors cursor-pointer select-none",
+        "flex items-center gap-3 px-4 py-3 glass hover:bg-muted/40 active:bg-muted/60 transition-colors cursor-pointer select-none",
         !last && "border-b border-border/50"
       )}
     >
@@ -55,7 +55,7 @@ export function Settings() {
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 bg-background z-10 border-b border-border/40">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 sticky top-0 glass-header z-10 border-b border-white/10">
         <div className="w-9" />
         <span className="text-[17px] font-semibold">Настройки</span>
         <button

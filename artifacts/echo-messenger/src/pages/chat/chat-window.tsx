@@ -625,7 +625,7 @@ export function ChatWindow() {
   return (
     <div className="flex flex-col h-full bg-background w-full overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-2 py-2 bg-card border-b border-border shrink-0 h-14">
+      <div className="flex items-center gap-2 px-2 py-2 glass-header border-b border-white/10 shrink-0 h-14">
         <button
           onClick={() => navigate("/chats")}
           className="md:hidden flex items-center text-primary gap-0.5 pr-1 shrink-0"
@@ -675,7 +675,7 @@ export function ChatWindow() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-card border-b border-border overflow-hidden shrink-0"
+            className="glass-header border-b border-white/10 overflow-hidden shrink-0"
           >
             <div className="flex items-center gap-2 px-3 py-2">
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -727,7 +727,7 @@ export function ChatWindow() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="bg-card border-b border-border overflow-hidden shrink-0"
+            className="glass-header border-b border-white/10 overflow-hidden shrink-0"
           >
             <div className="flex items-center justify-around py-3 px-4">
               {[
@@ -792,7 +792,7 @@ export function ChatWindow() {
               initial={{ opacity: 0, scale: 0.95, y: -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -6 }}
-              className="fixed z-50 right-2 top-14 bg-card border border-border rounded-2xl shadow-xl overflow-hidden min-w-[220px]"
+              className="fixed z-50 right-2 top-14 glass-strong rounded-2xl overflow-hidden min-w-[220px]"
             >
               {[
                 {
@@ -870,7 +870,7 @@ export function ChatWindow() {
         return (
           <button
             onClick={() => scrollToMsg(pinned.id)}
-            className="flex items-center gap-2.5 px-4 py-2 bg-card/90 border-b border-border/50 hover:bg-muted/30 shrink-0 w-full text-left"
+            className="flex items-center gap-2.5 px-4 py-2 glass-header border-b border-white/10 hover:bg-muted/30 shrink-0 w-full text-left"
           >
             <div className="flex flex-col items-center gap-0.5 shrink-0">
               <Pin className="h-3.5 w-3.5 text-primary" />
@@ -910,7 +910,7 @@ export function ChatWindow() {
         )}
         {!hasMoreOlder && enriched.length > 40 && (
           <div className="flex justify-center py-2">
-            <span className="text-[12px] text-muted-foreground bg-card/80 rounded-full px-3 py-1">Начало истории</span>
+            <span className="text-[12px] text-muted-foreground glass-pill rounded-full px-3 py-1">Начало истории</span>
           </div>
         )}
 
@@ -920,7 +920,7 @@ export function ChatWindow() {
           </div>
         ) : enriched.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
-            <div className="bg-card/80 rounded-2xl px-5 py-3 text-[14px] text-muted-foreground">
+            <div className="glass rounded-2xl px-5 py-3 text-[14px] text-muted-foreground">
               Начните разговор — всё зашифровано 🔒
             </div>
           </div>
@@ -930,7 +930,7 @@ export function ChatWindow() {
               if (item.kind === "date") {
                 return (
                   <div key={item.key} className="flex justify-center my-3">
-                    <span className="bg-card/80 backdrop-blur text-muted-foreground text-[12px] px-3 py-1 rounded-full">
+                    <span className="glass-pill text-muted-foreground text-[12px] px-3 py-1 rounded-full">
                       {item.label}
                     </span>
                   </div>
@@ -959,8 +959,8 @@ export function ChatWindow() {
                     <div
                       className={cn("relative max-w-[75%] px-3 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm cursor-pointer select-text",
                         isSelf
-                          ? "bg-primary text-white rounded-br-sm"
-                          : "bg-card text-foreground rounded-bl-sm",
+                          ? "text-white rounded-br-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]"
+                          : "glass text-foreground rounded-bl-sm",
                         isActiveSearchMatch && "ring-2 ring-yellow-400"
                       )}
                       onContextMenu={(e) => { e.preventDefault(); handleLongPress(msg, e); }}
@@ -1063,7 +1063,7 @@ export function ChatWindow() {
                       {reactionEntries.map(([emoji, users]) => (
                         <span
                           key={emoji}
-                          className="inline-flex items-center gap-0.5 bg-card border border-border rounded-full px-2 py-0.5 text-[12px] cursor-pointer hover:bg-muted"
+                          className="inline-flex items-center gap-0.5 glass-pill rounded-full px-2 py-0.5 text-[12px] cursor-pointer hover:bg-muted"
                         >
                           {emoji} <span className="text-muted-foreground">{users.length}</span>
                         </span>
@@ -1083,7 +1083,7 @@ export function ChatWindow() {
               initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
               className="flex justify-start mb-1"
             >
-              <div className="bg-card rounded-2xl rounded-bl-sm px-4 py-2.5 shadow-sm">
+              <div className="glass rounded-2xl rounded-bl-sm px-4 py-2.5">
                 <div className="flex items-center gap-1">
                   {[0,1,2].map(i => (
                     <motion.span
@@ -1108,7 +1108,7 @@ export function ChatWindow() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 8 }}
             onClick={scrollToBottom}
-            className="absolute bottom-24 right-4 h-10 w-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-foreground hover:bg-muted z-30"
+            className="absolute bottom-24 right-4 h-10 w-10 rounded-full glass-strong flex items-center justify-center text-foreground hover:bg-muted z-30"
           >
             <ChevronDown className="h-5 w-5" />
           </motion.button>
@@ -1125,7 +1125,7 @@ export function ChatWindow() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               style={{ left: Math.min(menuPos.x, window.innerWidth - 180), top: Math.min(menuPos.y, window.innerHeight - 200) }}
-              className="fixed z-50 bg-card border border-border rounded-2xl shadow-xl overflow-hidden min-w-[160px]"
+              className="fixed z-50 glass-strong rounded-2xl overflow-hidden min-w-[160px]"
             >
               {/* Quick emoji reactions */}
               <div className="flex gap-1 px-3 py-2 border-b border-border/50">
@@ -1161,7 +1161,7 @@ export function ChatWindow() {
       </AnimatePresence>
 
       {/* ── Input area ── */}
-      <div className="shrink-0 bg-card border-t border-border"
+      <div className="shrink-0 glass-header border-t border-white/10"
            style={{ paddingBottom: "max(8px, env(safe-area-inset-bottom))" }}>
 
         {/* Recording status bar */}
@@ -1288,7 +1288,7 @@ export function ChatWindow() {
               <motion.div
                 initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
                 transition={{ type: "tween", duration: 0.2 }}
-                className="fixed z-50 bottom-0 left-0 right-0 bg-card rounded-t-2xl border-t border-border p-4"
+                className="fixed z-50 bottom-0 left-0 right-0 glass-strong rounded-t-2xl p-4"
                 style={{ paddingBottom: "max(20px, env(safe-area-inset-bottom))" }}
               >
                 <div className="w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mb-4" />

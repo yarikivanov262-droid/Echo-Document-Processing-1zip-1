@@ -47,7 +47,7 @@ export function ProfilesSettings() {
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border glass shrink-0">
         <button onClick={() => navigate("/settings")} className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
         </button>
@@ -78,7 +78,7 @@ export function ProfilesSettings() {
               exit={{ opacity: 0, height: 0 }}
               className="mx-4 mb-3 overflow-hidden"
             >
-              <div className="bg-card rounded-2xl border border-border px-4 py-3">
+              <div className="glass rounded-2xl border border-border px-4 py-3">
                 <div className="text-[14px] font-semibold mb-2">Новый профиль</div>
                 <input
                   value={newLabel}
@@ -110,7 +110,7 @@ export function ProfilesSettings() {
           <div className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider px-1 mb-2">
             Профили ({profiles.length}/3)
           </div>
-          <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="glass rounded-2xl border border-border overflow-hidden">
             {profiles.map((profile, i) => (
               <div key={profile.id}>
                 {i > 0 && <div className="h-px bg-border mx-4" />}
