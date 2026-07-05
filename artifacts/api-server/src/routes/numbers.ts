@@ -82,8 +82,6 @@ router.post("/numbers/claim", requireAuth, async (req: AuthenticatedRequest, res
       avatarFileId: user.avatarFileId ?? null,
       displayName: user.displayName ?? null,
       bio: user.bio ?? null,
-      isPremium: user.isPremium,
-      starsBalance: user.starsBalance,
       settings: (user.settings as Record<string, unknown> | null) ?? undefined,
       createdAt: user.createdAt.toISOString(),
       echoNumber: user.echoNumber ?? null,
@@ -123,7 +121,6 @@ router.get("/users/by-number/:echoNumber", requireAuth, async (req: Authenticate
       avatarFileId: user.avatarFileId ?? null,
       displayName: user.displayName ?? null,
       bio: user.bio ?? null,
-      isPremium: user.isPremium,
       echoNumber: user.echoNumber ?? null,
     })
   );

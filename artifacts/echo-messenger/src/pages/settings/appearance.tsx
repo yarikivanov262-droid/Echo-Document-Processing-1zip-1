@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useTheme } from "next-themes";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ACCENT_OPTIONS, applyAccent, getStoredAccentId } from "@/lib/accent-theme";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -29,6 +31,12 @@ const fontSizes = [
 export function AppearanceSettings() {
   const [, navigate] = useLocation();
   const { theme, setTheme } = useTheme();
+  const [accentId, setAccentId] = useState(getStoredAccentId());
+
+  const handleAccentSelect = (id: string) => {
+    applyAccent(id);
+    setAccentId(id);
+  };
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
@@ -55,6 +63,30 @@ export function AppearanceSettings() {
             )}
           </div>
         ))}
+      </Section>
+
+      <Section title="Цвет акцента">
+        <div className="flex flex-wrap gap-3 px-4 py-3">
+          {ACCENT_OPTIONS.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => handleAccentSelect(a.id)}
+              className="flex flex-col items-center gap-1.5"
+            >
+              <div
+                className="h-10 w-10 rounded-full flex items-center justify-center ring-2 ring-offset-2 ring-offset-card transition-all"
+                style={{
+                  backgroundColor: a.swatch,
+                  '--tw-ring-color': accentId === a.id ? a.swatch : 'transparent',
+                } as React.CSSProperties}
+              >
+                {accentId === a.id && <Check className="h-5 w-5 text-white" />}
+              </div>
+              <span className="text-[11px] text-muted-foreground">{a.label}</span>
+            </button>
+          ))}
+        </div>
       </Section>
 
       <Section title="Размер текста">

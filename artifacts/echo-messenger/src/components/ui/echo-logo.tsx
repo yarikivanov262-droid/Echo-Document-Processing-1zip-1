@@ -1,0 +1,24 @@
+interface EchoLogoProps {
+  size?: number;
+  className?: string;
+}
+
+export function EchoLogo({ size = 48, className }: EchoLogoProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 180 180"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+    >
+      <rect width="180" height="180" rx="42" fill="#EF3B24" />
+      <path d="M50 66C50 63.2386 52.2386 61 55 61C57.7614 61 60 63.2386 60 66V114C60 116.761 57.7614 119 55 119C52.2386 119 50 116.761 50 114V66Z" fill="white" />
+      <path d="M72 54C72 51.2386 74.2386 49 77 49C79.7614 49 82 51.2386 82 54V126C82 128.761 79.7614 131 77 131C74.2386 131 72 128.761 72 126V54Z" fill="white" />
+      <path d="M94 42C94 39.2386 96.2386 37 99 37C101.761 37 104 39.2386 104 42V138C104 140.761 101.761 143 99 143C96.2386 143 94 140.761 94 138V42Z" fill="white" fillOpacity="0.55" />
+      <path d="M116 90L134 90" stroke="white" strokeWidth="10" strokeLinecap="round" />
+      <path d="M124 78L138 90L124 102" stroke="white" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

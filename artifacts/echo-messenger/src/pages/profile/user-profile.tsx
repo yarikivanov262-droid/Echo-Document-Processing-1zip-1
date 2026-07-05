@@ -199,7 +199,6 @@ export function UserProfile() {
             />
             <div className="flex items-center gap-1.5">
               <h1 className="text-[22px] font-bold">{displayName}</h1>
-              {profile.isPremium && <span className="text-[#f0b90b] text-[18px]">⭐</span>}
             </div>
             <div className="text-primary text-[14px] mt-0.5">@{profile.username}</div>
             {lastSeenLabel && (

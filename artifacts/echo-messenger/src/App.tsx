@@ -10,6 +10,9 @@ import { useWsConnect } from "@/hooks/use-ws";
 import { usePushSubscription } from "@/hooks/use-push";
 import { PanicButton } from "@/components/panic-button";
 import { toast } from "@/hooks/use-toast";
+import { initAccent } from "@/lib/accent-theme";
+
+initAccent();
 
 const queryClient = new QueryClient({
   defaultOptions: {

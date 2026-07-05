@@ -25,8 +25,6 @@ import { MyProfile } from "@/pages/profile/my-profile";
 import { UserProfile } from "@/pages/profile/user-profile";
 import { CreateGroup } from "@/pages/group/create-group";
 import { StickerPacks } from "@/pages/stickers/sticker-packs";
-import { Stars } from "@/pages/stars/stars";
-import { Premium } from "@/pages/premium/premium";
 import { InvitePage } from "@/pages/invite";
 import { AskPage } from "@/pages/ask";
 import { ConnectionSettings } from "@/pages/settings/connection";
@@ -252,13 +250,6 @@ export function AppRouter() {
         <AskPage />
       </Route>
 
-      {/* Stars & Premium */}
-      <Route path="/stars">
-        <ProtectedLayout><Stars /></ProtectedLayout>
-      </Route>
-      <Route path="/premium">
-        <ProtectedLayout><Premium /></ProtectedLayout>
-      </Route>
 
       {/* User profiles */}
       <Route path="/profile/:userId">

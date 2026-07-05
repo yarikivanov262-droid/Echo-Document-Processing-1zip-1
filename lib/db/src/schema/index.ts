@@ -11,7 +11,6 @@ export * from "./pinned-messages";
 export * from "./chat-folders";
 export * from "./polls";
 export * from "./activity-logs";
-export * from "./stars";
 export * from "./topics";
 export * from "./personas";
 export * from "./anon-inbox";

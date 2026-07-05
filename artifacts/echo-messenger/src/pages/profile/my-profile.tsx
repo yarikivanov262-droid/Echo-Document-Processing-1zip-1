@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Camera, Check, X, Copy, Star, Hash, Shuffle } from "lucide-react";
+import { Camera, Check, X, Copy, Hash, Shuffle } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { useGetMe, useUpdateMe, useUploadFile, useCheckEchoNumber, useClaimEchoNumber } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -261,11 +261,6 @@ export function MyProfile() {
         ) : (
           <div className="flex items-center gap-1.5">
             <h2 className="text-[22px] font-bold">{displayLabel}</h2>
-            {user?.isPremium && (
-              <span className="flex items-center gap-0.5 text-[#f0b90b] text-[13px] font-semibold">
-                <Star className="h-3.5 w-3.5 fill-[#f0b90b]" /> ECHO Premium
-              </span>
-            )}
           </div>
         )}
         <button onClick={copyUsername} className="flex items-center gap-1.5 mt-1 text-primary text-[15px]">
@@ -371,30 +366,6 @@ export function MyProfile() {
           className="w-full flex items-center px-4 py-3 text-left hover:bg-muted/30"
         >
           <span className="flex-1 text-[16px] text-primary">Центр безопасности</span>
-          <span className="text-muted-foreground/50">›</span>
-        </button>
-      </div>
-
-      <div className="h-[6px] bg-muted/30" />
-
-      {/* Stars */}
-      <div className="bg-card">
-        <div className="px-4 py-3 border-b border-border/50 flex items-center gap-2">
-          <Star className="h-5 w-5 text-[#f0b90b] fill-[#f0b90b]" />
-          <span className="text-[16px] font-semibold">{user?.starsBalance ?? 0} Stars</span>
-        </div>
-        <button
-          onClick={() => toast({ title: "Пополнение Stars скоро" })}
-          className="w-full flex items-center px-4 py-3 text-left hover:bg-muted/30 border-b border-border/50"
-        >
-          <span className="flex-1 text-[16px] text-primary">Пополнить</span>
-          <span className="text-muted-foreground/50">›</span>
-        </button>
-        <button
-          onClick={() => toast({ title: "История транзакций скоро" })}
-          className="w-full flex items-center px-4 py-3 text-left hover:bg-muted/30"
-        >
-          <span className="flex-1 text-[16px] text-primary">История транзакций</span>
           <span className="text-muted-foreground/50">›</span>
         </button>
       </div>

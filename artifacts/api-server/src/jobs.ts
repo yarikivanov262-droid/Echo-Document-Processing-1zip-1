@@ -1,4 +1,4 @@
-import { db, messagesTable, usersTable, premiumSubscriptionsTable } from "@workspace/db";
+import { db, messagesTable } from "@workspace/db";
 import { and, eq, isNotNull, lte } from "drizzle-orm";
 import { logger } from "./lib/logger";
 
@@ -30,35 +30,8 @@ async function runSelfDestruct() {
   }
 }
 
-async function runPremiumExpiry() {
-  try {
-    const now = new Date();
-
-    const expired = await db
-      .select({ userId: premiumSubscriptionsTable.userId })
-      .from(premiumSubscriptionsTable)
-      .where(lte(premiumSubscriptionsTable.expiresAt, now));
-
-    for (const { userId } of expired) {
-      await db
-        .update(usersTable)
-        .set({ isPremium: false, premiumUntil: null })
-        .where(
-          and(eq(usersTable.id, userId), eq(usersTable.isPremium, true))
-        );
-    }
-
-    if (expired.length > 0) {
-      logger.info({ count: expired.length }, "Premium subscriptions expired");
-    }
-  } catch (err) {
-    logger.error({ err }, "Premium expiry job failed");
-  }
-}
-
 export function startBackgroundJobs() {
   setInterval(() => void runSelfDestruct(), 10_000);
-  setInterval(() => void runPremiumExpiry(), 3_600_000);
 
   logger.info("Background jobs started");
 }

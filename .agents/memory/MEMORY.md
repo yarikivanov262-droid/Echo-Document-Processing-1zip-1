@@ -10,3 +10,4 @@
 - [Argon2id migration pattern](argon2id-migration.md) — seedHash upgraded from SHA→Argon2id on login; seedLookupHash (HMAC-SHA256) stored for restore lookup; polls need chat membership check on GET/vote/close.
 - [db package types rebuild](db-types-rebuild.md) — after editing lib/db/src/schema/*.ts, run `cd lib/db && pnpm exec tsc --project tsconfig.json` to regenerate dist/; `pnpm run typecheck:libs` also works.
 - [pnpm onlyBuiltDependencies location](pnpm-built-deps.md) — native packages (argon2 etc.) must be added to `onlyBuiltDependencies` array in pnpm-workspace.yaml (not root package.json); then run `pnpm rebuild <pkg>`.
+- [mockup-sandbox build needs PORT](mockup-sandbox-build-port.md) — `pnpm run build` fails on artifacts/mockup-sandbox with "PORT environment variable is required" even when app code is fine; pre-existing sandbox-only quirk, not a regression.

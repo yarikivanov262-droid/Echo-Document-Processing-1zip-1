@@ -1,4 +1,4 @@
-import { pgTable, bigserial, varchar, jsonb, boolean, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, bigserial, varchar, jsonb, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -19,9 +19,6 @@ export const usersTable = pgTable("users", {
   bio: varchar("bio", { length: 255 }),
   isOnline: boolean("is_online").default(false).notNull(),
   lastOnline: timestamp("last_online", { withTimezone: true }),
-  isPremium: boolean("is_premium").default(false).notNull(),
-  premiumUntil: timestamp("premium_until", { withTimezone: true }),
-  starsBalance: integer("stars_balance").default(0).notNull(),
   displayName: varchar("display_name", { length: 64 }),
   pinnedChats: jsonb("pinned_chats").$type<number[]>(),
   publicUsername: boolean("public_username").default(true).notNull(),

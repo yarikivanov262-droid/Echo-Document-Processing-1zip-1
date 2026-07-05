@@ -29,7 +29,6 @@ router.get("/users", requireAuth, async (req: AuthenticatedRequest, res): Promis
       avatarFileId: usersTable.avatarFileId,
       displayName: usersTable.displayName,
       bio: usersTable.bio,
-      isPremium: usersTable.isPremium,
     })
     .from(usersTable)
     .where(
@@ -52,7 +51,6 @@ router.get("/users", requireAuth, async (req: AuthenticatedRequest, res): Promis
     avatarFileId: u.avatarFileId ?? null,
     displayName: u.displayName ?? null,
     bio: u.bio ?? null,
-    isPremium: u.isPremium,
     oneTimePrekey: null,
     echoNumber: (u as { echoNumber?: string | null }).echoNumber ?? null,
   })));
@@ -78,8 +76,6 @@ router.get("/users/me", requireAuth, async (req: AuthenticatedRequest, res): Pro
       avatarFileId: user.avatarFileId ?? null,
       displayName: user.displayName ?? null,
       bio: user.bio ?? null,
-      isPremium: user.isPremium,
-      starsBalance: user.starsBalance,
       settings: (user.settings as Record<string, unknown> | null) ?? undefined,
       createdAt: user.createdAt.toISOString(),
       echoNumber: user.echoNumber ?? null,
@@ -119,8 +115,6 @@ router.patch("/users/me", requireAuth, async (req: AuthenticatedRequest, res): P
       avatarFileId: user.avatarFileId ?? null,
       displayName: user.displayName ?? null,
       bio: user.bio ?? null,
-      isPremium: user.isPremium,
-      starsBalance: user.starsBalance,
       settings: (user.settings as Record<string, unknown> | null) ?? undefined,
       createdAt: user.createdAt.toISOString(),
       echoNumber: user.echoNumber ?? null,
@@ -186,7 +180,6 @@ router.get("/users/:username", requireAuth, async (req: AuthenticatedRequest, re
       avatarFileId: user.avatarFileId ?? null,
       displayName: user.displayName ?? null,
       bio: user.bio ?? null,
-      isPremium: user.isPremium,
       echoNumber: user.echoNumber ?? null,
     })
   );
