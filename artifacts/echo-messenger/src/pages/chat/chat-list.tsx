@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Link, useLocation, useRoute } from "wouter";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   SquarePen, Pin, Users, Radio, BellOff, Archive, Trash2, Bell,
   Mic, Camera, Video as VideoIcon, Paperclip, Sticker as StickerIcon,
@@ -327,18 +328,20 @@ export function ChatList() {
 
       {/* Filter tabs */}
       {!searchOpen && (
-        <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto scrollbar-none shrink-0">
+        <div className="flex items-center gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-none shrink-0">
           {tabs.map((t) => (
-            <button
+            <motion.button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
+              whileTap={{ scale: 0.92 }}
               className={cn(
-                "px-4 h-8 rounded-full text-[14px] font-medium transition-colors whitespace-nowrap shrink-0",
-                activeTab === t.id ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                "relative px-3.5 h-7 rounded-full text-[13px] font-medium transition-colors whitespace-nowrap shrink-0",
+                activeTab === t.id ? "text-white" : "text-muted-foreground hover:text-foreground"
               )}
+              style={activeTab === t.id ? { background: "var(--gradient-primary)" } : { background: "hsl(var(--muted))" }}
             >
               {t.label}
-            </button>
+            </motion.button>
           ))}
         </div>
       )}
@@ -402,7 +405,7 @@ export function ChatList() {
             </div>
           </div>
         ) : (
-          filteredChats.map((chat) => {
+          filteredChats.map((chat, chatIdx) => {
             const lastMsg = (chat as { lastMessage?: string | null }).lastMessage;
             const lastMsgAt = (chat as { lastMessageAt?: string | null }).lastMessageAt;
             const lastMsgMediaType = (chat as { lastMessageMediaType?: string | null }).lastMessageMediaType;
@@ -419,8 +422,13 @@ export function ChatList() {
             const preview = mediaPreview(lastMsgMediaType);
 
             return (
-              <SwipeRow
+              <motion.div
                 key={chat.id}
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: Math.min(chatIdx * 0.04, 0.4), type: "spring", stiffness: 280, damping: 28 }}
+              >
+              <SwipeRow
                 isMuted={isMuted}
                 isArchived={isArchived}
                 onAction={(action) => handleAction(chat.id, action)}
@@ -486,6 +494,7 @@ export function ChatList() {
                   </div>
                 </Link>
               </SwipeRow>
+              </motion.div>
             );
           })
         )}

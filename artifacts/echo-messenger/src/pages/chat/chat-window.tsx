@@ -625,48 +625,64 @@ export function ChatWindow() {
   return (
     <div className="flex flex-col h-full bg-background w-full overflow-hidden">
       {/* ── Header ── */}
-      <div className="flex items-center gap-2 px-2 py-2 glass-header border-b border-white/10 shrink-0 h-14">
-        <button
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="flex items-center gap-2 px-3 py-2 glass-header border-b border-white/10 shrink-0 h-14"
+      >
+        <motion.button
+          whileTap={{ scale: 0.88 }}
           onClick={() => navigate("/chats")}
-          className="md:hidden flex items-center text-primary gap-0.5 pr-1 shrink-0"
+          className="md:hidden flex items-center text-primary gap-0.5 pr-1 shrink-0 h-9 w-9 justify-center rounded-full hover:bg-muted/50"
         >
           <ArrowLeft className="h-5 w-5" />
-        </button>
+        </motion.button>
 
-        <button
-          className="flex items-center gap-2 flex-1 min-w-0 text-left"
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
           onClick={() => setShowChatInfo(v => !v)}
         >
-          <UserAvatar name={chatTitle} size="sm" />
+          <motion.div whileHover={{ scale: 1.05 }} transition={{ type: "spring", stiffness: 400, damping: 22 }}>
+            <UserAvatar name={chatTitle} size="sm" online={!isGroup && isOnline} />
+          </motion.div>
           <div className="flex-1 min-w-0">
             <div className="font-semibold text-[15px] leading-tight truncate">{chatTitle}</div>
-            <div className={cn("text-[12px] truncate", isGroup || (!isOnline && typingUsers.size === 0) ? "text-muted-foreground" : "text-[#34c759]")}>
-              {statusLine}
-            </div>
+            <motion.div
+              animate={{ color: !isGroup && (isOnline || typingUsers.size > 0) ? "#34c759" : "hsl(var(--muted-foreground))" }}
+              className="text-[12px] truncate"
+            >
+              {typingUsers.size > 0 ? (
+                <span className="flex items-center gap-1">
+                  <span className="inline-flex gap-0.5">
+                    {[0,1,2].map(i => <span key={i} className={`typing-dot w-1 h-1 rounded-full bg-[#34c759] inline-block`} />)}
+                  </span>
+                  печатает...
+                </span>
+              ) : statusLine}
+            </motion.div>
           </div>
-        </button>
+        </motion.button>
 
         <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            onClick={() => setSearchOpen(v => { const next = !v; if (!next) { setSearchQuery(""); } return next; })}
-            className={cn("h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted", searchOpen ? "text-primary" : "text-muted-foreground")}
-          >
-            <Search className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => navigate(`/chat/${chatId}/voice`)}
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-primary"
-          >
-            <Phone className="h-5 w-5" />
-          </button>
-          <button
-            onClick={() => setShowActionsMenu(v => !v)}
-            className="h-9 w-9 flex items-center justify-center rounded-full hover:bg-muted text-muted-foreground"
-          >
-            <MoreVertical className="h-5 w-5" />
-          </button>
+          {[
+            { icon: <Search className="h-4.5 w-4.5 h-[18px] w-[18px]" />, active: searchOpen, onClick: () => setSearchOpen(v => { const next = !v; if (!next) setSearchQuery(""); return next; }) },
+            { icon: <Phone className="h-[18px] w-[18px]" />, active: false, className: "text-primary", onClick: () => navigate(`/chat/${chatId}/voice`) },
+            { icon: <MoreVertical className="h-[18px] w-[18px]" />, active: false, onClick: () => setShowActionsMenu(v => !v) },
+          ].map(({ icon, active, onClick, className: cls }, i) => (
+            <motion.button
+              key={i}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.85 }}
+              onClick={onClick}
+              className={cn("h-9 w-9 flex items-center justify-center rounded-full transition-colors", active ? "text-primary bg-primary/10" : cn("hover:bg-muted/50 text-muted-foreground", cls))}
+            >
+              {icon}
+            </motion.button>
+          ))}
         </div>
-      </div>
+      </motion.div>
 
       {/* ── Message search bar (client-side, decrypted locally — E2EE means the server can't search) ── */}
       <AnimatePresence>
@@ -895,10 +911,10 @@ export function ChatWindow() {
         ref={scrollRef}
         onClick={() => { setShowMenu(false); setShowEmoji(false); }}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-0.5 relative"
+        className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1 relative"
         style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--border)/0.3) 1px, transparent 0)",
-          backgroundSize: "32px 32px"
+          backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--border)/0.25) 1px, transparent 0)",
+          backgroundSize: "28px 28px"
         }}
       >
         {/* Top sentinel for infinite scroll */}
@@ -957,12 +973,16 @@ export function ChatWindow() {
                     )}
 
                     <div
-                      className={cn("relative max-w-[75%] px-3 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm cursor-pointer select-text",
+                      className={cn("relative max-w-[78%] px-3.5 py-2.5 rounded-[20px] text-[15px] leading-relaxed cursor-pointer select-text",
                         isSelf
-                          ? "text-white rounded-br-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]"
-                          : "glass text-foreground rounded-bl-sm",
-                        isActiveSearchMatch && "ring-2 ring-yellow-400"
+                          ? "text-white rounded-br-[6px]"
+                          : "glass text-foreground rounded-bl-[6px]",
+                        isActiveSearchMatch && "ring-2 ring-yellow-400 ring-offset-2"
                       )}
+                      style={isSelf ? {
+                        background: "var(--gradient-primary)",
+                        boxShadow: "0 4px 16px hsl(4 90% 60% / 0.3), inset 0 1px 0 rgba(255,255,255,0.25)"
+                      } : {}}
                       onContextMenu={(e) => { e.preventDefault(); handleLongPress(msg, e); }}
                       onClick={(e) => { e.stopPropagation(); handleLongPress(msg, e); }}
                     >
@@ -1320,70 +1340,84 @@ export function ChatWindow() {
           )}
         </AnimatePresence>
 
-        <form onSubmit={handleSend} className="flex items-center gap-2 px-2 py-2">
+        <form onSubmit={handleSend} className="flex items-center gap-2 px-3 py-2.5">
           {/* Attachment */}
-          <button
+          <motion.button
             type="button"
+            whileHover={{ scale: 1.12 }}
+            whileTap={{ scale: 0.88 }}
             onClick={() => setShowAttach(v => !v)}
-            className="h-9 w-9 flex items-center justify-center text-primary rounded-full hover:bg-muted shrink-0"
+            className={cn(
+              "h-9 w-9 flex items-center justify-center rounded-full shrink-0 transition-colors",
+              showAttach ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-primary hover:bg-muted/60"
+            )}
           >
-            <Paperclip className="h-5 w-5" />
-          </button>
-          <input
-            ref={photoRef}
-            type="file"
-            className="hidden"
-            accept="image/*,video/*"
-            onChange={handleFileSelect}
-          />
-          <input
-            ref={fileRef}
-            type="file"
-            className="hidden"
-            accept="*/*"
-            onChange={handleFileSelect}
-          />
+            <Paperclip className="h-[18px] w-[18px]" />
+          </motion.button>
+          <input ref={photoRef} type="file" className="hidden" accept="image/*,video/*" onChange={handleFileSelect} />
+          <input ref={fileRef}  type="file" className="hidden" accept="*/*"             onChange={handleFileSelect} />
 
-          {/* Input */}
-          <div className="flex-1 bg-muted rounded-2xl px-3 h-9 flex items-center gap-2">
+          {/* Glass input bubble */}
+          <div className="flex-1 glass-pill rounded-[18px] px-3.5 h-10 flex items-center gap-2 transition-shadow focus-within:shadow-[0_0_0_2px_hsl(var(--primary)/0.25)]">
             <input
               ref={inputRef}
               value={text}
               onChange={e => handleTextChange(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }}}
               placeholder="Сообщение..."
-              className="flex-1 bg-transparent outline-none text-[15px] text-foreground placeholder:text-muted-foreground min-w-0"
+              className="flex-1 bg-transparent outline-none text-[15px] text-foreground placeholder:text-muted-foreground/60 min-w-0"
             />
-            <button
+            <motion.button
               type="button"
+              whileHover={{ scale: 1.15 }}
+              whileTap={{ scale: 0.85 }}
               onClick={() => setShowEmoji(v => !v)}
               className={cn("shrink-0 transition-colors", showEmoji ? "text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              <Smile className="h-5 w-5" />
-            </button>
+              <Smile className="h-[18px] w-[18px]" />
+            </motion.button>
           </div>
 
           {/* Send or Mic */}
-          {text.trim() ? (
-            <motion.button
-              type="submit"
-              initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-              className="h-9 w-9 rounded-full bg-primary flex items-center justify-center shrink-0 hover:bg-primary/90"
-            >
-              <Send className="h-4 w-4 text-white" />
-            </motion.button>
-          ) : (
-            <button
-              type="button"
-              onClick={isRecording ? stopRecording : startRecording}
-              className={cn(
-                "h-9 w-9 flex items-center justify-center rounded-full shrink-0 transition-colors",
-                isRecording ? "bg-[#ff3b30] text-white animate-pulse" : "text-primary hover:bg-muted"
-              )}
-            >
-              {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}
-            </button>
-          )}
+          <AnimatePresence mode="wait">
+            {text.trim() ? (
+              <motion.button
+                key="send"
+                type="submit"
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                exit={{ scale: 0, rotate: 20 }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.85 }}
+                transition={{ type: "spring", stiffness: 500, damping: 26 }}
+                className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 shadow-lg"
+                style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 16px hsl(4 90% 60% / 0.45)" }}
+              >
+                <Send className="h-[17px] w-[17px] text-white translate-x-0.5" />
+              </motion.button>
+            ) : (
+              <motion.button
+                key="mic"
+                type="button"
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.85 }}
+                transition={{ type: "spring", stiffness: 500, damping: 26 }}
+                onClick={isRecording ? stopRecording : startRecording}
+                className={cn(
+                  "h-10 w-10 flex items-center justify-center rounded-full shrink-0 transition-colors",
+                  isRecording
+                    ? "text-white record-blink"
+                    : "text-primary hover:bg-muted/60"
+                )}
+                style={isRecording ? { background: "var(--gradient-primary)", boxShadow: "0 4px 16px hsl(4 90% 60% / 0.45)" } : {}}
+              >
+                {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-[18px] w-[18px]" />}
+              </motion.button>
+            )}
+          </AnimatePresence>
         </form>
       </div>
 

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { KeyRound, User, Lock, ArrowRight, RefreshCw, Copy, Check } from "lucide-react";
+import { KeyRound, User, Lock, ArrowRight, RefreshCw, Copy, Check, Shield } from "lucide-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +13,43 @@ import { exportPrivateKey, exportPublicKey } from "@/lib/crypto/signal";
 import { BIP39_WORDS } from "@/lib/bip39-words";
 import { EchoLogo } from "@/components/ui/echo-logo";
 
+/* ── floating particles ── */
+function Particle({ x, y, size, duration, delay }: { x: number; y: number; size: number; duration: number; delay: number }) {
+  return (
+    <motion.div
+      className="absolute rounded-full pointer-events-none"
+      style={{ left: `${x}%`, top: `${y}%`, width: size, height: size, background: `hsl(4 90% 60% / 0.35)` }}
+      animate={{ y: [0, -40, 0], opacity: [0, 0.8, 0], scale: [0.6, 1.2, 0.6] }}
+      transition={{ duration, delay, repeat: Infinity, ease: "easeInOut" }}
+    />
+  );
+}
+
+const PARTICLES = [
+  { x: 10, y: 20, size: 4, duration: 5.5, delay: 0 },
+  { x: 85, y: 15, size: 3, duration: 7,   delay: 1.2 },
+  { x: 30, y: 80, size: 5, duration: 6.5, delay: 0.8 },
+  { x: 70, y: 75, size: 3.5, duration: 8, delay: 2 },
+  { x: 55, y: 30, size: 2.5, duration: 6, delay: 3.5 },
+  { x: 20, y: 60, size: 4,   duration: 9, delay: 1.5 },
+  { x: 90, y: 55, size: 3,   duration: 7, delay: 4 },
+];
+
 export function Login() {
   const [, setLocation] = useLocation();
   const { login } = useEchoAuth();
   const { toast } = useToast();
 
   const [isRegistering, setIsRegistering] = useState(false);
-  const [step, setStep] = useState(1); // 1 = info, 2 = seed, 3 = creds
-
+  const [step, setStep] = useState(1);
   const [username, setUsername] = useState("");
   const [seed, setSeed] = useState("");
   const [copied, setCopied] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const loginMutation = useLogin();
+  useEffect(() => { setMounted(true); }, []);
+
+  const loginMutation    = useLogin();
   const registerMutation = useRegister();
   const checkUsernameMutation = useCheckUsername();
 
@@ -45,7 +69,6 @@ export function Login() {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !seed) return;
-
     loginMutation.mutate({ data: { username, seedHash: seed } }, {
       onSuccess: (data) => {
         login(data.sessionToken, data.userId, data.username);
@@ -62,12 +85,8 @@ export function Login() {
     e.preventDefault();
     if (!username || !seed) return;
 
-    const keyPair = await crypto.subtle.generateKey(
-      { name: "ECDH", namedCurve: "P-256" },
-      true,
-      ["deriveKey", "deriveBits"]
-    );
-    const pubKeyB64 = await exportPublicKey(keyPair.publicKey);
+    const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveKey", "deriveBits"]);
+    const pubKeyB64  = await exportPublicKey(keyPair.publicKey);
     const privKeyB64 = await exportPrivateKey(keyPair.privateKey);
 
     checkUsernameMutation.mutate({ data: { username } }, {
@@ -76,14 +95,7 @@ export function Login() {
           toast({ title: "Имя занято", description: "Выберите другое имя пользователя.", variant: "destructive" });
           return;
         }
-
-        registerMutation.mutate({
-          data: {
-            username,
-            seedHash: seed,
-            publicIdentityKey: pubKeyB64,
-          }
-        }, {
+        registerMutation.mutate({ data: { username, seedHash: seed, publicIdentityKey: pubKeyB64 } }, {
           onSuccess: async (data) => {
             await storePrivateKey(data.userId, privKeyB64);
             await storeKeyPair(`identity_${data.userId}`, pubKeyB64, privKeyB64);
@@ -101,83 +113,152 @@ export function Login() {
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4 relative overflow-hidden">
-      {/* Warm background glow */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary/15 rounded-full blur-[120px] opacity-60" />
-        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-primary/10 rounded-full blur-[100px] opacity-40" />
-      </div>
+      {/* Animated background orbs */}
+      <motion.div
+        className="absolute inset-0 pointer-events-none"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 1.2 }}
+      >
+        <motion.div
+          animate={{ x: [0, 30, -15, 0], y: [0, -20, 10, 0], scale: [1, 1.1, 0.95, 1] }}
+          transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full"
+          style={{ background: "radial-gradient(circle, hsl(4 90% 60% / 0.22) 0%, transparent 65%)", filter: "blur(70px)" }}
+        />
+        <motion.div
+          animate={{ x: [0, -25, 20, 0], y: [0, 15, -10, 0], scale: [1, 0.95, 1.08, 1] }}
+          transition={{ duration: 18, repeat: Infinity, ease: "easeInOut", delay: 3 }}
+          className="absolute bottom-[-15%] left-[-10%] w-[500px] h-[500px] rounded-full"
+          style={{ background: "radial-gradient(circle, hsl(340 80% 60% / 0.16) 0%, transparent 65%)", filter: "blur(80px)" }}
+        />
+        <motion.div
+          animate={{ x: [0, 20, -10, 0], y: [0, -15, 25, 0] }}
+          transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 7 }}
+          className="absolute top-[40%] left-[20%] w-[300px] h-[300px] rounded-full"
+          style={{ background: "radial-gradient(circle, hsl(4 90% 60% / 0.1) 0%, transparent 65%)", filter: "blur(60px)" }}
+        />
+      </motion.div>
 
+      {/* Floating particles */}
+      {mounted && PARTICLES.map((p, i) => <Particle key={i} {...p} />)}
+
+      {/* Card */}
       <div className="w-full max-w-md z-10">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-strong rounded-3xl overflow-hidden"
+          initial={{ opacity: 0, y: 32, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          className="glass-strong rounded-[2rem] overflow-hidden"
         >
           <div className="p-8">
-            <div className="flex justify-center mb-6">
-              <EchoLogo size={64} />
-            </div>
+            {/* Logo */}
+            <motion.div
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.15, duration: 0.5, type: "spring", stiffness: 260, damping: 18 }}
+              className="flex justify-center mb-5"
+            >
+              <div className="relative">
+                <motion.div
+                  animate={{ scale: [1, 1.06, 1], opacity: [0.5, 0.8, 0.5] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute inset-[-8px] rounded-full"
+                  style={{ background: "radial-gradient(circle, hsl(4 90% 60% / 0.35) 0%, transparent 70%)", filter: "blur(12px)" }}
+                />
+                <EchoLogo size={68} />
+              </div>
+            </motion.div>
 
-            <h1 className="text-2xl font-bold text-center mb-1.5">ECHO</h1>
-            <p className="text-muted-foreground text-center mb-8 text-sm">
+            <motion.h1
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.4 }}
+              className="text-2xl font-bold text-center mb-1 tracking-tight"
+            >
+              ECHO
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.32, duration: 0.4 }}
+              className="text-muted-foreground text-center mb-8 text-sm font-medium"
+            >
               Говори. Никто не узнает.
-            </p>
+            </motion.p>
 
             <AnimatePresence mode="wait">
               {!isRegistering ? (
                 <motion.div
                   key="login"
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: -24 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
+                  exit={{ opacity: 0, x: 24 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 >
                   <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="username" className="text-xs text-muted-foreground">Имя пользователя</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="username" className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                        Имя пользователя
+                      </Label>
                       <div className="relative">
-                        <User className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="username"
                           placeholder="username"
-                          className="pl-10 rounded-2xl bg-muted/50 border-transparent focus-visible:ring-primary focus-visible:border-primary/40"
+                          className="pl-10 h-12 rounded-2xl glass-input border-transparent"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="seed" className="text-xs text-muted-foreground">Сид-фраза</Label>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="seed" className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                        Сид-фраза
+                      </Label>
                       <div className="relative">
-                        <KeyRound className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                        <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           id="seed"
                           type="password"
                           placeholder="12 слов через пробел"
-                          className="pl-10 rounded-2xl bg-muted/50 border-transparent focus-visible:ring-primary focus-visible:border-primary/40"
+                          className="pl-10 h-12 rounded-2xl glass-input border-transparent"
                           value={seed}
                           onChange={(e) => setSeed(e.target.value)}
                         />
                       </div>
                     </div>
-                    <Button
-                      type="submit"
-                      className="w-full h-12 rounded-2xl mt-6 group bg-gradient-to-br from-[hsl(4_90%_58%)] to-[hsl(14_90%_62%)] hover:opacity-90 text-white"
-                      disabled={loginMutation.isPending}
-                    >
-                      {loginMutation.isPending ? "Входим..." : "Войти"}
-                      <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </Button>
 
-                    <div className="mt-6 text-center">
+                    <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }} className="pt-2">
+                      <Button
+                        type="submit"
+                        className="w-full h-12 rounded-2xl group text-white font-semibold text-[15px]"
+                        style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 20px hsl(4 90% 60% / 0.4), inset 0 1px 0 hsl(0 0% 100% / 0.25)" }}
+                        disabled={loginMutation.isPending}
+                      >
+                        {loginMutation.isPending ? (
+                          <span className="flex items-center gap-2">
+                            <motion.span animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="inline-block">
+                              ⟳
+                            </motion.span>
+                            Входим...
+                          </span>
+                        ) : (
+                          <>
+                            Войти
+                            <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
+
+                    <div className="mt-5 text-center">
                       <button
                         type="button"
-                        onClick={() => {
-                          setIsRegistering(true);
-                          setStep(1);
-                        }}
-                        className="text-sm text-muted-foreground hover:text-primary transition-colors"
+                        onClick={() => { setIsRegistering(true); setStep(1); }}
+                        className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium"
                       >
-                        Создать новый аккаунт
+                        Создать новый аккаунт →
                       </button>
                     </div>
                   </form>
@@ -185,116 +266,181 @@ export function Login() {
               ) : (
                 <motion.div
                   key="register"
-                  initial={{ opacity: 0, x: 20 }}
+                  initial={{ opacity: 0, x: 24 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
+                  exit={{ opacity: 0, x: -24 }}
+                  transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  {step === 1 && (
-                    <div className="space-y-6">
-                      <div className="bg-muted/50 p-4 rounded-2xl">
-                        <div className="flex items-start gap-3">
-                          <Lock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                          <p className="text-sm text-muted-foreground leading-relaxed">
-                            ECHO не требует номера телефона или email. Ваша личность защищена сид-фразой, которая никогда не покидает это устройство.
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        className="w-full h-12 rounded-2xl bg-gradient-to-br from-[hsl(4_90%_58%)] to-[hsl(14_90%_62%)] hover:opacity-90 text-white"
-                        onClick={() => {
-                          generateSeed();
-                          setStep(2);
-                        }}
+                  <AnimatePresence mode="wait">
+                    {step === 1 && (
+                      <motion.div
+                        key="step1"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{ duration: 0.25 }}
+                        className="space-y-5"
                       >
-                        Сгенерировать ключи
-                      </Button>
-                      <div className="text-center">
-                        <button
-                          type="button"
-                          onClick={() => setIsRegistering(false)}
-                          className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                        >
-                          Отмена
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {step === 2 && (
-                    <div className="space-y-6">
-                      <div className="text-center mb-4">
-                        <h3 className="text-lg font-semibold text-primary mb-1">Сид-фраза создана</h3>
-                        <p className="text-xs text-muted-foreground">Запишите её. Восстановить будет невозможно.</p>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2">
-                        {seed.split(" ").map((word, i) => (
-                          <div key={i} className="bg-muted/50 rounded-xl px-2 py-2 text-center flex items-center gap-2">
-                            <span className="text-[10px] text-muted-foreground opacity-50">{i + 1}</span>
-                            <span className="text-sm">{word}</span>
+                        <div className="glass rounded-2xl p-4">
+                          <div className="flex items-start gap-3">
+                            <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                              style={{ background: "var(--gradient-primary)" }}>
+                              <Shield className="h-4 w-4 text-white" />
+                            </div>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              ECHO не требует номера телефона или email. Ваша личность защищена сид-фразой, которая <strong className="text-foreground">никогда не покидает это устройство</strong>.
+                            </p>
                           </div>
-                        ))}
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          className="flex-1 rounded-2xl text-xs h-10"
-                          onClick={generateSeed}
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4" /> Другая фраза
-                        </Button>
-                        <Button
-                          variant={copied ? "default" : "secondary"}
-                          className="flex-1 rounded-2xl text-xs h-10"
-                          onClick={handleCopySeed}
-                        >
-                          {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-                          {copied ? "Скопировано" : "Копировать"}
-                        </Button>
-                      </div>
-
-                      <Button
-                        className="w-full h-12 rounded-2xl bg-gradient-to-br from-[hsl(4_90%_58%)] to-[hsl(14_90%_62%)] hover:opacity-90 text-white"
-                        onClick={() => setStep(3)}
-                        disabled={!seed}
-                      >
-                        Я записал(а) фразу
-                      </Button>
-                    </div>
-                  )}
-
-                  {step === 3 && (
-                    <form onSubmit={handleRegister} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="reg-username" className="text-xs text-muted-foreground">Придумайте имя пользователя</Label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-                          <Input
-                            id="reg-username"
-                            placeholder="username"
-                            className="pl-10 rounded-2xl bg-muted/50 border-transparent focus-visible:ring-primary focus-visible:border-primary/40"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            required
-                          />
                         </div>
-                      </div>
 
-                      <Button
-                        type="submit"
-                        className="w-full h-12 rounded-2xl mt-6 group bg-gradient-to-br from-[hsl(4_90%_58%)] to-[hsl(14_90%_62%)] hover:opacity-90 text-white"
-                        disabled={registerMutation.isPending || checkUsernameMutation.isPending}
+                        <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}>
+                          <Button
+                            className="w-full h-12 rounded-2xl text-white font-semibold text-[15px]"
+                            style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 20px hsl(4 90% 60% / 0.4), inset 0 1px 0 hsl(0 0% 100% / 0.25)" }}
+                            onClick={() => { generateSeed(); setStep(2); }}
+                          >
+                            Сгенерировать ключи ✨
+                          </Button>
+                        </motion.div>
+                        <div className="text-center">
+                          <button type="button" onClick={() => setIsRegistering(false)}
+                            className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                            ← Вернуться ко входу
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {step === 2 && (
+                      <motion.div
+                        key="step2"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{ duration: 0.25 }}
+                        className="space-y-5"
                       >
-                        {registerMutation.isPending ? "Создаём..." : "Готово"}
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </form>
-                  )}
+                        <div className="text-center">
+                          <h3 className="text-lg font-bold text-primary mb-0.5">Сид-фраза создана</h3>
+                          <p className="text-xs text-muted-foreground">Запишите её — восстановить будет невозможно</p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {seed.split(" ").map((word, i) => (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: i * 0.035, type: "spring", stiffness: 300, damping: 22 }}
+                              className="glass rounded-xl px-2 py-2.5 text-center flex items-center gap-1.5"
+                            >
+                              <span className="text-[10px] text-muted-foreground/50 font-mono">{i + 1}</span>
+                              <span className="text-[13px] font-medium truncate">{word}</span>
+                            </motion.div>
+                          ))}
+                        </div>
+
+                        <div className="flex gap-2">
+                          <motion.div whileTap={{ scale: 0.95 }} className="flex-1">
+                            <Button variant="outline" className="w-full rounded-2xl text-xs h-10" onClick={generateSeed}>
+                              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Другая
+                            </Button>
+                          </motion.div>
+                          <motion.div whileTap={{ scale: 0.95 }} className="flex-1">
+                            <Button
+                              variant={copied ? "default" : "secondary"}
+                              className="w-full rounded-2xl text-xs h-10"
+                              style={copied ? { background: "var(--gradient-primary)" } : {}}
+                              onClick={handleCopySeed}
+                            >
+                              {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+                              {copied ? "Скопировано!" : "Копировать"}
+                            </Button>
+                          </motion.div>
+                        </div>
+
+                        <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }}>
+                          <Button
+                            className="w-full h-12 rounded-2xl text-white font-semibold"
+                            style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 20px hsl(4 90% 60% / 0.4)" }}
+                            onClick={() => setStep(3)}
+                            disabled={!seed}
+                          >
+                            Я сохранил(а) фразу ✓
+                          </Button>
+                        </motion.div>
+                      </motion.div>
+                    )}
+
+                    {step === 3 && (
+                      <motion.div
+                        key="step3"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{ duration: 0.25 }}
+                      >
+                        <form onSubmit={handleRegister} className="space-y-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="reg-username" className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                              Придумайте имя пользователя
+                            </Label>
+                            <div className="relative">
+                              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                id="reg-username"
+                                placeholder="username"
+                                className="pl-10 h-12 rounded-2xl glass-input border-transparent"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.97 }} className="pt-2">
+                            <Button
+                              type="submit"
+                              className="w-full h-12 rounded-2xl group text-white font-semibold text-[15px]"
+                              style={{ background: "var(--gradient-primary)", boxShadow: "0 4px 20px hsl(4 90% 60% / 0.4), inset 0 1px 0 hsl(0 0% 100% / 0.25)" }}
+                              disabled={registerMutation.isPending || checkUsernameMutation.isPending}
+                            >
+                              {registerMutation.isPending ? "Создаём..." : "Создать аккаунт"}
+                              <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                            </Button>
+                          </motion.div>
+                        </form>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Step indicator */}
+                  <div className="flex justify-center gap-2 mt-6">
+                    {[1, 2, 3].map(s => (
+                      <motion.div
+                        key={s}
+                        animate={{ width: step === s ? 20 : 6, opacity: step >= s ? 1 : 0.3 }}
+                        className="h-1.5 rounded-full"
+                        style={{ background: step >= s ? "var(--gradient-primary)" : "hsl(var(--muted))" }}
+                        transition={{ type: "spring", stiffness: 300, damping: 28 }}
+                      />
+                    ))}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
+        </motion.div>
+
+        {/* Bottom tagline */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6, duration: 0.4 }}
+          className="flex items-center justify-center gap-2 mt-5 text-muted-foreground/50 text-xs"
+        >
+          <Lock className="h-3 w-3" />
+          <span>E2EE · Без телефона · Без email</span>
         </motion.div>
       </div>
     </div>
