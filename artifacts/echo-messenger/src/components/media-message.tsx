@@ -100,30 +100,28 @@ export function MediaMessage({ fileId, fileName, isSelf, token }: MediaMessagePr
   const isLoading = !objectUrl;
 
   // ── Image ──────────────────────────────────────────────────────────────────
-  if (isImage || (!meta && !isLoading)) {
-    if (isImage && objectUrl) {
-      return (
-        <>
-          <div className="relative group cursor-pointer rounded-xl overflow-hidden max-w-[260px]" onClick={() => setLightboxOpen(true)}>
-            <img
-              src={objectUrl}
-              alt={displayName}
-              className="w-full object-cover block rounded-xl"
-              style={{ maxHeight: 300 }}
-            />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl" />
-            {meta?.size && (
-              <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[11px] px-2 py-0.5 rounded-full">
-                {formatBytes(meta.size)}
-              </div>
-            )}
-          </div>
-          {lightboxOpen && objectUrl && (
-            <Lightbox src={objectUrl} alt={displayName} onClose={() => setLightboxOpen(false)} />
+  if (isImage && objectUrl) {
+    return (
+      <>
+        <div className="relative group cursor-pointer rounded-xl overflow-hidden max-w-[260px]" onClick={() => setLightboxOpen(true)}>
+          <img
+            src={objectUrl}
+            alt={displayName}
+            className="w-full object-cover block rounded-xl"
+            style={{ maxHeight: 300 }}
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors rounded-xl" />
+          {meta?.size && (
+            <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[11px] px-2 py-0.5 rounded-full">
+              {formatBytes(meta.size)}
+            </div>
           )}
-        </>
-      );
-    }
+        </div>
+        {lightboxOpen && (
+          <Lightbox src={objectUrl} alt={displayName} onClose={() => setLightboxOpen(false)} />
+        )}
+      </>
+    );
   }
 
   // ── Video ──────────────────────────────────────────────────────────────────

@@ -1075,6 +1075,7 @@ export function ChatWindow() {
                               src={voiceUrl}
                               isSelf={isSelf}
                               id={`msg-${msg.id}`}
+                              token={sessionToken ?? ""}
                             />
                           );
                         }

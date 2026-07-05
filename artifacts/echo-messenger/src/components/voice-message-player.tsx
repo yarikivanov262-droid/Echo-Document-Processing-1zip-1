@@ -6,12 +6,25 @@ interface VoiceMessagePlayerProps {
   src: string;
   isSelf: boolean;
   id?: string;
+  token?: string;
 }
 
 const BARS = 30;
 const SPEED_OPTIONS = [1, 1.5, 2] as const;
 
-export function VoiceMessagePlayer({ src, isSelf, id }: VoiceMessagePlayerProps) {
+/**
+ * Converts a /api/files/{id} metadata URL to its /raw binary endpoint.
+ * Also handles absolute URLs that may have already been set to /raw.
+ */
+function toRawUrl(src: string): string {
+  // Already pointing to /raw
+  if (src.includes("/raw")) return src;
+  // /api/files/{id} → /api/files/{id}/raw
+  if (src.startsWith("/api/files/")) return `${src}/raw`;
+  return src;
+}
+
+export function VoiceMessagePlayer({ src, isSelf, id, token }: VoiceMessagePlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0); // 0–1
@@ -19,6 +32,7 @@ export function VoiceMessagePlayer({ src, isSelf, id }: VoiceMessagePlayerProps)
   const [speed, setSpeed] = useState<1 | 1.5 | 2>(1);
   const [bars, setBars] = useState<number[]>(() => generateFakeBars());
   const [realBars, setRealBars] = useState<number[] | null>(null);
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const animFrameRef = useRef<number | null>(null);
 
   // Generate fake waveform for immediate display
@@ -30,35 +44,54 @@ export function VoiceMessagePlayer({ src, isSelf, id }: VoiceMessagePlayerProps)
     return result;
   }
 
-  // Decode real waveform via Web Audio API
+  // Fetch audio as blob (with auth) → create object URL for <audio> and Web Audio
   useEffect(() => {
+    const rawSrc = toRawUrl(src);
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+    let url: string | null = null;
     let cancelled = false;
+
     (async () => {
       try {
-        const ctx = new AudioContext();
-        const resp = await fetch(src);
-        const buf = await resp.arrayBuffer();
-        const decoded = await ctx.decodeAudioData(buf);
+        const resp = await fetch(rawSrc, { headers });
+        if (!resp.ok || cancelled) return;
+        const blob = await resp.blob();
         if (cancelled) return;
-        const data = decoded.getChannelData(0);
-        const blockSize = Math.floor(data.length / BARS);
-        const computed: number[] = [];
-        for (let i = 0; i < BARS; i++) {
-          let sum = 0;
-          for (let j = 0; j < blockSize; j++) {
-            sum += Math.abs(data[i * blockSize + j]);
+        url = URL.createObjectURL(blob);
+        setBlobUrl(url);
+
+        // Decode waveform via Web Audio API from the same blob
+        try {
+          const ctx = new AudioContext();
+          const buf = await blob.arrayBuffer();
+          const decoded = await ctx.decodeAudioData(buf);
+          if (cancelled) return;
+          const data = decoded.getChannelData(0);
+          const blockSize = Math.floor(data.length / BARS);
+          const computed: number[] = [];
+          for (let i = 0; i < BARS; i++) {
+            let sum = 0;
+            for (let j = 0; j < blockSize; j++) {
+              sum += Math.abs(data[i * blockSize + j]);
+            }
+            computed.push(sum / blockSize);
           }
-          computed.push(sum / blockSize);
+          const max = Math.max(...computed, 0.001);
+          setRealBars(computed.map(v => Math.max(0.08, v / max)));
+          void ctx.close();
+        } catch {
+          // keep fake bars
         }
-        const max = Math.max(...computed, 0.001);
-        setRealBars(computed.map(v => Math.max(0.08, v / max)));
-        void ctx.close();
       } catch {
-        // keep fake bars on error
+        // network error — keep fake bars, no audio
       }
     })();
-    return () => { cancelled = true; };
-  }, [src]);
+
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [src, token]);
 
   useEffect(() => {
     if (realBars) setBars(realBars);
@@ -115,7 +148,7 @@ export function VoiceMessagePlayer({ src, isSelf, id }: VoiceMessagePlayerProps)
     <div className="flex items-center gap-2 py-1" id={id}>
       <audio
         ref={audioRef}
-        src={src}
+        src={blobUrl ?? undefined}
         onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
         onEnded={() => {
           setIsPlaying(false);
