@@ -3,6 +3,7 @@ import { Layout } from "@/components/layout/layout";
 import { Login } from "@/pages/auth/login";
 import { ChatList } from "@/pages/chat/chat-list";
 import { ChatWindow } from "@/pages/chat/chat-window";
+import { Favorites } from "@/pages/chat/favorites";
 import { SecretChatList } from "@/pages/chat/secret-chat-list";
 import { NewChat } from "@/pages/chat/new-chat";
 import { Contacts } from "@/pages/contacts/contacts";
@@ -31,6 +32,7 @@ import { ConnectionSettings } from "@/pages/settings/connection";
 import { PersonasSettings } from "@/pages/settings/personas";
 import { AnonInboxSettings } from "@/pages/settings/anon-inbox";
 import { PrivacyScore } from "@/pages/settings/privacy-score";
+import { RatePage } from "@/pages/rate";
 import { useEchoAuth } from "@/lib/auth-context";
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
@@ -100,13 +102,7 @@ export function AppRouter() {
 
       <Route path="/chat/favorites">
         <ProtectedLayout>
-          <ChatSplit right={
-            <div className="flex flex-col h-full items-center justify-center gap-3 text-muted-foreground">
-              <div className="text-5xl">⭐</div>
-              <div className="text-[16px] font-medium">Избранное</div>
-              <div className="text-[13px]">Сохраняйте важные сообщения здесь</div>
-            </div>
-          } />
+          <ChatSplit right={<Favorites />} />
         </ProtectedLayout>
       </Route>
 
@@ -228,16 +224,7 @@ export function AppRouter() {
         <ProtectedLayout><PrivacyScore /></ProtectedLayout>
       </Route>
       <Route path="/settings/rate">
-        <ProtectedLayout>
-          <div className="flex flex-col h-full items-center justify-center gap-4 text-center px-8">
-            <div className="text-6xl">⭐</div>
-            <div className="text-[20px] font-bold">Вам нравится ECHO?</div>
-            <div className="text-[14px] text-muted-foreground">Оставьте отзыв и помогите нам стать лучше</div>
-            <div className="flex gap-2 text-4xl mt-2">
-              {["⭐","⭐","⭐","⭐","⭐"].map((s,i) => <span key={i} className="cursor-pointer hover:scale-110 transition-transform">{s}</span>)}
-            </div>
-          </div>
-        </ProtectedLayout>
+        <ProtectedLayout><RatePage /></ProtectedLayout>
       </Route>
 
       {/* Invite join */}

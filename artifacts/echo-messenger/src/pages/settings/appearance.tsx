@@ -4,6 +4,8 @@ import { useTheme } from "next-themes";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ACCENT_OPTIONS, applyAccent, getStoredAccentId } from "@/lib/accent-theme";
+import { applyFontSize, getStoredFontSize, type FontSizeId } from "@/lib/font-size-theme";
+import { applyChatBackground, getStoredBackgroundId, BACKGROUND_OPTIONS } from "@/lib/chat-background";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -32,10 +34,22 @@ export function AppearanceSettings() {
   const [, navigate] = useLocation();
   const { theme, setTheme } = useTheme();
   const [accentId, setAccentId] = useState(getStoredAccentId());
+  const [fontSizeId, setFontSizeId] = useState<FontSizeId>(getStoredFontSize());
+  const [bgId, setBgId] = useState(getStoredBackgroundId());
 
   const handleAccentSelect = (id: string) => {
     applyAccent(id);
     setAccentId(id);
+  };
+
+  const handleFontSizeSelect = (id: FontSizeId) => {
+    applyFontSize(id);
+    setFontSizeId(id);
+  };
+
+  const handleBackgroundSelect = (id: string) => {
+    applyChatBackground(id);
+    setBgId(id);
   };
 
   return (
@@ -93,21 +107,39 @@ export function AppearanceSettings() {
         {fontSizes.map((f, i) => (
           <div
             key={f.id}
+            onClick={() => handleFontSizeSelect(f.id as FontSizeId)}
             className={cn(
               "flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors",
               i < fontSizes.length - 1 && "border-b border-border/50"
             )}
           >
-            <span className="flex-1 text-[16px]">{f.label}</span>
-            {f.id === "md" && <Check className="h-5 w-5 text-primary shrink-0" />}
+            <span className={cn("flex-1", f.id === "sm" ? "text-[14px]" : f.id === "lg" ? "text-[18px]" : "text-[16px]")}>{f.label}</span>
+            {fontSizeId === f.id && <Check className="h-5 w-5 text-primary shrink-0" />}
           </div>
         ))}
       </Section>
 
       <Section title="Фоновое изображение">
-        <div className="flex items-center px-4 py-3 cursor-pointer hover:bg-muted/30">
-          <span className="flex-1 text-[16px]">Изменить фон чата</span>
-          <span className="text-muted-foreground/60">›</span>
+        <div className="flex flex-wrap gap-3 px-4 py-3">
+          {BACKGROUND_OPTIONS.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              onClick={() => handleBackgroundSelect(b.id)}
+              className="flex flex-col items-center gap-1.5"
+            >
+              <div
+                className={cn(
+                  "h-14 w-14 rounded-2xl flex items-center justify-center border-2 transition-all",
+                  b.preview,
+                  bgId === b.id ? "border-primary" : "border-border/40"
+                )}
+              >
+                {bgId === b.id && <Check className="h-5 w-5 text-white drop-shadow" />}
+              </div>
+              <span className="text-[11px] text-muted-foreground">{b.label}</span>
+            </button>
+          ))}
         </div>
       </Section>
     </div>

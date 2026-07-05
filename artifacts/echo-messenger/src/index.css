@@ -54,6 +54,9 @@
 }
 
 :root {
+  --chat-font-scale: 1;
+  --chat-bg-image: radial-gradient(circle at 1px 1px, hsl(var(--border) / 0.25) 1px, transparent 0);
+  --chat-bg-size: 28px 28px;
   /* Light mode */
   --background: 0 0% 96%;
   --foreground: 0 0% 7%;
@@ -188,6 +191,19 @@
   backdrop-filter: blur(24px) saturate(190%) brightness(1.02);
   -webkit-backdrop-filter: blur(24px) saturate(190%) brightness(1.02);
   border-bottom: 1px solid hsl(var(--foreground) / 0.06);
+}
+
+.chat-msg-text {
+  font-size: calc(15px * var(--chat-font-scale, 1));
+}
+
+.chat-bg-layer {
+  background-image: var(--chat-bg-image, none);
+  background-size: var(--chat-bg-size, auto);
+}
+
+.chat-msg-input {
+  font-size: calc(15px * var(--chat-font-scale, 1)) !important;
 }
 
 .glass-pill {

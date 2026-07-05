@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const LANGS = [
   { code: "ru", label: "Русский", native: "Русский" },
@@ -12,8 +14,29 @@ const LANGS = [
   { code: "ar", label: "Арабский", native: "العربية" },
 ];
 
+const STORAGE_KEY = "echo_language";
+
+export function getStoredLanguage(): string {
+  return localStorage.getItem(STORAGE_KEY) ?? "ru";
+}
+
 export function LanguageSettings() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [lang, setLang] = useState(getStoredLanguage());
+
+  const handleSelect = (code: string) => {
+    localStorage.setItem(STORAGE_KEY, code);
+    setLang(code);
+    if (code === "ru") {
+      toast({ title: "Язык изменён", description: "Русский" });
+    } else {
+      toast({
+        title: "Язык сохранён",
+        description: "Полный перевод интерфейса на этот язык пока в разработке — интерфейс останется на русском.",
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-background overflow-y-auto">
@@ -29,15 +52,25 @@ export function LanguageSettings() {
 
       <div className="glass divide-y divide-border/50">
         {LANGS.map((l) => (
-          <div key={l.code} className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors">
+          <div
+            key={l.code}
+            onClick={() => handleSelect(l.code)}
+            className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+          >
             <div className="flex-1">
               <div className="text-[16px]">{l.native}</div>
               <div className="text-[13px] text-muted-foreground">{l.label}</div>
             </div>
-            {l.code === "ru" && <Check className="h-5 w-5 text-primary shrink-0" />}
+            {l.code === lang && <Check className="h-5 w-5 text-primary shrink-0" />}
           </div>
         ))}
       </div>
+
+      {lang !== "ru" && (
+        <div className="px-4 py-3 text-[12px] text-muted-foreground">
+          Полный перевод интерфейса на выбранный язык ещё не готов. Мы работаем над этим.
+        </div>
+      )}
     </div>
   );
 }

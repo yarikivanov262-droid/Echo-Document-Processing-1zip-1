@@ -24,6 +24,7 @@ import {
   UpdateChatMemberSettingsResponse,
 } from "@workspace/api-zod";
 import { requireAuth, type AuthenticatedRequest } from "../middlewares/auth";
+import { broadcastToChat } from "../lib/ws-hub";
 
 const router: IRouter = Router();
 
@@ -152,6 +153,43 @@ router.patch("/chats/:id/member-settings", requireAuth, async (req: Authenticate
     .where(and(eq(chatMembersTable.chatId, params.data.id), eq(chatMembersTable.userId, req.userId!)));
 
   res.json(UpdateChatMemberSettingsResponse.parse({ success: true }));
+});
+
+router.delete("/chats/:id/messages", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const chatId = parseInt(rawId, 10);
+  if (isNaN(chatId)) {
+    res.status(400).json({ error: "Invalid chat id" });
+    return;
+  }
+
+  const [membership] = await db
+    .select({ userId: chatMembersTable.userId })
+    .from(chatMembersTable)
+    .where(and(eq(chatMembersTable.chatId, chatId), eq(chatMembersTable.userId, req.userId!)));
+
+  if (!membership) {
+    res.status(403).json({ error: "Not a member of this chat" });
+    return;
+  }
+
+  await db
+    .update(messagesTable)
+    .set({ isDeleted: true })
+    .where(eq(messagesTable.chatId, chatId));
+
+  await db
+    .update(chatsTable)
+    .set({ pinnedMessageId: null })
+    .where(eq(chatsTable.id, chatId));
+
+  const memberIds = await db
+    .select({ userId: chatMembersTable.userId })
+    .from(chatMembersTable)
+    .where(eq(chatMembersTable.chatId, chatId));
+  broadcastToChat(memberIds.map((m) => m.userId), { type: "chat_history_cleared", chatId }, req.userId!);
+
+  res.json({ success: true });
 });
 
 router.post("/chats", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {

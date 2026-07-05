@@ -67,7 +67,7 @@ export function MessageText({ text, isSelf, className }: MessageTextProps) {
     : "underline underline-offset-2 text-primary hover:opacity-80";
 
   return (
-    <p className={cn("break-words whitespace-pre-wrap pr-14 scroll-mt-20", className)}>
+    <p className={cn("break-words whitespace-pre-wrap pr-14 scroll-mt-20 chat-msg-text", className)}>
       {segments.map((seg, i) => {
         if (seg.kind === "text") {
           return <span key={i}>{seg.value}</span>;

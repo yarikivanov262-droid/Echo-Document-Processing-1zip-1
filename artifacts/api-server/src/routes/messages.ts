@@ -57,6 +57,7 @@ router.get("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pro
       editedAt: messagesTable.editedAt,
       reactions: messagesTable.reactions,
       forwardedFromId: messagesTable.forwardedFromId,
+      starredBy: messagesTable.starredBy,
     })
     .from(messagesTable)
     .innerJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
@@ -91,6 +92,7 @@ router.get("/messages", requireAuth, async (req: AuthenticatedRequest, res): Pro
         editedAt: m.editedAt?.toISOString() ?? null,
         reactions: (m.reactions as Record<string, number[]>) ?? {},
         forwardedFromId: m.forwardedFromId ?? null,
+        isStarred: Array.isArray(m.starredBy as number[] | null) && (m.starredBy as number[]).includes(req.userId!),
       }))
     )
   );
@@ -152,6 +154,7 @@ router.post("/messages", requireAuth, messageRateLimit, async (req: Authenticate
     editedAt: null,
     reactions: {},
     forwardedFromId: null,
+    isStarred: false,
   };
 
   if (chatId) {
@@ -368,6 +371,102 @@ router.post("/messages/:id/pin", requireAuth, async (req: AuthenticatedRequest, 
   res.json({ success: true, isPinned });
 });
 
+router.post("/messages/:id/star", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const msgId = parseInt(rawId, 10);
+  if (isNaN(msgId)) {
+    res.status(400).json({ error: "Invalid request" });
+    return;
+  }
+
+  const [msg] = await db
+    .select({ id: messagesTable.id, starredBy: messagesTable.starredBy })
+    .from(messagesTable)
+    .where(and(eq(messagesTable.id, msgId), eq(messagesTable.isDeleted, false)));
+
+  if (!msg) {
+    res.status(404).json({ error: "Message not found" });
+    return;
+  }
+
+  const userId = req.userId!;
+  const starredBy = (msg.starredBy as number[] | null) ?? [];
+  let isStarred: boolean;
+  let updated: number[];
+  if (starredBy.includes(userId)) {
+    updated = starredBy.filter((id) => id !== userId);
+    isStarred = false;
+  } else {
+    updated = [...starredBy, userId];
+    isStarred = true;
+  }
+
+  await db.update(messagesTable).set({ starredBy: updated }).where(eq(messagesTable.id, msgId));
+
+  res.json({ success: true, isStarred });
+});
+
+router.get("/messages/starred", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const userId = req.userId!;
+
+  const messages = await db
+    .select({
+      id: messagesTable.id,
+      senderId: messagesTable.senderId,
+      senderUsername: usersTable.username,
+      chatId: messagesTable.chatId,
+      receiverId: messagesTable.receiverId,
+      chatType: messagesTable.chatType,
+      encryptedContent: messagesTable.encryptedContent,
+      timestamp: messagesTable.timestamp,
+      deliveredAt: messagesTable.deliveredAt,
+      readAt: messagesTable.readAt,
+      deleteAfterRead: messagesTable.deleteAfterRead,
+      deleteAfterSeconds: messagesTable.deleteAfterSeconds,
+      isVoice: messagesTable.isVoice,
+      mediaFileId: messagesTable.mediaFileId,
+      replyToId: messagesTable.replyToId,
+      isEdited: messagesTable.isEdited,
+      editedAt: messagesTable.editedAt,
+      reactions: messagesTable.reactions,
+      forwardedFromId: messagesTable.forwardedFromId,
+      starredBy: messagesTable.starredBy,
+    })
+    .from(messagesTable)
+    .innerJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
+    .where(eq(messagesTable.isDeleted, false))
+    .orderBy(desc(messagesTable.timestamp));
+
+  const starred = messages.filter((m) => {
+    const starredByArr = m.starredBy as number[] | null;
+    return Array.isArray(starredByArr) && starredByArr.includes(userId);
+  });
+
+  res.json(
+    starred.map((m) => ({
+      id: m.id,
+      senderId: m.senderId,
+      senderUsername: m.senderUsername,
+      chatId: m.chatId ?? m.receiverId ?? 0,
+      chatType: m.chatType,
+      encryptedContent: m.encryptedContent,
+      timestamp: m.timestamp.toISOString(),
+      deliveredAt: m.deliveredAt?.toISOString() ?? null,
+      readAt: m.readAt?.toISOString() ?? null,
+      deleteAfterRead: m.deleteAfterRead,
+      deleteAfterSeconds: m.deleteAfterSeconds ?? null,
+      isVoice: m.isVoice,
+      mediaFileId: m.mediaFileId ?? null,
+      replyToId: m.replyToId ?? null,
+      isEdited: m.isEdited,
+      editedAt: m.editedAt?.toISOString() ?? null,
+      reactions: (m.reactions as Record<string, number[]>) ?? {},
+      forwardedFromId: m.forwardedFromId ?? null,
+      isStarred: true,
+    }))
+  );
+});
+
 // GET /messages/search?q=...&chatId=... — full-text search in messages
 router.get("/messages/search", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const query = z.object({
@@ -485,6 +584,7 @@ router.post("/messages/:id/forward", requireAuth, async (req: AuthenticatedReque
     editedAt: null,
     reactions: {},
     forwardedFromId: msg.forwardedFromId ?? null,
+    isStarred: false,
   };
 
   const memberIds = await getChatMemberIds(targetChat.id);

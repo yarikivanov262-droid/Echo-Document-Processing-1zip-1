@@ -12,6 +12,7 @@ import {
   useGetFolders,
   useListUsers,
   useUpdateChatMemberSettings,
+  useDeleteChatHistory,
 } from "@workspace/api-client-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -180,6 +181,17 @@ export function ChatList() {
     },
   });
 
+  const deleteHistoryMutation = useDeleteChatHistory({
+    mutation: {
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({ queryKey: ["/api/chats"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/messages", { chatId: variables.id }] });
+        toast({ title: "История чата удалена" });
+      },
+      onError: () => toast({ title: "Не удалось удалить историю", variant: "destructive" }),
+    },
+  });
+
   const allChats = chats ?? [];
   const archivedChats = allChats.filter((c) => (c as { isArchived?: boolean }).isArchived);
   const activeChats = allChats.filter((c) => !(c as { isArchived?: boolean }).isArchived);
@@ -231,7 +243,9 @@ export function ChatList() {
       settingsMutation.mutate({ id: chatId, data: { mutedUntil: null } });
       toast({ title: "Уведомления включены" });
     } else if (action === "delete") {
-      toast({ title: "Удаление истории скоро будет добавлено" });
+      if (window.confirm("Удалить всю историю переписки в этом чате? Это действие необратимо.")) {
+        deleteHistoryMutation.mutate({ id: chatId });
+      }
     }
     setContextMenu(null);
   }

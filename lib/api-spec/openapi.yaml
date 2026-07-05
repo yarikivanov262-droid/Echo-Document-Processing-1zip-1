@@ -680,6 +680,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /chats/{id}/messages:
+    delete:
+      operationId: deleteChatHistory
+      tags: [chats]
+      summary: Delete all message history in a chat (for the current user's view)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: History deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
   /chats/stats:
     get:
       operationId: getChatStats
@@ -833,6 +852,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PinMessageResponse"
+
+  /messages/{id}/star:
+    post:
+      operationId: toggleMessageStar
+      tags: [messages]
+      summary: Toggle starred (favorite) state of a message for the current user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Star toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StarMessageResponse"
+
+  /messages/starred:
+    get:
+      operationId: getStarredMessages
+      tags: [messages]
+      summary: Get all messages starred by the current user
+      responses:
+        "200":
+          description: Starred messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
 
   /messages/{id}/forward:
     post:
@@ -1532,6 +1585,8 @@ components:
               type: integer
         forwardedFromId:
           type: ["integer", "null"]
+        isStarred:
+          type: boolean
       required: [id, senderId, chatId, chatType, encryptedContent, timestamp, deleteAfterRead, isVoice]
 
     MessageSearchResult:
@@ -1868,6 +1923,15 @@ components:
         isPinned:
           type: boolean
       required: [success, isPinned]
+
+    StarMessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        isStarred:
+          type: boolean
+      required: [success, isStarred]
 
     ForwardMessageBody:
       type: object

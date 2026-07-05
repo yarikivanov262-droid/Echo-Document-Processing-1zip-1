@@ -11,8 +11,12 @@ import { usePushSubscription } from "@/hooks/use-push";
 import { PanicButton } from "@/components/panic-button";
 import { toast } from "@/hooks/use-toast";
 import { initAccent } from "@/lib/accent-theme";
+import { initFontSize } from "@/lib/font-size-theme";
+import { initChatBackground } from "@/lib/chat-background";
 
 initAccent();
+initFontSize();
+initChatBackground();
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -175,6 +175,7 @@ export interface Message {
   reactions?: MessageReactions;
   /** @nullable */
   forwardedFromId?: number | null;
+  isStarred?: boolean;
 }
 
 export interface MessageSearchResult {
@@ -380,6 +381,11 @@ export interface ReactBody {
 export interface PinMessageResponse {
   success: boolean;
   isPinned: boolean;
+}
+
+export interface StarMessageResponse {
+  success: boolean;
+  isStarred: boolean;
 }
 
 export interface ForwardMessageBody {

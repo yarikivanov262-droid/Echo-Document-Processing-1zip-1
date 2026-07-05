@@ -6,7 +6,7 @@ import {
   Check, CheckCheck, Reply, Copy, Trash2, Forward,
   Smile, X, Pin, BellOff, UserPlus, ChevronDown, Pencil,
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive,
-  Square, Play, Pause, Search, ChevronUp, Link2
+  Square, Play, Pause, Search, ChevronUp, Link2, Star
 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { MessageText } from "@/components/message-text";
@@ -14,7 +14,7 @@ import { VoiceMessagePlayer } from "@/components/voice-message-player";
 import { PollMessage, type PollData } from "@/components/poll-message";
 import { CreatePollModal } from "@/components/create-poll-modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage, useCreatePoll, useVotePoll, useGetPoll, getMessages } from "@workspace/api-client-react";
+import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage, useCreatePoll, useVotePoll, useGetPoll, useToggleMessageStar, getMessages } from "@workspace/api-client-react";
 import { BarChart2 } from "lucide-react";
 import { useEchoAuth } from "@/lib/auth-context";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +59,7 @@ type MsgItem = {
   forwardedFromId?: number | null;
   forwardedFromUsername?: string | null;
   isPinned?: boolean;
+  isStarred?: boolean;
 };
 
 function PollInChat({ pollId, isSelf, cached, onVoted }: {
@@ -115,6 +116,7 @@ export function ChatWindow() {
   const addContactMutation = useAddContact();
   const editMessageMutation = useEditMessage();
   const pinMessageMutation = usePinMessage();
+  const starMessageMutation = useToggleMessageStar();
   const forwardMessageMutation = useForwardMessage();
   const createPollMutation = useCreatePoll();
   const { data: allChats } = useGetChats();
@@ -227,6 +229,7 @@ export function ChatWindow() {
         forwardedFromId: (m as { forwardedFromId?: number | null }).forwardedFromId,
         forwardedFromUsername: (m as { forwardedFromUsername?: string | null }).forwardedFromUsername,
         isPinned: (m as { isPinned?: boolean }).isPinned,
+        isStarred: (m as { isStarred?: boolean }).isStarred,
       }));
       setOlderMessages(prev => [...enrichedOlder, ...prev]);
       if (older.length < 40) setHasMoreOlder(false);
@@ -255,6 +258,7 @@ export function ChatWindow() {
     forwardedFromId: (m as { forwardedFromId?: number | null }).forwardedFromId,
     forwardedFromUsername: (m as { forwardedFromUsername?: string | null }).forwardedFromUsername,
     isPinned: (m as { isPinned?: boolean }).isPinned,
+    isStarred: (m as { isStarred?: boolean }).isStarred,
   }));
 
   // Date separators
@@ -586,6 +590,19 @@ export function ChatWindow() {
     setShowMenu(false);
   };
 
+  const starMsg = () => {
+    if (!selectedMsg) return;
+    starMessageMutation.mutate({ id: selectedMsg.id }, {
+      onSuccess: (res) => {
+        void queryClient.invalidateQueries({ queryKey: messagesQueryKey });
+        void queryClient.invalidateQueries({ queryKey: ["/api/messages/starred"] });
+        toast({ title: res.isStarred ? "Добавлено в избранное" : "Убрано из избранного" });
+      },
+      onError: () => toast({ title: "Ошибка", variant: "destructive" }),
+    });
+    setShowMenu(false);
+  };
+
   const chatTitle = chat?.title || "Чат";
   const isGroup = chat?.type === 2 || chat?.type === 3;
   const memberCount = (chat as { memberCount?: number })?.memberCount;
@@ -911,11 +928,7 @@ export function ChatWindow() {
         ref={scrollRef}
         onClick={() => { setShowMenu(false); setShowEmoji(false); }}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1 relative"
-        style={{
-          backgroundImage: "radial-gradient(circle at 1px 1px, hsl(var(--border)/0.25) 1px, transparent 0)",
-          backgroundSize: "28px 28px"
-        }}
+        className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1 relative chat-bg-layer"
       >
         {/* Top sentinel for infinite scroll */}
         <div ref={topSentinelRef} className="h-1" />
@@ -1159,6 +1172,11 @@ export function ChatWindow() {
                 { icon: <Copy className="h-4 w-4" />, label: "Копировать", fn: copyMsg },
                 { icon: <Forward className="h-4 w-4" />, label: "Переслать", fn: openForwardDialog },
                 { icon: <Pin className="h-4 w-4" />, label: selectedMsg.isPinned ? "Открепить" : "Закрепить", fn: pinMsg },
+                {
+                  icon: <Star className={cn("h-4 w-4", (selectedMsg as { isStarred?: boolean }).isStarred && "fill-yellow-400 text-yellow-400")} />,
+                  label: (selectedMsg as { isStarred?: boolean }).isStarred ? "Убрать из избранного" : "В избранное",
+                  fn: starMsg,
+                },
                 ...(selectedMsg.isSelf
                   ? [{ icon: <Pencil className="h-4 w-4" />, label: "Изменить", fn: editMsg }]
                   : []),
@@ -1365,7 +1383,7 @@ export function ChatWindow() {
               onChange={e => handleTextChange(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }}}
               placeholder="Сообщение..."
-              className="flex-1 bg-transparent outline-none text-[15px] text-foreground placeholder:text-muted-foreground/60 min-w-0"
+              className="flex-1 bg-transparent outline-none text-[15px] chat-msg-input text-foreground placeholder:text-muted-foreground/60 min-w-0"
             />
             <motion.button
               type="button"

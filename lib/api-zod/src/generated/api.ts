@@ -337,7 +337,8 @@ export const GetMessagesResponseItem = zod.object({
   "isEdited": zod.boolean().optional(),
   "editedAt": zod.string().nullish(),
   "reactions": zod.record(zod.string(), zod.array(zod.number())).optional(),
-  "forwardedFromId": zod.number().nullish()
+  "forwardedFromId": zod.number().nullish(),
+  "isStarred": zod.boolean().optional()
 })
 export const GetMessagesResponse = zod.array(GetMessagesResponseItem)
 
@@ -375,7 +376,8 @@ export const SendMessageResponse = zod.object({
   "isEdited": zod.boolean().optional(),
   "editedAt": zod.string().nullish(),
   "reactions": zod.record(zod.string(), zod.array(zod.number())).optional(),
-  "forwardedFromId": zod.number().nullish()
+  "forwardedFromId": zod.number().nullish(),
+  "isStarred": zod.boolean().optional()
 })
 
 
@@ -734,6 +736,19 @@ export const UpdateChatMemberSettingsResponse = zod.object({
 
 
 /**
+ * @summary Delete all message history in a chat (for the current user's view)
+ */
+export const DeleteChatHistoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteChatHistoryResponse = zod.object({
+  "success": zod.boolean().optional(),
+  "message": zod.string().optional()
+})
+
+
+/**
  * @summary Get chat activity stats for current user
  */
 export const GetChatStatsResponse = zod.object({
@@ -851,6 +866,46 @@ export const PinMessageResponse = zod.object({
 
 
 /**
+ * @summary Toggle starred (favorite) state of a message for the current user
+ */
+export const ToggleMessageStarParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ToggleMessageStarResponse = zod.object({
+  "success": zod.boolean(),
+  "isStarred": zod.boolean()
+})
+
+
+/**
+ * @summary Get all messages starred by the current user
+ */
+export const GetStarredMessagesResponseItem = zod.object({
+  "id": zod.number(),
+  "senderId": zod.number(),
+  "senderUsername": zod.string().optional(),
+  "chatId": zod.number(),
+  "chatType": zod.number(),
+  "encryptedContent": zod.string(),
+  "timestamp": zod.string(),
+  "deliveredAt": zod.string().nullish(),
+  "readAt": zod.string().nullish(),
+  "deleteAfterRead": zod.boolean(),
+  "deleteAfterSeconds": zod.number().nullish(),
+  "isVoice": zod.boolean(),
+  "mediaFileId": zod.string().nullish(),
+  "replyToId": zod.number().nullish(),
+  "isEdited": zod.boolean().optional(),
+  "editedAt": zod.string().nullish(),
+  "reactions": zod.record(zod.string(), zod.array(zod.number())).optional(),
+  "forwardedFromId": zod.number().nullish(),
+  "isStarred": zod.boolean().optional()
+})
+export const GetStarredMessagesResponse = zod.array(GetStarredMessagesResponseItem)
+
+
+/**
  * @summary Forward a message to another chat
  */
 export const ForwardMessageParams = zod.object({
@@ -879,7 +934,8 @@ export const ForwardMessageResponse = zod.object({
   "isEdited": zod.boolean().optional(),
   "editedAt": zod.string().nullish(),
   "reactions": zod.record(zod.string(), zod.array(zod.number())).optional(),
-  "forwardedFromId": zod.number().nullish()
+  "forwardedFromId": zod.number().nullish(),
+  "isStarred": zod.boolean().optional()
 })
 
 

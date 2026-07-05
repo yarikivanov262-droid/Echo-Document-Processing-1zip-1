@@ -68,6 +68,7 @@ import type {
   SearchMessagesParams,
   Session,
   SettingsUpdate,
+  StarMessageResponse,
   StickerPack,
   SuccessResponse,
   UnsubscribePushBody,
@@ -2458,6 +2459,76 @@ export const useUpdateChatMemberSettings = <TError = ErrorType<unknown>,
       return useMutation(getUpdateChatMemberSettingsMutationOptions(options));
     }
 
+export const getDeleteChatHistoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/chats/${id}/messages`
+}
+
+/**
+ * @summary Delete all message history in a chat (for the current user's view)
+ */
+export const deleteChatHistory = async (id: number, options?: RequestInit): Promise<SuccessResponse> => {
+
+  return customFetch<SuccessResponse>(getDeleteChatHistoryUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteChatHistoryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChatHistory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteChatHistory>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteChatHistory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteChatHistory>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteChatHistory(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteChatHistoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteChatHistory>>>
+
+    export type DeleteChatHistoryMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete all message history in a chat (for the current user's view)
+ */
+export const useDeleteChatHistory = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteChatHistory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteChatHistory>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteChatHistoryMutationOptions(options));
+    }
+
 export const getGetChatStatsUrl = () => {
 
 
@@ -3040,6 +3111,153 @@ export const usePinMessage = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getPinMessageMutationOptions(options));
     }
+
+export const getToggleMessageStarUrl = (id: number,) => {
+
+
+
+
+  return `/api/messages/${id}/star`
+}
+
+/**
+ * @summary Toggle starred (favorite) state of a message for the current user
+ */
+export const toggleMessageStar = async (id: number, options?: RequestInit): Promise<StarMessageResponse> => {
+
+  return customFetch<StarMessageResponse>(getToggleMessageStarUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getToggleMessageStarMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleMessageStar>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof toggleMessageStar>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['toggleMessageStar'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof toggleMessageStar>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  toggleMessageStar(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ToggleMessageStarMutationResult = NonNullable<Awaited<ReturnType<typeof toggleMessageStar>>>
+
+    export type ToggleMessageStarMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Toggle starred (favorite) state of a message for the current user
+ */
+export const useToggleMessageStar = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof toggleMessageStar>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof toggleMessageStar>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getToggleMessageStarMutationOptions(options));
+    }
+
+export const getGetStarredMessagesUrl = () => {
+
+
+
+
+  return `/api/messages/starred`
+}
+
+/**
+ * @summary Get all messages starred by the current user
+ */
+export const getStarredMessages = async ( options?: RequestInit): Promise<Message[]> => {
+
+  return customFetch<Message[]>(getGetStarredMessagesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStarredMessagesQueryKey = () => {
+    return [
+    `/api/messages/starred`
+    ] as const;
+    }
+
+
+export const getGetStarredMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getStarredMessages>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStarredMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStarredMessagesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStarredMessages>>> = ({ signal }) => getStarredMessages({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStarredMessages>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetStarredMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof getStarredMessages>>>
+export type GetStarredMessagesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get all messages starred by the current user
+ */
+
+export function useGetStarredMessages<TData = Awaited<ReturnType<typeof getStarredMessages>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getStarredMessages>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetStarredMessagesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getForwardMessageUrl = (id: number,) => {
 
