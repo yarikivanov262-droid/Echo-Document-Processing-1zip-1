@@ -7,7 +7,7 @@ import {
   Smile, X, Pin, BellOff, UserPlus, ChevronDown, Pencil,
   Image as ImageIcon, File as FileIcon, Volume2, VolumeX, Archive,
   Square, Play, Pause, Search, ChevronUp, Link2, Star,
-  Bold, Italic, Code, Strikethrough, EyeOff,
+  Bold, Italic, Code, Strikethrough, EyeOff, Sticker,
 } from "lucide-react";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { MessageText, wrapSelection } from "@/components/message-text";
@@ -153,6 +153,7 @@ export function ChatWindow() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMatchIndex, setSearchMatchIndex] = useState(0);
   const [showFormatBar, setShowFormatBar] = useState(false);
+  const [showStickers, setShowStickers] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
@@ -364,9 +365,25 @@ export function ChatWindow() {
     void run();
   }, [messages?.length, chatId, userId]);
 
+  // Draft persistence — restore on chat change, save debounced to localStorage
+  useEffect(() => {
+    if (!chatId) return;
+    const saved = localStorage.getItem(`draft-${chatId}`);
+    if (saved && !editingMsg) setText(saved);
+    else if (!editingMsg) setText("");
+  }, [chatId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Typing indicator
   const handleTextChange = (v: string) => {
     setText(v);
+    // Save draft to localStorage (debounced 500ms)
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = setTimeout(() => {
+      if (v) localStorage.setItem(`draft-${chatId}`, v);
+      else localStorage.removeItem(`draft-${chatId}`);
+    }, 500);
     if (!typingTimer.current) {
       echoWs.send(JSON.stringify({ type: "typing", chatId, isTyping: true, username }));
     }
@@ -395,9 +412,11 @@ export function ChatWindow() {
     }
 
     setText("");
+    localStorage.removeItem(`draft-${chatId}`);
     const replyId = replyTo?.id;
     setReplyTo(null);
     setShowEmoji(false);
+    setShowStickers(false);
     const isDM = (chat as { type?: number })?.type === 1;
     const partnerUsername = isDM ? (chat as { name?: string })?.name ?? "" : "";
     const doSend = async () => {
@@ -1080,6 +1099,14 @@ export function ChatWindow() {
                             />
                           );
                         }
+                        if (displayText.startsWith("[sticker:")) {
+                          const emoji = displayText.slice(9, -1);
+                          return (
+                            <span className="text-5xl select-none leading-none block py-1" id={`msg-${msg.id}`}>
+                              {emoji}
+                            </span>
+                          );
+                        }
                         if (displayText.startsWith("[poll:")) {
                           const pollId = parseInt(displayText.slice(6, -1), 10);
                           return (
@@ -1391,6 +1418,52 @@ export function ChatWindow() {
           )}
         </AnimatePresence>
 
+        {/* ── Sticker panel ── */}
+        <AnimatePresence>
+          {showStickers && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden border-t border-border"
+            >
+              <div className="p-3 space-y-3 max-h-52 overflow-y-auto">
+                {[
+                  { label: "😀 Базовые", stickers: ["😀","😂","😍","🤔","👍","❤️","🔥","💯","🎉","😢","😮","🙏","😎","🤝","✌️","🫂"] },
+                  { label: "🥳 Новинки", stickers: ["🥳","🥹","😤","🫡","🤯","😵","🥴","🫠","😶‍🌫️","🤭","🫣","🤗","😬","🙃","😏","🫤"] },
+                  { label: "🐶 Животные", stickers: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔"] },
+                  { label: "🗿 Мемы",    stickers: ["😂","🗿","💀","🤡","👺","🤌","💅","🫵","🧌","🪬","🫶","🤙","🖕","☝️","👈","👉"] },
+                ].map(({ label, stickers }) => (
+                  <div key={label}>
+                    <div className="text-[11px] font-medium text-muted-foreground mb-1.5">{label}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {stickers.map(s => (
+                        <button
+                          key={s}
+                          type="button"
+                          className="text-2xl h-10 w-10 flex items-center justify-center rounded-xl hover:bg-muted transition-colors"
+                          onClick={() => {
+                            setShowStickers(false);
+                            const trimmed = text.trim();
+                            const content = trimmed ? `${trimmed}\n[sticker:${s}]` : `[sticker:${s}]`;
+                            sendMutation.mutate(
+                              { data: { chatId, chatType: chat?.type ?? 1, encryptedContent: `[sticker:${s}]` } },
+                              { onSuccess: () => void queryClient.invalidateQueries({ queryKey: messagesQueryKey }) }
+                            );
+                            void content; // content unused for now — sticker is standalone
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── Format toolbar ── */}
         <AnimatePresence>
           {showFormatBar && (
@@ -1484,7 +1557,7 @@ export function ChatWindow() {
               type="button"
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 0.85 }}
-              onClick={() => setShowFormatBar(v => !v)}
+              onClick={() => { setShowFormatBar(v => !v); setShowStickers(false); setShowEmoji(false); }}
               className={cn("shrink-0 transition-colors", showFormatBar ? "text-primary" : "text-muted-foreground hover:text-foreground")}
               title="Форматирование"
             >
@@ -1494,7 +1567,17 @@ export function ChatWindow() {
               type="button"
               whileHover={{ scale: 1.15 }}
               whileTap={{ scale: 0.85 }}
-              onClick={() => setShowEmoji(v => !v)}
+              onClick={() => { setShowStickers(v => !v); setShowEmoji(false); setShowFormatBar(false); }}
+              className={cn("shrink-0 transition-colors", showStickers ? "text-primary" : "text-muted-foreground hover:text-foreground")}
+              title="Стикеры"
+            >
+              <Sticker className="h-[18px] w-[18px]" />
+            </motion.button>
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.15 }}
+              whileTap={{ scale: 0.85 }}
+              onClick={() => { setShowEmoji(v => !v); setShowStickers(false); setShowFormatBar(false); }}
               className={cn("shrink-0 transition-colors", showEmoji ? "text-primary" : "text-muted-foreground hover:text-foreground")}
             >
               <Smile className="h-[18px] w-[18px]" />
