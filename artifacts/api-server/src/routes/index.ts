@@ -14,6 +14,7 @@ import numbersRouter from "./numbers";
 import anonInboxRouter from "./anon-inbox";
 import pushRouter from "./push";
 import pollsRouter from "./polls";
+import linksRouter from "./links";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(callsRouter);
 router.use(anonInboxRouter);
 router.use(pushRouter);
 router.use(pollsRouter);
+router.use(linksRouter);
 
 export default router;

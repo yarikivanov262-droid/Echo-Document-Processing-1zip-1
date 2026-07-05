@@ -15,6 +15,7 @@ import { VoiceMessagePlayer } from "@/components/voice-message-player";
 import { PollMessage, type PollData } from "@/components/poll-message";
 import { CreatePollModal } from "@/components/create-poll-modal";
 import { MediaMessage } from "@/components/media-message";
+import { LinkPreview, extractFirstUrl } from "@/components/link-preview";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useGetChat, useGetChats, useGetMessages, useSendMessage, useMarkMessageRead, useDeleteMessage, useReactToMessage, useUploadFile, useUpdateChatMemberSettings, useAddContact, useEditMessage, usePinMessage, useForwardMessage, useCreatePoll, useVotePoll, useGetPoll, useToggleMessageStar, getMessages } from "@workspace/api-client-react";
 import { BarChart2 } from "lucide-react";
@@ -1091,7 +1092,15 @@ export function ChatWindow() {
                             />
                           );
                         }
-                        return <MessageText id={`msg-${msg.id}`} text={displayText} isSelf={isSelf} />;
+                        const firstUrl = extractFirstUrl(displayText);
+                        return (
+                          <>
+                            <MessageText id={`msg-${msg.id}`} text={displayText} isSelf={isSelf} />
+                            {firstUrl && (
+                              <LinkPreview url={firstUrl} isSelf={isSelf} token={sessionToken ?? ""} />
+                            )}
+                          </>
+                        );
                       })()}
 
                       {/* Edited mark */}
