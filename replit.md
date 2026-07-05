@@ -10,7 +10,32 @@ A fully anonymous PWA messenger — «Говори. Никто не узнает
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — Postgres connection string (runtime-managed by Replit, no manual setup needed)
+- Required env: `SESSION_SECRET` — stored as Replit Secret (already configured)
+- Required env: `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` — stored as shared env vars (already configured)
+
+## Setup Checklist (completed on import)
+
+- [x] `pnpm install` — all 498 packages installed, `argon2` and `esbuild` native binaries built
+- [x] `pnpm --filter @workspace/db run push` — Drizzle schema pushed to Replit PostgreSQL (all tables created)
+- [x] `pnpm run typecheck` — zero TypeScript errors across all workspaces
+- [x] API Server workflow running on port 8080 — `[INFO] Server listening port: 8080`
+- [x] Echo Messenger workflow running on port 5000 (Vite dev server)
+- [x] VAPID keys for Web Push configured as shared env vars
+- [x] `SESSION_SECRET` configured as Replit Secret
+- [x] `.replit` modules updated to include `postgresql-16` for native Drizzle connectivity
+
+## Configured Workflows (Replit)
+
+| Workflow | Command | Port |
+|----------|---------|------|
+| `artifacts/api-server: API Server` | `pnpm --filter @workspace/api-server run dev` | 8080 |
+| `artifacts/echo-messenger: web` | `pnpm --filter @workspace/echo-messenger run dev` | 5000 |
+| `artifacts/mockup-sandbox: Component Preview Server` | `pnpm --filter @workspace/mockup-sandbox run dev` | auto |
+
+## Feature Analysis
+
+See `ECHO_vs_TELEGRAM_ANALYSIS.md` for a full feature-by-feature comparison against Telegram 2026, including a 12-stage implementation roadmap.
 
 ## Stack
 
